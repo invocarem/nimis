@@ -83,4 +83,119 @@ describe("extractToolCall", () => {
     expect(result?.arguments.content).toContain("A simple Python script that prints greetings.");
     expect(result?.arguments.content).toContain("def greet(name):");
   });
+
+  it("handles replace_file tool_call with C# file content", () => {
+    const response = `tool_call(name="replace_file", arguments={ "file_path": "Program.cs", "content": "using System;\n\nnamespace Example {\n    public class Program {\n        public static string Greet(string name) {\n            return $\"Hello, {name}!\";\n        }\n\n        public static void Main() {\n            Console.WriteLine(Greet(\"World\"));\n        }\n    }\n}" })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("replace_file");
+    expect(result?.arguments.file_path).toBe("Program.cs");
+    expect(result?.arguments.content).toContain("namespace Example");
+    expect(result?.arguments.content).toContain("Console.WriteLine");
+    expect(result?.arguments.content).toContain('Greet("World")');
+  });
+
+  it("handles replace_file tool_call with Swift file content", () => {
+    const response = `tool_call(name="replace_file", arguments={ "file_path": "Greeter.swift", "content": "import Foundation\n\nstruct Greeter {\n    static func greet(name: String) -> String {\n        return \\\"Hello, \\\" + name + \\\"!\\\"\n    }\n}\n\nprint(Greeter.greet(name: \\\"Swift\\\"))" })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("replace_file");
+    expect(result?.arguments.file_path).toBe("Greeter.swift");
+    expect(result?.arguments.content).toContain("struct Greeter");
+    expect(result?.arguments.content).toContain("print(Greeter.greet");
+  });
+
+  it("handles create_file tool_call where file content is JSON", () => {
+    const dataObj = { user: { id: 123, name: "Alice", roles: ["admin", "user"], meta: { active: true } } };
+    const jsonContent = JSON.stringify(dataObj, null, 2);
+    const response = `tool_call(name="create_file", arguments={ "file_path": "data.json", "content": ${JSON.stringify(jsonContent)} })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("create_file");
+    expect(result?.arguments.file_path).toBe("data.json");
+    // content should be a JSON string that parses to the original object
+    expect(() => JSON.parse(result!.arguments.content)).not.toThrow();
+    expect(JSON.parse(result!.arguments.content)).toEqual(dataObj);
+  });
+
+  it("handles Swift multiline string literals with triple quotes", () => {
+    // Swift multiline strings use """ and can contain unescaped quotes
+    const swiftMultiline = `let message = \\"\\"\\"
+    Hello, \\"World\\"!
+    This is a multiline string.
+    \\"\\"\\"\nprint(message)`;
+    const response = `tool_call(name="create_file", arguments={ "file_path": "MultilineSwift.swift", "content": ${JSON.stringify(swiftMultiline)} })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("create_file");
+    expect(result?.arguments.file_path).toBe("MultilineSwift.swift");
+    expect(result?.arguments.content).toContain('let message =');
+    expect(result?.arguments.content).toContain('Hello, \\"World\\"!');
+    expect(result?.arguments.content).toContain('multiline string');
+  });
+
+  it("handles C# verbatim string literals with @", () => {
+    // C# verbatim strings use @"..." and escape quotes as ""
+    const csharpVerbatim = `string path = @\\"C:\\\\Users\\\\test\\\\file.txt\\";
+string message = @\\"She said, \\"\\"\\"Hello\\"\\"\\"\\".\";`;
+    const response = `tool_call(name="create_file", arguments={ "file_path": "VerbatimCSharp.cs", "content": ${JSON.stringify(csharpVerbatim)} })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("create_file");
+    expect(result?.arguments.file_path).toBe("VerbatimCSharp.cs");
+    expect(result?.arguments.content).toContain('string path =');
+    expect(result?.arguments.content).toContain('C:\\\\Users');
+  });
+
+  it("handles Swift with multiple string interpolations", () => {
+    const swiftInterpolation = `let name = \\"Alice\\"
+let age = 30
+let greeting = \\"Hello, \\\\(name)! You are \\\\(age) years old.\\"
+print(greeting)`;
+    const response = `tool_call(name="create_file", arguments={ "file_path": "Interpolation.swift", "content": ${JSON.stringify(swiftInterpolation)} })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("create_file");
+    expect(result?.arguments.content).toContain('let name =');
+    expect(result?.arguments.content).toContain('\\(name)');
+    expect(result?.arguments.content).toContain('\\(age)');
+  });
+
+  it("handles C# raw string literals (C# 11+)", () => {
+    // C# 11+ raw strings use """ (similar to Swift)
+    const csharpRaw = `var json = \\"\\"\\"
+    {
+        \\"name\\": \\"test\\",
+        \\"value\\": 123
+    }
+    \\"\\"\\";`;
+    const response = `tool_call(name="create_file", arguments={ "file_path": "RawCSharp.cs", "content": ${JSON.stringify(csharpRaw)} })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("create_file");
+    expect(result?.arguments.content).toContain('var json =');
+    expect(result?.arguments.content).toContain('\\"name\\"');
+    expect(result?.arguments.content).toContain('\\"value\\"');
+  });
+
+  it("handles Swift code with escaping edge cases", () => {
+    const swiftEscape = `let backslash = \\"\\\\\\\\"
+let quote = \\"\\\\\\"Hello\\\\\\"\\";
+let newline = \\"Line1\\\\nLine2\\"`;
+    const response = `tool_call(name="create_file", arguments={ "file_path": "Escapes.swift", "content": ${JSON.stringify(swiftEscape)} })`;
+
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("create_file");
+    expect(result?.arguments.content).toContain('let backslash');
+    expect(result?.arguments.content).toContain('let quote');
+    expect(result?.arguments.content).toContain('let newline');
+  });
 });
