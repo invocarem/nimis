@@ -1,0 +1,184 @@
+import { extractToolCall, MCPToolCall } from "./toolCallExtractor";
+import { LLMResponseProcessor } from "./llmResponseProcessor";
+
+/**
+ * Interface for the result of parsing a Harmony protocol message
+ * @deprecated Use ParsedResponse instead
+ */
+export interface ParsedHarmonyMessage {
+  finalMessage: string;
+  channels: string[];
+  metadata: Record<string, any>;
+}
+
+/**
+ * Interface for structured LLM response after parsing
+ */
+export interface ParsedResponse {
+  reasoning?: string;      // The thinking/reasoning content
+  tool_calls?: MCPToolCall[];  // Tool requests (supporting multiple calls)
+  content: string;         // Final user-facing content
+  raw: string;             // Original response
+}
+
+/**
+ * Class for parsing Harmony protocol messages
+ * The Harmony protocol uses tags like <|start|>, <|channel|>, <|message|>, <|final|>, <|end|> to structure content
+ */
+export class HarmonyParser {
+  /**
+   * Parse a Harmony protocol string and extract reasoning, tool calls, and final content
+   */
+  static parse(input: string): ParsedResponse {
+    // Check if input contains Harmony protocol tags
+    if (!input.includes("<|start|>") || !input.includes("<|end|>")) {
+      // Not a Harmony message, process as plain text
+      const reasoning = this.extractReasoning(input, [], {});
+      const tool_calls = this.extractToolCalls(input);
+      const content = LLMResponseProcessor.preprocess(input);
+      
+      return {
+        reasoning,
+        tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
+        content,
+        raw: input,
+      };
+    }
+
+    const channels: string[] = [];
+    const metadata: Record<string, any> = {};
+    let finalMessage = "";
+
+    // Split input into message blocks by <|start|>...<|end|>
+    const messageBlocks = input.split(/<\|start\|>/g).filter(Boolean);
+    let lastMessage = "";
+    let lastChannels: string[] = [];
+    for (const block of messageBlocks) {
+      if (!block.includes("<|end|>")) continue;
+      const content = block.split(/<\|end\|>/)[0];
+      const tagRegex = /<\|(\w+)\|>(.*?)(?=<\|[\w]+\|>|$)/gs;
+      let match;
+      let currentChannel = "";
+      let blockMessage = "";
+      let blockChannels: string[] = [];
+      while ((match = tagRegex.exec(content)) !== null) {
+        const tag = match[1];
+        const value = match[2].trim();
+        switch (tag) {
+          case "channel":
+            currentChannel = value;
+            if (!channels.includes(value)) channels.push(value);
+            if (!blockChannels.includes(value)) blockChannels.push(value);
+            break;
+          case "message":
+          case "final":
+            blockMessage += value + " ";
+            break;
+          default:
+            if (tag !== "assistant") {
+              metadata[tag] = value;
+            }
+        }
+      }
+      blockMessage = blockMessage.trim();
+      if (blockMessage) {
+        lastMessage = blockMessage;
+        lastChannels = blockChannels;
+      }
+    }
+    // If we found a message in any block, use the last one; else fallback
+    finalMessage = lastMessage || input;
+    
+    // Extract reasoning from channels or tags
+    const reasoning = this.extractReasoning(input, channels, metadata);
+    
+    // Extract tool calls
+    const tool_calls = this.extractToolCalls(input);
+    
+    // Preprocess content for display
+    const content = LLMResponseProcessor.preprocess(finalMessage.trim());
+    
+    return {
+      reasoning,
+      tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
+      content,
+      raw: input,
+    };
+  }
+  
+  /**
+   * Extract reasoning/thinking content from response
+   * Looks for content between <thinking> tags or similar patterns
+   */
+  private static extractReasoning(response: string, channels: string[], metadata: Record<string, any>): string | undefined {
+    // Look for thinking tags (common in various LLM outputs)
+    const thinkingMatch = response.match(/<thinking>(.*?)<\/thinking>/s);
+    if (thinkingMatch) {
+      return thinkingMatch[1].trim();
+    }
+    
+    // Look for reasoning tags
+    const reasoningMatch = response.match(/<reasoning>(.*?)<\/reasoning>/s);
+    if (reasoningMatch) {
+      return reasoningMatch[1].trim();
+    }
+    
+    // Look for Harmony channel="think" or channel="reasoning"
+    const thinkChannelMatch = response.match(/<\|channel\|>think<\|message\|>(.*?)(?=<\|channel\|>|<\|end\|>)/s);
+    if (thinkChannelMatch) {
+      return thinkChannelMatch[1].trim();
+    }
+    
+    const reasoningChannelMatch = response.match(/<\|channel\|>reasoning<\|message\|>(.*?)(?=<\|channel\|>|<\|end\|>)/s);
+    if (reasoningChannelMatch) {
+      return reasoningChannelMatch[1].trim();
+    }
+    
+    return undefined;
+  }
+  
+  /**
+   * Extract all tool calls from response (supports multiple)
+   * Returns array of tool calls in order they appear
+   */
+  private static extractToolCalls(response: string): MCPToolCall[] {
+    const toolCalls: MCPToolCall[] = [];
+    
+    // Find all tool_call( patterns in the response
+    let searchString = response;
+    
+    while (true) {
+      const callStart = searchString.indexOf("tool_call(");
+      if (callStart === -1) break;
+      
+      // Extract from this position onwards
+      const remaining = searchString.slice(callStart);
+      const toolCall = extractToolCall(remaining);
+      
+      if (toolCall) {
+        toolCalls.push(toolCall);
+        // Move past this tool call to find the next one
+        const callEnd = remaining.indexOf(")", remaining.indexOf("tool_call(")) + 1;
+        searchString = remaining.slice(callEnd);
+      } else {
+        // Move past this failed match to avoid infinite loop
+        searchString = searchString.slice(callStart + "tool_call(".length);
+      }
+    }
+    
+    return toolCalls;
+  }
+  
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use parse() instead which returns ParsedResponse
+   */
+  static parseLegacy(input: string): ParsedHarmonyMessage {
+    const parsed = this.parse(input);
+    return {
+      finalMessage: parsed.content,
+      channels: [],
+      metadata: {},
+    };
+  }
+}
