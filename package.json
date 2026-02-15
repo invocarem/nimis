@@ -3,19 +3,26 @@
   "displayName": "Nimis - AI Prototyping",
   "description": "AI prototyping assistant powered by llama.cpp",
   "version": "0.0.1",
-  "publisher": "dashtorock",
+  "publisher": "dashtotherock",
+    "repository": {
+    "type": "git",
+    "url": "https://github.com/dashtotherock/nimis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dashtotherock/nimis/issues"
+  },
+  "homepage": "https://github.com/dashtotherock/nimis#readme",
   "engines": {
     "vscode": "^1.84.0"
   },
   "categories": [
     "AI",
-    "Programming Languages",
-    "Nimis"
+    "Programming Languages"
   ],
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
