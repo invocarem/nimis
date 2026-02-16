@@ -6,7 +6,9 @@ export interface PromptTemplate {
 }
 
 
+import * as path from "path";
 import { NativeToolsManager } from "./nativeToolManager";
+import { NimisStateTracker } from "./nimisStateTracker";
 import { MCPManager } from "../mcpManager";
 import type { Rule } from "../rulesManager";
 import type { RulesManager } from "../rulesManager";
@@ -97,6 +99,7 @@ export class NimisManager {
   private rulesManager?: RulesManager;
   private nativeToolManager?: NativeToolsManager;
   private mcpManager?: MCPManager;
+  private stateTracker: NimisStateTracker;
 
   constructor(options?: {
     template?: Partial<PromptTemplate>;
@@ -104,11 +107,18 @@ export class NimisManager {
     rulesManager?: RulesManager;
     nativeToolManager?: NativeToolsManager;
     mcpManager?: MCPManager;
+    stateTracker?: NimisStateTracker;
+    workspaceRoot?: string;
   }) {
     this.rules = options?.rules || [];
     this.rulesManager = options?.rulesManager;
     this.nativeToolManager = options?.nativeToolManager;
     this.mcpManager = options?.mcpManager;
+    const persistPath = options?.workspaceRoot
+      ? path.join(options.workspaceRoot, ".nimis", "state.json")
+      : undefined;
+    this.stateTracker =
+      options?.stateTracker ?? new NimisStateTracker({ persistPath });
     this.currentTemplate = {
       ...NimisManager.buildDefaultTemplate(
         this.nativeToolManager,
@@ -116,6 +126,13 @@ export class NimisManager {
       ),
       ...options?.template,
     };
+  }
+
+  /**
+   * Get the state tracker for recording problem, tool calls, and feedback.
+   */
+  getStateTracker(): NimisStateTracker {
+    return this.stateTracker;
   }
 
   /**
@@ -145,10 +162,17 @@ export class NimisManager {
     // Inject relevant rules for the conversation
     if (this.rulesManager) {
       const applicableRules = this.rulesManager.getApplicableRulesFromHistory(conversationHistory);
+      this.stateTracker.setRulesApplied(applicableRules.map(r => r.id));
       const formattedRules = this.rulesManager.formatRulesForPrompt(applicableRules);
       if (formattedRules && formattedRules.trim().length > 0) {
         prompt += formattedRules;
       }
+    }
+
+    // Inject session state if tracked
+    const stateText = this.stateTracker.formatForPrompt();
+    if (stateText) {
+      prompt += stateText;
     }
 
     for (const msg of conversationHistory) {

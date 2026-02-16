@@ -51,6 +51,14 @@ body {
   align-self: center;
 }
 
+.message-system {
+  background-color: var(--vscode-textBlockQuote-background);
+  border-left: 4px solid var(--vscode-focusBorder);
+  color: var(--vscode-descriptionForeground);
+  align-self: flex-start;
+  font-style: italic;
+}
+
 /* Code block container */
 .code-block-container {
   margin: 12px 0;

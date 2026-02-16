@@ -1,4 +1,4 @@
-import { extractToolCall, MCPToolCall } from "./toolCallExtractor";
+import { extractToolCall, extractHarmonyToolCall, MCPToolCall } from "./toolCallExtractor";
 import { LLMResponseProcessor } from "./llmResponseProcessor";
 
 /**
@@ -143,29 +143,39 @@ export class HarmonyParser {
    */
   private static extractToolCalls(response: string): MCPToolCall[] {
     const toolCalls: MCPToolCall[] = [];
-    
-    // Find all tool_call( patterns in the response
+
+    // Try Harmony format first (to=tool_call code<|message|>{...})
+    const harmonyMarker = "to=tool_call code<|message|>";
+    let searchStart = 0;
+    while (true) {
+      const slice = response.slice(searchStart);
+      const toolCall = extractHarmonyToolCall(slice);
+      if (!toolCall) break;
+      toolCalls.push(toolCall);
+      const nextMarker = response.indexOf(harmonyMarker, searchStart + harmonyMarker.length);
+      if (nextMarker === -1) break;
+      searchStart = nextMarker;
+    }
+    if (toolCalls.length > 0) return toolCalls;
+
+    // Fallback: find all tool_call( patterns in the response
     let searchString = response;
-    
     while (true) {
       const callStart = searchString.indexOf("tool_call(");
       if (callStart === -1) break;
-      
-      // Extract from this position onwards
+
       const remaining = searchString.slice(callStart);
       const toolCall = extractToolCall(remaining);
-      
+
       if (toolCall) {
         toolCalls.push(toolCall);
-        // Move past this tool call to find the next one
         const callEnd = remaining.indexOf(")", remaining.indexOf("tool_call(")) + 1;
         searchString = remaining.slice(callEnd);
       } else {
-        // Move past this failed match to avoid infinite loop
         searchString = searchString.slice(callStart + "tool_call(".length);
       }
     }
-    
+
     return toolCalls;
   }
   

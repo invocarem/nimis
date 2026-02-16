@@ -177,6 +177,10 @@ window.addEventListener("message", (event) => {
       messageInput.focus();
       break;
 
+    case "requestFeedback":
+      addMessage(message.message, "system");
+      break;
+
     case "connectionStatus":
       if (message.connected) {
         statusIndicator.textContent = "Connected to llama.cpp";

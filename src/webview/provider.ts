@@ -4,6 +4,7 @@ import { getNonce } from "../utils/getNonce";
 import { NimisManager } from "../utils/nimisManager";
 import { toolExecutor } from "../toolExecutor";
 import { ResponseParser, ParsedResponse } from "../utils/responseParser";
+import { TOOL_CALL_LIMIT_PER_TURN } from "../utils/nimisStateTracker";
 import type { MCPManager } from "../mcpManager";
 import type { RulesManager } from "../rulesManager";
 
@@ -26,9 +27,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     rulesManager?: RulesManager
   ) {
     this.mcpManager = mcpManager;
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     this.nimisManager = new NimisManager({
       mcpManager,
       rulesManager,
+      workspaceRoot,
     });
   }
 
@@ -60,6 +63,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           break;
         case "clearChat":
           this.conversationHistory = [];
+          this.nimisManager.getStateTracker().reset();
           break;
         case "checkConnection":
           await this._checkConnection();
@@ -119,6 +123,13 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    const stateTracker = this.nimisManager.getStateTracker();
+    if (this.conversationHistory.length === 0) {
+      stateTracker.setProblem(userMessage);
+    } else {
+      stateTracker.recordFeedback(userMessage);
+    }
+
     this.conversationHistory.push({
       role: "user",
       content: userMessage,
@@ -141,6 +152,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       let continueLoop = true;
       let lastToolResult: string | undefined = undefined;
       let isFirst = true;
+
+      stateTracker.startNewTurn();
 
       while (continueLoop) {
         const prompt = this.nimisManager.buildConversationPrompt(
@@ -173,12 +186,21 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           const firstToolCall = ResponseParser.getFirstToolCall(parsedResponse);
 
           if (firstToolCall) {
+            if (stateTracker.hasReachedToolCallLimit()) {
+              this._sendMessageToWebview({
+                type: "requestFeedback",
+                message: `Tool call limit (${TOOL_CALL_LIMIT_PER_TURN}) reached this turn. Add feedback below to guide the assistant.`,
+              });
+              continueLoop = false;
+              break;
+            }
             this._sendMessageToWebview({
               type: "assistantMessageChunk",
               chunk: `Executing tool: ${firstToolCall.name}...`,
               isFullContent: false,
             });
             try {
+              stateTracker.recordToolCall(firstToolCall.name, firstToolCall.arguments);
               const toolResult = await toolExecutor(firstToolCall, {
                 mcpManager: this.mcpManager,
               });

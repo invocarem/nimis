@@ -123,9 +123,10 @@ function safeJsonParse(jsonStr: string): any {
 // Supports tool_call(name="...", arguments={...}) or tool_call(tool_name="...", args={...})
 // Handles large/complex JSON arguments.
 
-import { extractMiniMaxToolCall} from "./MiniMaxToolCallExtractor";
-// Export MiniMax XML extractor for external use
-export { extractMiniMaxToolCall };
+import { extractMiniMaxToolCall } from "./MiniMaxToolCallExtractor";
+import { extractHarmonyToolCall } from "./HarmonyToolCallExtractor";
+// Export format-specific extractors for external use
+export { extractMiniMaxToolCall, extractHarmonyToolCall };
 
 export interface MCPToolCall {
   name: string;
