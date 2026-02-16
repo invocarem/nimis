@@ -118,11 +118,14 @@ function safeJsonParse(jsonStr: string): any {
     return JSON.parse(result);
   }
 }
-/**
- * Utility to robustly extract tool calls from LLM responses.
- * Supports tool_call(name="...", arguments={...}) or tool_call(tool_name="...", args={...})
- * Handles large/complex JSON arguments.
- */
+
+// Utility to robustly extract tool calls from LLM responses.
+// Supports tool_call(name="...", arguments={...}) or tool_call(tool_name="...", args={...})
+// Handles large/complex JSON arguments.
+
+import { extractMiniMaxToolCall} from "./MiniMaxToolCallExtractor";
+// Export MiniMax XML extractor for external use
+export { extractMiniMaxToolCall };
 
 export interface MCPToolCall {
   name: string;

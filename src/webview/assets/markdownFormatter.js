@@ -447,6 +447,24 @@ function formatThinkingContent(text) {
 }
 
 /**
+ * Attach click handlers to thinking block headers for expand/collapse toggle.
+ * Call this on a container element after injecting formatted HTML that includes thinking blocks.
+ */
+function setupThinkingBlockHandlers(container) {
+  if (!container || !container.querySelectorAll) return;
+  container.querySelectorAll(".thinking-header").forEach((header) => {
+    header.addEventListener("click", function () {
+      const block = this.closest(".thinking-block-container");
+      if (block) {
+        block.classList.toggle("expanded");
+        const isExpanded = block.classList.contains("expanded");
+        this.setAttribute("aria-expanded", isExpanded);
+      }
+    });
+  });
+}
+
+/**
  * Process code blocks with language-specific formatting
  */
 function processCodeBlocks(text) {
@@ -530,6 +548,7 @@ if (typeof module !== "undefined" && module.exports) {
     formatMarkdown,
     parseHarmonyMessage,
     formatThinkingContent,
+    setupThinkingBlockHandlers,
     processLists,
     preprocessMarkdown,
     isJSON,

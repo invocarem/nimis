@@ -6,7 +6,8 @@
 // Import formatting utilities
 // Note: In production, this would be bundled, but for development we load it separately
 if (typeof require !== "undefined") {
-  var { formatMarkdown } = require("./markdownFormatter.js");
+  var { formatMarkdown, setupThinkingBlockHandlers } =
+    require("./markdownFormatter.js");
 } else {
   // Fallback for when not in Node environment
   console.warn("markdownFormatter not loaded, using fallback");
@@ -78,6 +79,8 @@ function formatMessageContent(messageDiv) {
       });
     });
   });
+
+  setupThinkingBlockHandlers(messageDiv);
 }
 
 /**

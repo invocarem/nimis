@@ -338,25 +338,47 @@ export class RulesManager {
    * Get applicable rules based on conversation history
    * Checks rules against all user messages in the conversation to ensure
    * rules triggered earlier continue to apply in follow-up messages
+   * 
+   * IMPORTANT: Excludes tool results from rule matching to prevent infinite loops.
+   * Tool results are identified as user messages that immediately follow an assistant
+   * message containing a tool_call.
    */
   getApplicableRulesFromHistory(conversationHistory: readonly { role: string; content: string }[]): Rule[] {
     if (!conversationHistory || conversationHistory.length === 0 || this.rules.size === 0) {
       return [];
     }
 
-    // Collect all user messages from history
-    const userMessages = conversationHistory
-      .filter(msg => msg.role === 'user')
-      .map(msg => msg.content)
-      .filter(content => content && content.trim().length >= 5); // Skip very short messages
+    // Filter out tool results from user messages
+    // Tool results are user messages that follow an assistant message with a tool_call
+    const actualUserMessages: string[] = [];
+    for (let i = 0; i < conversationHistory.length; i++) {
+      const msg = conversationHistory[i];
+      if (msg.role === 'user') {
+        // Check if the previous message was an assistant message with a tool_call
+        const prevMsg = i > 0 ? conversationHistory[i - 1] : null;
+        const isToolResult = prevMsg && 
+          prevMsg.role === 'assistant' && 
+          (prevMsg.content.includes('tool_call(') ||
+           // Also check for JSON-like tool results (common pattern for MCP results)
+           (msg.content.trim().startsWith('{') && msg.content.trim().endsWith('}')) ||
+           // Check if content looks like structured tool output (MCP format)
+           (msg.content.includes('"type"') && msg.content.includes('"content"')) ||
+           // Check for MCP result patterns
+           msg.content.includes('"text"') && msg.content.includes('"type"'));
+        
+        if (!isToolResult && msg.content && msg.content.trim().length >= 5) {
+          actualUserMessages.push(msg.content);
+        }
+      }
+    }
 
-    if (userMessages.length === 0) {
+    if (actualUserMessages.length === 0) {
       return [];
     }
 
-    // Combine all user messages into a single text for rule matching
+    // Combine all actual user messages into a single text for rule matching
     // This ensures rules triggered in earlier messages continue to apply
-    const combinedText = userMessages.join(' ').toLowerCase();
+    const combinedText = actualUserMessages.join(' ').toLowerCase();
     
     // Use the existing getApplicableRules logic but with combined text
     // We'll create a temporary method that checks against combined text
@@ -369,12 +391,12 @@ export class RulesManager {
         continue;
       }
 
-      // If rule has explicit triggers, check if any match in any user message
+      // If rule has explicit triggers, check if any match in any actual user message
       if (rule.triggers && rule.triggers.length > 0) {
         const matches = rule.triggers.some(trigger => {
           const triggerLower = trigger.toLowerCase();
           const regex = new RegExp(`\\b${triggerLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
-          return userMessages.some(msg => regex.test(msg.toLowerCase()));
+          return actualUserMessages.some(msg => regex.test(msg.toLowerCase()));
         });
         if (matches) {
           applicableRules.push(rule);
@@ -384,7 +406,7 @@ export class RulesManager {
         }
       }
 
-      // Check description keywords against all user messages
+      // Check description keywords against all actual user messages
       const commonWords = new Set(['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'way', 'use', 'her', 'she', 'man', 'say', 'did', 'set', 'put', 'end', 'why', 'let', 'has', 'been', 'call', 'find', 'know', 'take', 'come', 'make', 'give', 'work', 'seem', 'feel', 'look', 'play', 'move', 'live', 'think', 'turn', 'become', 'leave', 'meet', 'keep', 'help', 'show', 'hear', 'believe', 'bring', 'happen', 'write', 'sit', 'stand', 'lose', 'add', 'change', 'send', 'build', 'stay', 'cut', 'reach', 'pay', 'speak', 'read', 'allow', 'open', 'walk', 'win', 'offer', 'remember', 'love', 'consider', 'appear', 'buy', 'wait', 'serve', 'die', 'send', 'expect', 'build', 'stay', 'fall', 'cut', 'reach', 'kill', 'remains', 'suggest', 'raise', 'pass', 'sell', 'decide', 'return', 'accept', 'require', 'argue', 'prove', 'realize', 'catch', 'spend', 'agree', 'understand']);
       
       if (rule.description) {
@@ -395,9 +417,9 @@ export class RulesManager {
           .map(w => w.replace(/[^a-z0-9]/g, ''))
           .filter(w => w.length > 0);
         
-        // Check if any description keyword appears in any user message
+        // Check if any description keyword appears in any actual user message
         const descriptionMatches = descriptionWords.some(word => 
-          userMessages.some(msg => msg.toLowerCase().includes(word))
+          actualUserMessages.some(msg => msg.toLowerCase().includes(word))
         );
         
         if (descriptionMatches) {
@@ -410,7 +432,7 @@ export class RulesManager {
 
       // Check content keywords with analysis intent
       const analysisIntentKeywords = /\b(analyze|analysis|parse|examine|evaluate|process|format|generate)\b/i;
-      const hasAnalysisIntent = userMessages.some(msg => analysisIntentKeywords.test(msg.toLowerCase()));
+      const hasAnalysisIntent = actualUserMessages.some(msg => analysisIntentKeywords.test(msg.toLowerCase()));
       
       if (hasAnalysisIntent && rule.content) {
         const contentPreview = rule.content.toLowerCase().substring(0, 200);
@@ -422,7 +444,7 @@ export class RulesManager {
           .slice(0, 5);
         
         const contentMatches = contentWords.some(word => 
-          userMessages.some(msg => msg.toLowerCase().includes(word))
+          actualUserMessages.some(msg => msg.toLowerCase().includes(word))
         );
         
         if (contentMatches) {

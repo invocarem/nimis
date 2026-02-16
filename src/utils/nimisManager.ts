@@ -15,7 +15,7 @@ export class NimisManager {
     /**
      * Returns help text for tool_call usage, including examples and available tools.
      */
-    static toolCallHelp(nativeToolManager?: NativeToolsManager, mcpManager?: MCPManager): string {
+    static forceToolCallHelp(nativeToolManager?: NativeToolsManager, mcpManager?: MCPManager): string {
       return (
         "### How to use tool_call\n" +
         "IMPORTANT: do NOT use the model's built-in function-calling API or any other tool-call format.\n" +
@@ -30,6 +30,21 @@ export class NimisManager {
         NimisManager.buildToolDocs(nativeToolManager, mcpManager)
       );
     }
+    static toolCallHelp(nativeToolManager?: NativeToolsManager, mcpManager?: MCPManager): string {
+
+      return (
+        "### How to use **tool_call**\n" +
+        "Format: tool_call(name=\"TOOL_NAME\", args={ ... })\n\n" +
+        "Example (exact):\n" +
+        "tool_call(name=\"read_file\", args={ \"file_path\": \"src/index.ts\" })\n\n" +
+        "Notes:\n" +
+        "- Use the keys `name` (or `tool_name`) and `arguments` (or `args`) exactly.\n" +
+        "- When calling a tool, output only the `tool_call(...)` expression (no extra explanation in the same assistant message).\n" +
+        "- Ensure the `arguments` object is valid JSON-like so it can be parsed by the tool extractor.\n\n" +
+        NimisManager.buildToolDocs(nativeToolManager, mcpManager)
+      );
+    }
+
 
   private static buildToolDocs(nativeToolManager?: NativeToolsManager, mcpManager?: MCPManager): string {
     const manager = nativeToolManager || new NativeToolsManager();
@@ -44,35 +59,33 @@ export class NimisManager {
         doc += mcpTools.map(tool => `- ${tool.name}: ${tool.description || ''}`).join("\n");
       }
     }
+    console.log("Generated tool documentation for prompt:\n", doc);
     return doc;
   }
 
 
 
   private static buildDefaultTemplate(
-    rulesText: string,
     nativeToolManager?: NativeToolsManager,
     mcpManager?: MCPManager
   ): PromptTemplate {
     return {
       systemMessage:
-        "Your name is **Nimis**. You are a helpful AI assistant. You provide prototyping help to engineers, assisting them in problem solving.\n\n" +
-        "When rules are provided, apply them only if they are directly relevant to the user's current task; otherwise discard them. Treat rules like tools — do NOT reference or " +
-        "apply a rule unless it clearly helps solve the current request.\n\n" +
+        "Your name is **Nimis**. You are a helpful AI assistant, " +
+        "you provide prototyping help to engineers, assisting them in problem solving.\n\n" +
+        "You apply a tool or rule only when if it is directly related to the user's current task; otherwise discard them. \n\n" +
         NimisManager.toolCallHelp(nativeToolManager, mcpManager) + "\n\n" +
-        rulesText + "\n\n",
-      userPrefix: "User:",
+        "## Guide on **rule** \n\n" +
+        "When rules are provided, apply them only if they are directly relevant to the user's current task; otherwise discard them. Treat rules like tools — do NOT reference or " +
+        "apply a rule unless it clearly helps solve the current request.\n\n" ,
+        userPrefix: "User:",
       assistantPrefix: "Assistant:",
       separator: "\n\n",
     };
   }
 
   private _buildSystemMessage(): string {
-    const rulesText = this.rulesManager
-      ? this.rulesManager.formatRulesForPrompt(this.rulesManager.getAllRules())
-      : "";
     const base = NimisManager.buildDefaultTemplate(
-      rulesText,
       this.nativeToolManager,
       this.mcpManager
     );
@@ -96,12 +109,8 @@ export class NimisManager {
     this.rulesManager = options?.rulesManager;
     this.nativeToolManager = options?.nativeToolManager;
     this.mcpManager = options?.mcpManager;
-    const rulesText = this.rulesManager
-      ? this.rulesManager.formatRulesForPrompt(this.rulesManager.getAllRules())
-      : (this.rules.length > 0 ? this.rules.map(r => `## Rule: ${r.id}\n${r.content}`).join("\n\n") : "");
     this.currentTemplate = {
       ...NimisManager.buildDefaultTemplate(
-        rulesText,
         this.nativeToolManager,
         this.mcpManager
       ),
@@ -114,11 +123,7 @@ export class NimisManager {
    */
   setRules(rules: Rule[]): void {
     this.rules = rules;
-    const rulesText = this.rulesManager
-      ? this.rulesManager.formatRulesForPrompt(this.rulesManager.getAllRules())
-      : (this.rules.length > 0 ? this.rules.map(r => `## Rule: ${r.id}\n${r.content}`).join("\n\n") : "");
     this.currentTemplate.systemMessage = NimisManager.buildDefaultTemplate(
-      rulesText,
       this.nativeToolManager,
       this.mcpManager
     ).systemMessage;
@@ -136,6 +141,15 @@ export class NimisManager {
   ): string {
     // Build system message with current tool docs (incl. MCP tools that may have connected after init)
     let prompt = this._buildSystemMessage();
+
+    // Inject relevant rules for the conversation
+    if (this.rulesManager) {
+      const applicableRules = this.rulesManager.getApplicableRulesFromHistory(conversationHistory);
+      const formattedRules = this.rulesManager.formatRulesForPrompt(applicableRules);
+      if (formattedRules && formattedRules.trim().length > 0) {
+        prompt += formattedRules;
+      }
+    }
 
     for (const msg of conversationHistory) {
       if (msg.role === "user") {
@@ -176,12 +190,8 @@ export class NimisManager {
    * Reset to default template
    */
   resetToDefault(): void {
-    const rulesText = this.rulesManager
-      ? this.rulesManager.formatRulesForPrompt(this.rulesManager.getAllRules())
-      : (this.rules.length > 0 ? this.rules.map(r => `## Rule: ${r.id}\n${r.content}`).join("\n\n") : "");
     this.currentTemplate = {
       ...NimisManager.buildDefaultTemplate(
-        rulesText,
         this.nativeToolManager,
         this.mcpManager
       ),
