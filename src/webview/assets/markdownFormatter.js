@@ -224,8 +224,9 @@ function formatMarkdown(text) {
   html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
 
   // Process italic (*text* or _text_)
-  html = html.replace(/(?<!\*)\*([^\*]+?)\*(?!\*)/g, "<em>$1</em>");
-  html = html.replace(/(?<!_)_([^_]+?)_(?!_)/g, "<em>$1</em>");
+  // Updated regex for processing italic text to avoid trimming underscores
+  html = html.replace(/(?<!\w)\*([^\*]+?)\*(?!\w)/g, "<em>$1</em>");
+  html = html.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, "<em>$1</em>");
 
   // Process headings
   html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
@@ -339,7 +340,7 @@ function formatMarkdown(text) {
     const formattedContent = formatThinkingContent(content);
     const thinkingHtml =
       '<div class="thinking-block-container">' +
-      '<div class="thinking-header" onclick="this.parentElement.classList.toggle(\'expanded\')">' +
+      '<div class="thinking-header" aria-expanded="false">' +
       '<span class="thinking-icon">💭</span>' +
       '<span class="thinking-label">Reasoning</span>' +
       '<span class="thinking-toggle">▼</span>' +
@@ -436,8 +437,8 @@ function formatThinkingContent(text) {
   html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
 
   // Process italic
-  html = html.replace(/(?<!\*)\*([^\*]+?)\*(?!\*)/g, "<em>$1</em>");
-  html = html.replace(/(?<!_)_([^_]+?)_(?!_)/g, "<em>$1</em>");
+  html = html.replace(/(?<!\w)\*([^\*]+?)\*(?!\w)/g, "<em>$1</em>");
+  html = html.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, "<em>$1</em>");
 
   // Process line breaks
   html = html.replace(/\n/g, "<br>");

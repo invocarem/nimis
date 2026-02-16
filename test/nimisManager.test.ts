@@ -48,4 +48,17 @@ describe("NimisManager rules integration", () => {
     expect(template.systemMessage).toContain("Always say hello.");
     expect(template.systemMessage).toContain("Never say goodbye.");
   });
+
+  it("system message instructs to apply rules only when relevant", () => {
+    const manager = new NimisManager({ rules: mockRules, rulesManager: mockRulesManager, nativeToolManager: mockNativeToolManager });
+    const template = manager.getTemplate();
+    expect(template.systemMessage).toMatch(/apply them only if they are directly relevant/i);
+  });
+
+  it("system message forces textual tool_call and forbids model function-calling", () => {
+    const manager = new NimisManager({ rules: mockRules, rulesManager: mockRulesManager, nativeToolManager: mockNativeToolManager });
+    const template = manager.getTemplate();
+    expect(template.systemMessage).toContain("do NOT use the model's built-in function-calling API");
+    expect(template.systemMessage).toContain('tool_call(name="TOOL_NAME"');
+  });
 });

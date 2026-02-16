@@ -18,10 +18,15 @@ export class NimisManager {
     static toolCallHelp(nativeToolManager?: NativeToolsManager, mcpManager?: MCPManager): string {
       return (
         "### How to use tool_call\n" +
-        "To call a tool, use the following format:\n\n" +
+        "IMPORTANT: do NOT use the model's built-in function-calling API or any other tool-call format.\n" +
+        "You MUST use the exact textual syntax shown below when invoking a tool. The assistant's response should contain the literal `tool_call(...)` expression (preferably on its own line) and must NOT rely on model-level function calls.\n\n" +
         "tool_call(name=\"TOOL_NAME\", arguments={ ... })\n\n" +
-        "Example:\n" +
+        "Example (exact):\n" +
         "tool_call(name=\"read_file\", arguments={ \"file_path\": \"src/index.ts\" })\n\n" +
+        "Notes:\n" +
+        "- Use the keys `name` (or `tool_name`) and `arguments` (or `args`) exactly.\n" +
+        "- When calling a tool, output only the `tool_call(...)` expression (no extra explanation in the same assistant message).\n" +
+        "- Ensure the `arguments` object is valid JSON-like so it can be parsed by the tool extractor.\n\n" +
         NimisManager.buildToolDocs(nativeToolManager, mcpManager)
       );
     }
@@ -51,9 +56,11 @@ export class NimisManager {
   ): PromptTemplate {
     return {
       systemMessage:
-        "## Current Stage: Nimis \n\nYou are a helpful AI assistant. You provide prototyping help to developers, assisting them in problem solving.\n\n"
-        + NimisManager.toolCallHelp(nativeToolManager, mcpManager) + "\n\n"
-        + rulesText + "\n\n",
+        "Your name is **Nimis**. You are a helpful AI assistant. You provide prototyping help to engineers, assisting them in problem solving.\n\n" +
+        "When rules are provided, apply them only if they are directly relevant to the user's current task; otherwise discard them. Treat rules like tools — do NOT reference or " +
+        "apply a rule unless it clearly helps solve the current request.\n\n" +
+        NimisManager.toolCallHelp(nativeToolManager, mcpManager) + "\n\n" +
+        rulesText + "\n\n",
       userPrefix: "User:",
       assistantPrefix: "Assistant:",
       separator: "\n\n",
