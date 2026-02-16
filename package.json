@@ -2,9 +2,9 @@
   "name": "nimis",
   "displayName": "Nimis - AI Prototyping",
   "description": "AI prototyping assistant powered by llama.cpp",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "dashtotherock",
-    "repository": {
+  "repository": {
     "type": "git",
     "url": "https://github.com/dashtotherock/nimis.git"
   },
@@ -82,14 +82,42 @@
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "description": "Server name" },
-              "command": { "type": "string", "description": "Command to start the server" },
-              "args": { "type": "array", "items": { "type": "string" }, "description": "Arguments for the command" },
-              "type": { "type": "string", "description": "Connection type (e.g., stdio)" },
-              "enabled": { "type": "boolean", "description": "Whether the server is enabled" },
-              "timeout": { "type": "number", "description": "Timeout in seconds", "default": 60 }
+              "name": {
+                "type": "string",
+                "description": "Server name"
+              },
+              "command": {
+                "type": "string",
+                "description": "Command to start the server"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Arguments for the command"
+              },
+              "type": {
+                "type": "string",
+                "description": "Connection type (e.g., stdio)"
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether the server is enabled"
+              },
+              "timeout": {
+                "type": "number",
+                "description": "Timeout in seconds",
+                "default": 60
+              }
             },
-            "required": ["name", "command", "args", "type", "enabled"]
+            "required": [
+              "name",
+              "command",
+              "args",
+              "type",
+              "enabled"
+            ]
           },
           "default": []
         },
@@ -118,12 +146,28 @@
           "items": {
             "type": "object",
             "properties": {
-              "id": { "type": "string", "description": "Rule identifier" },
-              "description": { "type": "string", "description": "Description of the rule" },
-              "enabled": { "type": "boolean", "description": "Whether the rule is enabled", "default": true },
-              "config": { "type": "object", "description": "Custom configuration for the rule" }
+              "id": {
+                "type": "string",
+                "description": "Rule identifier"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of the rule"
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether the rule is enabled",
+                "default": true
+              },
+              "config": {
+                "type": "object",
+                "description": "Custom configuration for the rule"
+              }
             },
-            "required": ["id", "description"]
+            "required": [
+              "id",
+              "description"
+            ]
           },
           "default": []
         },
@@ -133,10 +177,19 @@
           "items": {
             "type": "object",
             "properties": {
-              "path": { "type": "string", "description": "Absolute or workspace-relative path to the rule file." },
-              "enabled": { "type": "boolean", "description": "Whether this rule file is enabled.", "default": true }
+              "path": {
+                "type": "string",
+                "description": "Absolute or workspace-relative path to the rule file."
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether this rule file is enabled.",
+                "default": true
+              }
             },
-            "required": ["path"]
+            "required": [
+              "path"
+            ]
           },
           "default": []
         }
