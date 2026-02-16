@@ -38,7 +38,8 @@
         {
           "type": "webview",
           "id": "nimis.chatView",
-          "name": "Chat"
+          "name": "Chat",
+          "icon": "media/icon.svg"
         }
       ]
     },
