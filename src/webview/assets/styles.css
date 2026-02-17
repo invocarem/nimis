@@ -326,15 +326,26 @@ button:disabled {
   line-height: 1.6;
   font-size: 0.95em;
   color: var(--vscode-descriptionForeground);
-  max-height: 0;
+  max-height: 0.5em;
   overflow: hidden;
-  transition: max-height 0.3s ease-out;
+  transition: max-height 0.3s ease-out, padding 0.2s ease-out;
 }
 
+/* Collapsed state: remove padding/border so no partial text shows */
+.thinking-block-container:not(.expanded) .thinking-content {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top: none;
+  overflow: hidden;
+}
+
+/* Expanded state: restore padding and allow scrolling */
 .thinking-block-container.expanded .thinking-content {
   max-height: min(70vh, 4000px);
+  padding: 12px;
   overflow-y: auto;
-  transition: max-height 0.5s ease-in;
+  transition: max-height 0.5s ease-in, padding 0.25s ease-in;
 }
 
 .thinking-content code.inline-code {
