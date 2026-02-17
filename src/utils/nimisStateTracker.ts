@@ -24,7 +24,7 @@ export interface NimisStateSnapshot {
  * Optionally persists state to a JSON file in the workspace.
  */
 /** Max tool calls per turn; after this we stop and ask for user feedback. */
-export const TOOL_CALL_LIMIT_PER_TURN = 5;
+export const TOOL_CALL_LIMIT_PER_TURN = 6;
 
 export class NimisStateTracker {
   private problem: string = "";
@@ -55,8 +55,14 @@ export class NimisStateTracker {
         feedback: [...this.feedback],
         lastUpdated: new Date().toISOString(),
       };
-      fs.writeFileSync(this.persistPath, JSON.stringify(snapshot, null, 2), "utf-8");
-      console.debug(`${NimisStateTracker.LOG_PREFIX} persisted to ${this.persistPath}`);
+      fs.writeFileSync(
+        this.persistPath,
+        JSON.stringify(snapshot, null, 2),
+        "utf-8"
+      );
+      console.debug(
+        `${NimisStateTracker.LOG_PREFIX} persisted to ${this.persistPath}`
+      );
     } catch (err) {
       console.warn(`${NimisStateTracker.LOG_PREFIX} failed to persist:`, err);
     }
@@ -64,7 +70,10 @@ export class NimisStateTracker {
 
   setProblem(p: string): void {
     this.problem = p;
-    console.debug(`${NimisStateTracker.LOG_PREFIX} setProblem:`, p.substring(0, 100) + (p.length > 100 ? "..." : ""));
+    console.debug(
+      `${NimisStateTracker.LOG_PREFIX} setProblem:`,
+      p.substring(0, 100) + (p.length > 100 ? "..." : "")
+    );
     this._persist();
   }
 
@@ -81,12 +90,16 @@ export class NimisStateTracker {
   recordToolCall(name: string, args?: Record<string, unknown>): void {
     this.toolsCalled.push({ name, args });
     this.toolCallsThisTurn += 1;
-    console.debug(`${NimisStateTracker.LOG_PREFIX} recordToolCall:`, name, args ?? {});
+    console.debug(
+      `${NimisStateTracker.LOG_PREFIX} recordToolCall:`,
+      name,
+      args ?? {}
+    );
     this._persist();
   }
 
   recordRuleApplied(id: string): void {
-    if (!this.rulesApplied.some(r => r.id === id)) {
+    if (!this.rulesApplied.some((r) => r.id === id)) {
       this.rulesApplied.push({ id });
       console.debug(`${NimisStateTracker.LOG_PREFIX} recordRuleApplied:`, id);
       this._persist();
@@ -95,16 +108,22 @@ export class NimisStateTracker {
 
   /** Replace rules-applied list with current applicable rule ids (e.g. each prompt build). */
   setRulesApplied(ids: string[]): void {
-    this.rulesApplied = ids.map(id => ({ id }));
+    this.rulesApplied = ids.map((id) => ({ id }));
     if (ids.length > 0) {
-      console.debug(`${NimisStateTracker.LOG_PREFIX} setRulesApplied:`, ids.join(", "));
+      console.debug(
+        `${NimisStateTracker.LOG_PREFIX} setRulesApplied:`,
+        ids.join(", ")
+      );
       this._persist();
     }
   }
 
   recordFeedback(text: string): void {
     this.feedback.push(text);
-    console.debug(`${NimisStateTracker.LOG_PREFIX} recordFeedback:`, text.substring(0, 80) + (text.length > 80 ? "..." : ""));
+    console.debug(
+      `${NimisStateTracker.LOG_PREFIX} recordFeedback:`,
+      text.substring(0, 80) + (text.length > 80 ? "..." : "")
+    );
     this._persist();
   }
 
@@ -127,12 +146,14 @@ export class NimisStateTracker {
     }
 
     if (this.toolsCalled.length > 0) {
-      const list = this.toolsCalled.map(t => t.args ? `${t.name}(${JSON.stringify(t.args)})` : t.name).join(", ");
+      const list = this.toolsCalled
+        .map((t) => (t.args ? `${t.name}(${JSON.stringify(t.args)})` : t.name))
+        .join(", ");
       parts.push(`**Tools called:** ${list}`);
     }
 
     if (this.rulesApplied.length > 0) {
-      const list = this.rulesApplied.map(r => r.id).join(", ");
+      const list = this.rulesApplied.map((r) => r.id).join(", ");
       parts.push(`**Rules applied:** ${list}`);
     }
 
@@ -142,8 +163,14 @@ export class NimisStateTracker {
 
     if (parts.length === 0) return "";
 
-    const formatted = "\n\n## Current session state\n" + parts.join("\n") + "\n";
-    console.debug(`${NimisStateTracker.LOG_PREFIX} formatForPrompt:`, { problem: !!this.problem, toolsCount: this.toolsCalled.length, rulesCount: this.rulesApplied.length, feedbackCount: this.feedback.length });
+    const formatted =
+      "\n\n## Current session state\n" + parts.join("\n") + "\n";
+    console.debug(`${NimisStateTracker.LOG_PREFIX} formatForPrompt:`, {
+      problem: !!this.problem,
+      toolsCount: this.toolsCalled.length,
+      rulesCount: this.rulesApplied.length,
+      feedbackCount: this.feedback.length,
+    });
     return formatted;
   }
 

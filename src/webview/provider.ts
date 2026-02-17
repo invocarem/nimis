@@ -21,6 +21,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   private conversationHistory: Message[] = [];
   private nimisManager: NimisManager;
   private mcpManager?: MCPManager;
+  private cancellationToken?: AbortController;
+  private isProcessing = false;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -68,6 +70,9 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           break;
         case "checkConnection":
           await this._checkConnection();
+          break;
+        case "cancelRequest":
+          this._cancelCurrentOperation();
           break;
       }
     });
@@ -124,6 +129,15 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    // Cancel any existing operation
+    if (this.isProcessing) {
+      this._cancelCurrentOperation();
+    }
+
+    // Create new cancellation token
+    this.cancellationToken = new AbortController();
+    this.isProcessing = true;
+
     const stateTracker = this.nimisManager.getStateTracker();
     if (this.conversationHistory.length === 0) {
       stateTracker.setProblem(userMessage);
@@ -156,32 +170,52 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
       stateTracker.startNewTurn();
 
-      while (continueLoop) {
+      while (continueLoop && !this.cancellationToken.signal.aborted) {
         const prompt = this.nimisManager.buildConversationPrompt(
           this.conversationHistory
         );
 
         let fullResponse = "";
 
-        await this.llamaClient.streamComplete(
-          {
-            prompt,
-            temperature,
-            n_predict: maxTokens,
-            stop: ["User:", "\nUser:", "Human:", "\nHuman:"],
-          },
-          (chunk: string) => {
-            fullResponse += chunk;
-            //console.debug("[Provider] received:", chunk); // Log each chunk to DEBUG console
-            const parsed = ResponseParser.parse(fullResponse);
-            console.debug("[Provider] content:", parsed.content);
-            this._sendMessageToWebview({
-              type: "assistantMessageChunk",
-              chunk: parsed.content,
-              isFullContent: true,
-            });
+        try {
+          await this.llamaClient.streamComplete(
+            {
+              prompt,
+              temperature,
+              n_predict: maxTokens,
+              stop: ["User:", "\nUser:", "Human:", "\nHuman:"],
+            },
+            (chunk: string) => {
+              // Check for cancellation between chunks
+              if (this.cancellationToken?.signal.aborted) {
+                return;
+              }
+              fullResponse += chunk;
+              //console.debug("[Provider] received:", chunk); // Log each chunk to DEBUG console
+              const parsed = ResponseParser.parse(fullResponse);
+              console.debug("[Provider] content:", parsed.content);
+              this._sendMessageToWebview({
+                type: "assistantMessageChunk",
+                chunk: parsed.content,
+                isFullContent: true,
+              });
+            },
+            this.cancellationToken?.signal
+          );
+        } catch (streamError: any) {
+          // If cancelled, break out of loop
+          if (this.cancellationToken?.signal.aborted || streamError.name === "CanceledError" || streamError.name === "AbortError") {
+            continueLoop = false;
+            break;
           }
-        );
+          throw streamError;
+        }
+
+        // Check for cancellation after streaming
+        if (this.cancellationToken?.signal.aborted) {
+          continueLoop = false;
+          break;
+        }
 
         const parsedResponse: ParsedResponse = ResponseParser.parse(fullResponse);
 
@@ -189,6 +223,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           const firstToolCall = ResponseParser.getFirstToolCall(parsedResponse);
 
           if (firstToolCall) {
+            // Check for cancellation before tool execution
+            if (this.cancellationToken?.signal.aborted) {
+              continueLoop = false;
+              break;
+            }
+
             if (stateTracker.hasReachedToolCallLimit()) {
               this._sendMessageToWebview({
                 type: "requestFeedback",
@@ -207,6 +247,13 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               const toolResult = await toolExecutor(firstToolCall, {
                 mcpManager: this.mcpManager,
               });
+
+              // Check for cancellation after tool execution
+              if (this.cancellationToken?.signal.aborted) {
+                continueLoop = false;
+                break;
+              }
+
               const toolText = toolResult.content?.map(c => c.text).join("\n") || JSON.stringify(toolResult);
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
@@ -242,14 +289,44 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         }
       }
 
-      this._sendMessageToWebview({
-        type: "assistantMessageEnd",
-      });
+      // Check if operation was cancelled
+      if (this.cancellationToken?.signal.aborted) {
+        this._sendMessageToWebview({
+          type: "cancellationComplete",
+        });
+        this._sendMessageToWebview({
+          type: "requestFeedback",
+          message: "Operation cancelled. Please provide feedback to guide the assistant.",
+        });
+      } else {
+        this._sendMessageToWebview({
+          type: "assistantMessageEnd",
+        });
+      }
     } catch (error: any) {
+      // Don't show error if it was a cancellation
+      if (!this.cancellationToken?.signal.aborted && error.name !== "CanceledError" && error.name !== "AbortError") {
+        this._sendMessageToWebview({
+          type: "error",
+          message: error.message,
+        });
+      } else {
+        this._sendMessageToWebview({
+          type: "cancellationComplete",
+        });
+      }
+    } finally {
+      this.isProcessing = false;
+      this.cancellationToken = undefined;
+    }
+  }
+
+  private _cancelCurrentOperation() {
+    if (this.isProcessing && this.cancellationToken) {
       this._sendMessageToWebview({
-        type: "error",
-        message: error.message,
+        type: "cancellationInProgress",
       });
+      this.cancellationToken.abort();
     }
   }
 
@@ -314,11 +391,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 <body>
     <div id="chat-container"></div>
     <div id="input-container">
-        <div class="status-indicator" id="status-indicator">Checking connection...</div>
         <textarea id="message-input" placeholder="Type your message here..." rows="3"></textarea>
         <div class="button-group">
             <button id="send-button">Send</button>
+            <button id="stop-button" class="stop-button secondary-button" style="display: none;">Stop</button>
             <button id="clear-button" class="secondary-button">Clear Chat</button>
+            <div class="status-lamp" id="status-lamp" title="Checking connection..."></div>
         </div>
     </div>
     <script nonce="${nonce}" src="${formatterScriptUri}"></script>

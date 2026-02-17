@@ -20,12 +20,14 @@ const vscode = acquireVsCodeApi();
 const chatContainer = document.getElementById("chat-container");
 const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
+const stopButton = document.getElementById("stop-button");
 const clearButton = document.getElementById("clear-button");
-const statusIndicator = document.getElementById("status-indicator");
+const statusLamp = document.getElementById("status-lamp");
 
 // State
 let currentAssistantMessage = null;
 let isGenerating = false;
+let isCancelling = false;
 
 /**
  * Send a message to the extension
@@ -40,6 +42,22 @@ function sendMessage() {
     messageInput.value = "";
     isGenerating = true;
     sendButton.disabled = true;
+    // Stop button will be shown when assistantMessageStart is received
+    isCancelling = false;
+  }
+}
+
+/**
+ * Cancel the current operation
+ */
+function cancelOperation() {
+  if (isGenerating && !isCancelling) {
+    isCancelling = true;
+    stopButton.disabled = true;
+    stopButton.textContent = "Stopping...";
+    vscode.postMessage({
+      type: "cancelRequest",
+    });
   }
 }
 
@@ -121,6 +139,8 @@ function addInsertButton(messageDiv) {
  */
 sendButton.addEventListener("click", sendMessage);
 
+stopButton.addEventListener("click", cancelOperation);
+
 messageInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
@@ -146,6 +166,13 @@ window.addEventListener("message", (event) => {
 
     case "assistantMessageStart":
       currentAssistantMessage = addMessage("", "assistant");
+      isGenerating = true;
+      sendButton.disabled = true;
+      // Only show Stop button when streaming actually starts
+      stopButton.style.display = "inline-block";
+      stopButton.disabled = false;
+      stopButton.textContent = "Stop";
+      isCancelling = false;
       break;
 
     case "assistantMessageChunk":
@@ -164,12 +191,39 @@ window.addEventListener("message", (event) => {
       currentAssistantMessage = null;
       isGenerating = false;
       sendButton.disabled = false;
+      stopButton.style.display = "none";
+      isCancelling = false;
       break;
 
     case "error":
       addMessage(message.message, "error");
       isGenerating = false;
       sendButton.disabled = false;
+      stopButton.style.display = "none";
+      isCancelling = false;
+      break;
+
+    case "cancellationInProgress":
+      // Visual feedback that cancellation is in progress
+      if (currentAssistantMessage) {
+        const cancelIndicator = document.createElement("div");
+        cancelIndicator.className = "message message-system";
+        cancelIndicator.textContent = "Cancelling operation...";
+        chatContainer.appendChild(cancelIndicator);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+      break;
+
+    case "cancellationComplete":
+      isGenerating = false;
+      sendButton.disabled = false;
+      stopButton.style.display = "none";
+      stopButton.disabled = false;
+      stopButton.textContent = "Stop";
+      isCancelling = false;
+      if (currentAssistantMessage) {
+        currentAssistantMessage = null;
+      }
       break;
 
     case "setInput":
@@ -183,11 +237,11 @@ window.addEventListener("message", (event) => {
 
     case "connectionStatus":
       if (message.connected) {
-        statusIndicator.textContent = "Connected to llama.cpp";
-        statusIndicator.className = "status-indicator status-connected";
+        statusLamp.className = "status-lamp lamp-on";
+        statusLamp.title = "Connected to llama.cpp";
       } else {
-        statusIndicator.textContent = "Not connected to llama.cpp";
-        statusIndicator.className = "status-indicator status-disconnected";
+        statusLamp.className = "status-lamp lamp-off";
+        statusLamp.title = "Not connected to llama.cpp";
       }
       break;
   }
@@ -195,7 +249,15 @@ window.addEventListener("message", (event) => {
 
 /**
  * Initialize: Check connection after message listener is set up
+ * Also ensure Stop button is hidden by default
  */
 setTimeout(() => {
+  // Set initial lamp state to off
+  statusLamp.className = "status-lamp lamp-off";
+  statusLamp.title = "Checking connection...";
   vscode.postMessage({ type: "checkConnection" });
+  // Ensure Stop button is hidden on initialization
+  stopButton.style.display = "none";
+  isGenerating = false;
+  isCancelling = false;
 }, 100);

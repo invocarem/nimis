@@ -62,10 +62,12 @@ export class LlamaClient {
    * Stream completion from llama.cpp server
    * @param request The completion request
    * @param onChunk Callback for each chunk of text
+   * @param abortSignal Optional AbortSignal to cancel the stream
    */
   async streamComplete(
     request: LlamaCompletionRequest,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    abortSignal?: AbortSignal
   ): Promise<void> {
     try {
       const response = await this.client.post(
@@ -81,18 +83,38 @@ export class LlamaClient {
         },
         {
           responseType: "stream",
+          signal: abortSignal,
         }
       );
 
       return new Promise((resolve, reject) => {
         let buffer = "";
+        let isAborted = false;
+
+        // Handle abort signal
+        if (abortSignal) {
+          abortSignal.addEventListener("abort", () => {
+            isAborted = true;
+            // Destroy the stream
+            if (response.data && typeof response.data.destroy === "function") {
+              response.data.destroy();
+            }
+            resolve(); // Resolve instead of reject to handle cancellation gracefully
+          });
+        }
 
         response.data.on("data", (chunk: Buffer) => {
+          if (isAborted) {
+            return;
+          }
           buffer += chunk.toString();
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
 
           for (const line of lines) {
+            if (isAborted) {
+              return;
+            }
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
@@ -112,14 +134,25 @@ export class LlamaClient {
         });
 
         response.data.on("end", () => {
-          resolve();
+          if (!isAborted) {
+            resolve();
+          }
         });
 
         response.data.on("error", (error: Error) => {
-          reject(error);
+          // Don't reject if aborted
+          if (!isAborted && !abortSignal?.aborted) {
+            reject(error);
+          } else {
+            resolve();
+          }
         });
       });
     } catch (error: any) {
+      // Handle abort errors gracefully
+      if (error.name === "CanceledError" || error.name === "AbortError" || abortSignal?.aborted) {
+        return; // Cancellation is not an error
+      }
       if (error.code === "ECONNREFUSED") {
         throw new Error(
           `Cannot connect to llama.cpp server at ${this.serverUrl}. Make sure the server is running.`
