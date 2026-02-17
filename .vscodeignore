@@ -5,3 +5,11 @@ test
 *.vsix
 .DS_Store
 .vscode
+node_modules
+src
+tsconfig.json
+webpack.config.js
+.gitignore
+.eslintrc.json
+jest.config.js
+*.map
