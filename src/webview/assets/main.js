@@ -22,7 +22,7 @@ const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
 const stopButton = document.getElementById("stop-button");
 const clearButton = document.getElementById("clear-button");
-const statusLamp = document.getElementById("status-lamp");
+const statusIndicator = document.getElementById("status-indicator");
 
 // State
 let currentAssistantMessage = null;
@@ -237,11 +237,11 @@ window.addEventListener("message", (event) => {
 
     case "connectionStatus":
       if (message.connected) {
-        statusLamp.className = "status-lamp lamp-on";
-        statusLamp.title = "Connected to llama.cpp";
+        statusIndicator.textContent = "Connected to llama.cpp";
+        statusIndicator.className = "status-indicator status-connected";
       } else {
-        statusLamp.className = "status-lamp lamp-off";
-        statusLamp.title = "Not connected to llama.cpp";
+        statusIndicator.textContent = "Not connected to llama.cpp";
+        statusIndicator.className = "status-indicator status-disconnected";
       }
       break;
   }
@@ -252,9 +252,6 @@ window.addEventListener("message", (event) => {
  * Also ensure Stop button is hidden by default
  */
 setTimeout(() => {
-  // Set initial lamp state to off
-  statusLamp.className = "status-lamp lamp-off";
-  statusLamp.title = "Checking connection...";
   vscode.postMessage({ type: "checkConnection" });
   // Ensure Stop button is hidden on initialization
   stopButton.style.display = "none";

@@ -354,7 +354,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     const stylesUri = webview.asWebviewUri(
       vscode.Uri.joinPath(
         this._extensionUri,
-        "src",
+        "dist",
         "webview",
         "assets",
         "styles.css"
@@ -363,7 +363,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(
         this._extensionUri,
-        "src",
+        "dist",
         "webview",
         "assets",
         "main.js"
@@ -372,7 +372,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     const formatterScriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(
         this._extensionUri,
-        "src",
+        "dist",
         "webview",
         "assets",
         "markdownFormatter.js"
@@ -391,12 +391,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 <body>
     <div id="chat-container"></div>
     <div id="input-container">
+        <div class="status-indicator" id="status-indicator">Checking connection...</div>
         <textarea id="message-input" placeholder="Type your message here..." rows="3"></textarea>
         <div class="button-group">
             <button id="send-button">Send</button>
             <button id="stop-button" class="stop-button secondary-button" style="display: none;">Stop</button>
             <button id="clear-button" class="secondary-button">Clear Chat</button>
-            <div class="status-lamp" id="status-lamp" title="Checking connection..."></div>
         </div>
     </div>
     <script nonce="${nonce}" src="${formatterScriptUri}"></script>
