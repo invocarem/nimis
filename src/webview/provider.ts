@@ -7,6 +7,7 @@ import { ResponseParser, ParsedResponse } from "../utils/responseParser";
 import { TOOL_CALL_LIMIT_PER_TURN } from "../utils/nimisStateTracker";
 import type { MCPManager } from "../mcpManager";
 import type { RulesManager } from "../rulesManager";
+import { parse } from "path";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -171,7 +172,9 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           },
           (chunk: string) => {
             fullResponse += chunk;
+            //console.debug("[Provider] received:", chunk); // Log each chunk to DEBUG console
             const parsed = ResponseParser.parse(fullResponse);
+            console.debug("[Provider] content:", parsed.content);
             this._sendMessageToWebview({
               type: "assistantMessageChunk",
               chunk: parsed.content,
