@@ -4,7 +4,7 @@
  * Also handles Python-style triple-quoted strings (""") by converting them to regular JSON strings.
  * Also fixes cases where LLM outputs \"\" (two escaped quotes) instead of """ (triple quotes).
  */
-function safeJsonParse(jsonStr: string): any {
+export function safeJsonParse(jsonStr: string): any {
   // First, fix cases where LLM outputs \"\" instead of """ for Python docstrings
   jsonStr = fixEscapedDoubleQuotes(jsonStr);
 
@@ -263,6 +263,7 @@ function normalizeTripleQuotedStrings(jsonStr: string): string {
 
 import { extractMiniMaxToolCall } from "./MiniMaxToolCallExtractor";
 import { extractHarmonyToolCall } from "./HarmonyToolCallExtractor";
+import { JsonProcessor } from "./jsonProcessor";
 // Export format-specific extractors for external use
 export { extractMiniMaxToolCall, extractHarmonyToolCall };
 
@@ -371,7 +372,7 @@ export function extractToolCall(response: string): MCPToolCall | null {
 
   // Try to parse JSON (fix single quotes, trailing commas, etc. if needed)
   try {
-    const args = safeJsonParse(jsonStr);
+    const args = JsonProcessor.safeParse(jsonStr);
     return { name, arguments: args };
   } catch (e: any) {
     return null;

@@ -47,6 +47,31 @@ describe("XmlProcessor", () => {
     });
 
     describe("Brace matching fallback for complex JSON", () => {
+      it("should handle edit_file with triple-quoted strings in XML attributes (real-world LLM output)", () => {
+        // This is the exact format the LLM outputs - triple quotes directly in XML attribute
+        const toolCall = `<tool_call name="edit_file" args='{ "file_path": "c:\\code\\github\\calc\\calc.py", "old_text": "def divide(a, b):\n \"\"\"Return the quotient of a and b. Raises ValueError if b is zero.\"\"\"\n if b == 0:\n raise ValueError("Cannot divide by zero")\n return a / b""", "new_text": "def divide(a, b):\n \"\"\"Return the quotient of a and b. Raises ValueError if b is zero.\"\"\"\n if b == 0:\n raise ValueError("Cannot divide by zero")\n return a / b""" }' />`;
+        const result = XmlProcessor.extractToolCalls(toolCall);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("edit_file");
+        expect(result[0].args.file_path).toBe(
+          "c:\\code\\github\\calc\\calc.py"
+        );
+
+        const oldText = result[0].args.old_text;
+        const newText = result[0].args.new_text;
+
+        // Verify triple quotes were normalized and content preserved
+        expect(oldText).toContain("def divide(a, b):");
+        expect(oldText).toContain('"""Return the quotient');
+        expect(oldText).toContain("\n if b == 0:");
+        expect(oldText).toContain("\n raise ValueError");
+        expect(oldText).toContain("\n return a / b");
+
+        expect(newText).toContain("def divide(a, b):");
+        expect(newText).toContain('"""Return the quotient');
+      });
+
       it("should handle JSON with Python triple quotes using brace matching", () => {
         // This is the problematic case: triple quotes in JSON string
         const codeContent =
@@ -1077,6 +1102,217 @@ Step 3: Test`;
         expect(result.reasoning[0]).toContain("Unclosed think tag");
         expect(result.reasoning[0]).toContain("Another");
       });
+    });
+  });
+
+  describe("edit_file with whitespace handling", () => {
+    it("should preserve exact indentation in old_text with single space", () => {
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "if b == 0:\\n raise ValueError(\\"Cannot divide by zero\\")", "new_text": "if b == 0:\\n        raise ValueError(\\"Cannot divide by zero\\")"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("edit_file");
+      expect(result[0].args.file_path).toBe("calc.py");
+
+      // Verify old_text has exactly 1 space before "raise"
+      const oldText = result[0].args.old_text;
+      expect(oldText).toBe(
+        'if b == 0:\n raise ValueError("Cannot divide by zero")'
+      );
+      expect(oldText).toMatch(/if b == 0:\n raise/); // 1 space
+      expect(oldText).not.toMatch(/if b == 0:\n        raise/); // not 8 spaces
+
+      // Verify new_text has 8 spaces before "raise"
+      const newText = result[0].args.new_text;
+      expect(newText).toBe(
+        'if b == 0:\n        raise ValueError("Cannot divide by zero")'
+      );
+      expect(newText).toMatch(/if b == 0:\n        raise/); // 8 spaces
+    });
+
+    it("should preserve exact indentation in old_text with multiple spaces", () => {
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "if b == 0:\\n        raise ValueError(\\"Cannot divide by zero\\")", "new_text": "if b == 0:\\n        raise ValueError(\\"Division by zero is not allowed\\")"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Verify old_text has exactly 8 spaces before "raise"
+      expect(oldText).toBe(
+        'if b == 0:\n        raise ValueError("Cannot divide by zero")'
+      );
+      expect(oldText).toMatch(/if b == 0:\n        raise/); // 8 spaces
+    });
+
+    it("should preserve leading whitespace in old_text", () => {
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "\\n    def divide(a, b):", "new_text": "\\n    def divide(a, b):\\n        \\"\\"\\"Divide two numbers\\"\\"\\""}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Verify leading newline and spaces are preserved
+      expect(oldText).toBe("\n    def divide(a, b):");
+      expect(oldText.startsWith("\n")).toBe(true);
+      expect(oldText).toMatch(/^\n    def/);
+    });
+
+    it("should preserve trailing whitespace in old_text", () => {
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "    return result\\n\\n", "new_text": "    return result\\n\\n    # End of function"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Verify trailing newlines are preserved
+      expect(oldText).toBe("    return result\n\n");
+      expect(oldText.endsWith("\n\n")).toBe(true);
+    });
+
+    it("should preserve tabs in old_text", () => {
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "if b == 0:\\n\\traise ValueError(\\"Cannot divide by zero\\")", "new_text": "if b == 0:\\n\\t\\traise ValueError(\\"Cannot divide by zero\\")"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Verify tab character is preserved
+      expect(oldText).toBe(
+        'if b == 0:\n\traise ValueError("Cannot divide by zero")'
+      );
+      expect(oldText).toContain("\t");
+      expect(oldText).toMatch(/if b == 0:\n\traise/);
+    });
+
+    it("should handle triple-quoted strings with exact whitespace", () => {
+      // Note: Triple quotes in XML attributes need to be properly escaped as JSON strings
+      // This test uses escaped newlines to simulate what the LLM might output
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "\\nif b == 0:\\n raise ValueError(\\"Cannot divide by zero\\")", "new_text": "\\nif b == 0:\\n        raise ValueError(\\"Cannot divide by zero\\")"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+      const newText = result[0].args.new_text;
+
+      // Verify old_text has 1 space, new_text has 8 spaces
+      expect(oldText).toContain("\n raise"); // 1 space
+      expect(oldText).not.toContain("\n        raise"); // not 8 spaces
+      expect(newText).toContain("\n        raise"); // 8 spaces
+    });
+
+    it("should preserve mixed whitespace (spaces and tabs) in old_text", () => {
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "    if condition:\\n\\t\\tdo_something()", "new_text": "    if condition:\\n        do_something()"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Verify mixed whitespace is preserved
+      expect(oldText).toBe("    if condition:\n\t\tdo_something()");
+      expect(oldText).toContain("    if"); // 4 spaces
+      expect(oldText).toContain("\n\t\t"); // 2 tabs
+    });
+
+    it("should handle empty lines in old_text", () => {
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "def func():\\n\\n    pass", "new_text": "def func():\\n    \\"\\"\\"Docstring\\"\\"\\"\\n    pass"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Verify empty line (double newline) is preserved
+      expect(oldText).toBe("def func():\n\n    pass");
+      expect(oldText).toContain("\n\n");
+    });
+
+    it("should preserve exact whitespace when old_text matches file exactly", () => {
+      // This simulates the real-world scenario where old_text must match file exactly
+      const fileContent =
+        'if b == 0:\n        raise ValueError("Cannot divide by zero")';
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "${fileContent.replace(/"/g, '\\"').replace(/\n/g, "\\n")}", "new_text": "if b == 0:\\n        raise ValueError(\\"Division by zero is not allowed\\")"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Verify extracted old_text matches the original file content exactly
+      expect(oldText).toBe(fileContent);
+      expect(oldText).toMatch(/if b == 0:\n        raise/); // 8 spaces
+    });
+
+    it("should preserve whitespace when extracted through HarmonyParser (simulating real flow)", () => {
+      // Simulate the real flow: ResponseParser.parse() -> HarmonyParser.parse() -> extractToolCalls() -> XmlProcessor.extractToolCalls()
+      const { HarmonyParser } = require("../src/utils/HarmonyParser");
+      const rawResponse = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "if b == 0:\\n raise ValueError(\\"Cannot divide by zero\\")", "new_text": "if b == 0:\\n        raise ValueError(\\"Cannot divide by zero\\")"}' />`;
+
+      const parsed = HarmonyParser.parse(rawResponse);
+
+      expect(parsed.tool_calls).toBeDefined();
+      expect(parsed.tool_calls).toHaveLength(1);
+      expect(parsed.tool_calls[0].name).toBe("edit_file");
+
+      const oldText = parsed.tool_calls[0].arguments.old_text;
+      const newText = parsed.tool_calls[0].arguments.new_text;
+
+      // Verify whitespace is preserved through the full parsing chain
+      expect(oldText).toBe(
+        'if b == 0:\n raise ValueError("Cannot divide by zero")'
+      );
+      expect(oldText).toMatch(/if b == 0:\n raise/); // 1 space
+
+      expect(newText).toBe(
+        'if b == 0:\n        raise ValueError("Cannot divide by zero")'
+      );
+      expect(newText).toMatch(/if b == 0:\n        raise/); // 8 spaces
+    });
+
+    it("should preserve whitespace when extracted through ResponseParser (simulating real flow)", () => {
+      // Simulate the real flow from provider.ts
+      const { ResponseParser } = require("../src/utils/responseParser");
+      const rawResponse = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "if b == 0:\\n raise ValueError(\\"Cannot divide by zero\\")", "new_text": "if b == 0:\\n        raise ValueError(\\"Cannot divide by zero\\")"}' />`;
+
+      const parsed = ResponseParser.parse(rawResponse);
+
+      expect(parsed.tool_calls).toBeDefined();
+      expect(parsed.tool_calls).toHaveLength(1);
+      expect(parsed.tool_calls[0].name).toBe("edit_file");
+
+      const oldText = parsed.tool_calls[0].arguments.old_text;
+      const newText = parsed.tool_calls[0].arguments.new_text;
+
+      // Verify whitespace is preserved through the full parsing chain
+      expect(oldText).toBe(
+        'if b == 0:\n raise ValueError("Cannot divide by zero")'
+      );
+      expect(oldText).toMatch(/if b == 0:\n raise/); // 1 space
+
+      expect(newText).toBe(
+        'if b == 0:\n        raise ValueError("Cannot divide by zero")'
+      );
+      expect(newText).toMatch(/if b == 0:\n        raise/); // 8 spaces
+    });
+
+    it("should log exact whitespace for debugging mismatch issues", () => {
+      // This test helps debug when old_text doesn't match file content
+      const toolCall = `<tool_call name="edit_file" args='{"file_path": "calc.py", "old_text": "if b == 0:\\n raise ValueError(\\"Cannot divide by zero\\")", "new_text": "if b == 0:\\n        raise ValueError(\\"Cannot divide by zero\\")"}' />`;
+      const result = XmlProcessor.extractToolCalls(toolCall);
+
+      expect(result).toHaveLength(1);
+      const oldText = result[0].args.old_text;
+
+      // Log the exact string with visible whitespace markers for debugging
+      const debugOldText = oldText
+        .replace(/\n/g, "\\n")
+        .replace(/\t/g, "\\t")
+        .replace(/ /g, "·"); // Replace spaces with visible dots
+
+      console.log("DEBUG old_text (spaces as ·):", debugOldText);
+      console.log("DEBUG old_text length:", oldText.length);
+      console.log("DEBUG old_text JSON:", JSON.stringify(oldText));
+
+      // Verify the structure
+      expect(oldText).toContain("\n raise"); // Should have newline + 1 space
+      expect(oldText.indexOf("\n raise")).toBeGreaterThan(-1);
     });
   });
 });

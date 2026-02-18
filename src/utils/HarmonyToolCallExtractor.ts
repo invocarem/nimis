@@ -5,6 +5,7 @@
  */
 
 import type { MCPToolCall } from "./toolCallExtractor";
+import { JsonProcessor } from "./jsonProcessor";
 
 const HARMONY_MARKER = "to=tool_call code<|message|>";
 
@@ -24,7 +25,7 @@ export function extractHarmonyToolCall(response: string): MCPToolCall | null {
   if (!jsonStr) return null;
 
   try {
-    const parsed = JSON.parse(jsonStr);
+    const parsed = JsonProcessor.safeParse(jsonStr);
     const name = parsed?.name;
     const args = parsed?.arguments;
     if (name == null) return null;

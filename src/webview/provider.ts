@@ -254,6 +254,16 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               //console.debug("[Provider] received:", chunk); // Log each chunk to DEBUG console
               const parsed = ResponseParser.parse(fullResponse);
               console.debug("[Provider] content:", parsed.content);
+
+              // Diagnostic logging: Check if edit_file tool call appears in streaming response
+              if (parsed.tool_calls) {
+                for (const toolCall of parsed.tool_calls) {
+                  if (toolCall.name === "edit_file" && toolCall.arguments?.old_text) {
+                    console.log("[Provider] [STREAMING] edit_file detected in chunk, old_text length:",
+                      toolCall.arguments.old_text.length);
+                  }
+                }
+              }
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
                 chunk: parsed.content,
@@ -284,8 +294,24 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         const parsedResponse: ParsedResponse =
           ResponseParser.parse(fullResponse);
 
+        // Diagnostic logging for edit_file old_text mismatch issues
         if (ResponseParser.hasToolCalls(parsedResponse)) {
           const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
+
+          // Log raw response and extracted tool calls for debugging
+          for (const toolCall of toolCalls) {
+            if (toolCall.name === "edit_file" && toolCall.arguments?.old_text) {
+              const oldText = toolCall.arguments.old_text;
+              console.log("[Provider] edit_file tool call detected:");
+              console.log("[Provider]   Raw fullResponse length:", fullResponse.length);
+              console.log("[Provider]   Raw fullResponse (first 500 chars):", fullResponse.substring(0, 500));
+              console.log("[Provider]   Extracted old_text length:", oldText.length);
+              console.log("[Provider]   Extracted old_text (JSON):", JSON.stringify(oldText));
+              console.log("[Provider]   Extracted old_text (visible whitespace):",
+                oldText.replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/ /g, "·"));
+              console.log("[Provider]   Extracted new_text (JSON):", JSON.stringify(toolCall.arguments.new_text));
+            }
+          }
           let allToolResults: string[] = [];
           let hasError = false;
 

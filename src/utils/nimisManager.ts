@@ -30,7 +30,7 @@ export class NimisManager {
       "Notes:\n" +
       "- Use the attributes `name` and `args` exactly.\n" +
       "- The `args` attribute should contain a valid JSON object as a string.\n" +
-      "- Use single quotes around the args value if it contains double quotes: args='{ \"key\": \"value\" }'\n" +
+      '- Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
       "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
       "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
       NimisManager.buildToolDocs(nativeToolManager, mcpManager)
@@ -48,7 +48,7 @@ export class NimisManager {
       "Notes:\n" +
       "- Use the attributes `name` and `args` exactly.\n" +
       "- The `args` attribute should contain a valid JSON object as a string.\n" +
-      "- Use single quotes around the args value if it contains double quotes: args='{ \"key\": \"value\" }'\n" +
+      '- Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
       "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
       "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
       NimisManager.buildToolDocs(nativeToolManager, mcpManager)
@@ -117,7 +117,7 @@ export class NimisManager {
         "Your name is **Nimis**. You are a helpful AI assistant, " +
         "you provide prototyping help to engineers, assisting them in problem solving.\n\n" +
         "You apply a tool or rule only when if it is directly related to the user's current task; otherwise discard them. \n\n" +
-        "Tool call: edit_file, old_text please select a group of text to modify, do not use the full text. \n\n" +
+        "Tool call: edit_file, old_text please select multiple lines (minimum 3) of text to modify, do not use the full text. \n\n" +
         NimisManager.toolCallHelp(nativeToolManager, mcpManager) +
         "\n\n" +
         "## Guide on **rule** \n\n" +
