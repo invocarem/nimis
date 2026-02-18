@@ -286,8 +286,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           }
 
           // Add assistant message and tool results to conversation history
-          // Only include the raw response if we successfully executed all tool calls
-          if (!hasError && !this.cancellationToken?.signal.aborted) {
+          // Include tool results even when there's an error so the AI can see and respond to errors
+          if (!this.cancellationToken?.signal.aborted && allToolResults.length > 0) {
             this.conversationHistory.push({
               role: "assistant",
               content: parsedResponse.raw,
@@ -296,10 +296,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               role: "user",
               content: allToolResults.join("\n\n"),
             });
-            // Continue loop to get next LLM response
+            // Continue loop to get next LLM response (even if there was an error)
+            // This allows the AI to see the error and potentially fix it
             continue;
           } else {
-            // If there was an error or cancellation, stop the loop
+            // If there was a cancellation or no tool results, stop the loop
             continueLoop = false;
           }
         } else {

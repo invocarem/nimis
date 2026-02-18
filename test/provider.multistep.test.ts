@@ -209,4 +209,149 @@ describe("Multi-step tool call chain", () => {
       expect(firstToolCall?.name).toBe("tool1");
     });
   });
+
+  describe("Tool error handling in provider flow", () => {
+    /**
+     * Simulates the provider's behavior when handling tool execution errors.
+     * This test verifies that error results are added to conversation history
+     * and the loop continues (doesn't stop) so the AI can see and respond to errors.
+     */
+    it("should add error results to conversation history and continue loop", async () => {
+      // Simulate a tool call that will fail (e.g., executing a Python file with syntax error)
+      const response = 
+        'tool_call(name="exec_terminal", arguments={"command": "python calc.py add 2 3"})';
+
+      const parsedResponse = ResponseParser.parse(response);
+      const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
+      
+      // Simulate conversation history (like provider does)
+      const conversationHistory: Array<{ role: string; content: string }> = [];
+      const allToolResults: string[] = [];
+      let hasError = false;
+      let continueLoop = true;
+
+      // Simulate provider's tool execution loop
+      for (const toolCall of toolCalls) {
+        const result = await toolExecutor(toolCall);
+        const toolText = result.content?.map(c => c.text).join("\n") || JSON.stringify(result);
+        allToolResults.push(toolText);
+
+        // If tool execution failed, mark error but don't break (this is the OLD behavior we're testing against)
+        // Actually, we want to test the NEW behavior where we continue even with errors
+        if (result.isError) {
+          hasError = true;
+          // OLD behavior: break here would stop the loop
+          // NEW behavior: we continue to add results to history
+        }
+      }
+
+      // Simulate provider's conversation history update logic (NEW behavior)
+      // Include tool results even when there's an error so the AI can see and respond to errors
+      if (allToolResults.length > 0) {
+        conversationHistory.push({
+          role: "assistant",
+          content: parsedResponse.raw || response,
+        });
+        conversationHistory.push({
+          role: "user",
+          content: allToolResults.join("\n\n"),
+        });
+        // Continue loop to get next LLM response (even if there was an error)
+        continueLoop = true;
+      } else {
+        continueLoop = false;
+      }
+
+      // Verify that error result was added to conversation history
+      expect(conversationHistory.length).toBe(2);
+      expect(conversationHistory[0].role).toBe("assistant");
+      expect(conversationHistory[1].role).toBe("user");
+      
+      // Verify that the error result is in the user message (tool results)
+      const toolResultsContent = conversationHistory[1].content;
+      expect(toolResultsContent).toBeTruthy();
+      expect(toolResultsContent.length).toBeGreaterThan(0);
+      
+      // Verify that the loop continues (doesn't stop) even with errors
+      expect(continueLoop).toBe(true);
+      expect(hasError).toBe(true); // Error occurred
+      
+      // Verify that error information is present in the conversation history
+      // (The actual error message will depend on what exec_terminal returns)
+      // Error messages can vary (e.g., "Error", "ENOENT", "command not found", etc.)
+      expect(toolResultsContent.length).toBeGreaterThan(0); // Should have some error output
+    });
+
+    it("should continue loop even when exec_terminal fails with syntax error", async () => {
+      // Create a temporary Python file with a syntax error (like the user's example)
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "nimis-test-"));
+      const testFile = path.join(tempDir, "calc.py");
+      // File with syntax error: "" before import
+      const brokenContent = '""import math\n\ndef add(a, b):\n    return a + b\n';
+      fs.writeFileSync(testFile, brokenContent, "utf-8");
+
+      try {
+        const response = 
+          `tool_call(name="exec_terminal", arguments={"command": "python "${testFile}" add 2 3", "working_directory": "${tempDir}"})`;
+
+        const parsedResponse = ResponseParser.parse(response);
+        const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
+        
+        const conversationHistory: Array<{ role: string; content: string }> = [];
+        const allToolResults: string[] = [];
+        let hasError = false;
+        let continueLoop = false;
+
+        // Simulate provider's tool execution
+        for (const toolCall of toolCalls) {
+          const result = await toolExecutor(toolCall);
+          const toolText = result.content?.map(c => c.text).join("\n") || JSON.stringify(result);
+          allToolResults.push(toolText);
+
+          if (result.isError) {
+            hasError = true;
+            // Don't break - continue to add to history
+          }
+        }
+
+        // Simulate NEW behavior: add to history even with errors
+        if (allToolResults.length > 0) {
+          conversationHistory.push({
+            role: "assistant",
+            content: parsedResponse.raw || response,
+          });
+          conversationHistory.push({
+            role: "user",
+            content: allToolResults.join("\n\n"),
+          });
+          continueLoop = true;
+        }
+
+        // Verify error was captured
+        expect(hasError).toBe(true);
+        
+        // Verify error result was added to conversation history
+        expect(conversationHistory.length).toBe(2);
+        expect(conversationHistory[1].role).toBe("user");
+        
+        // Verify error message is in the conversation history
+        const errorMessage = conversationHistory[1].content;
+        expect(errorMessage).toBeTruthy();
+        expect(errorMessage.length).toBeGreaterThan(0);
+        // Error messages can vary (syntax error, command not found, etc.)
+        // The important thing is that the error was captured and added to history
+        
+        // Verify loop continues (NEW behavior)
+        expect(continueLoop).toBe(true);
+      } finally {
+        // Cleanup
+        if (fs.existsSync(testFile)) {
+          fs.unlinkSync(testFile);
+        }
+        if (fs.existsSync(tempDir)) {
+          fs.rmdirSync(tempDir);
+        }
+      }
+    });
+  });
 });

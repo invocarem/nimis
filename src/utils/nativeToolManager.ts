@@ -261,7 +261,7 @@ export class NativeToolsManager {
             working_directory: {
               type: "string",
               description:
-                "Optional working directory for the command. If not provided, uses workspace root or current file's directory. Do NOT use .harmony folder.",
+                "Optional working directory for the command. If not provided, uses workspace root or current file's directory. Do NOT use .nimis folder.",
             },
           },
           required: ["command"],
