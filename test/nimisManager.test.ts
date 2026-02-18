@@ -77,7 +77,7 @@ describe("NimisManager rules integration", () => {
     const manager = new NimisManager({ rules: mockRules, rulesManager: mockRulesManager, nativeToolManager: mockNativeToolManager });
     const template = manager.getTemplate();
   //  expect(template.systemMessage).toContain("do NOT use the model's built-in function-calling API");
-    expect(template.systemMessage).toContain('tool_call(name="TOOL_NAME"');
+    expect(template.systemMessage).toContain('<tool_call name="TOOL_NAME"');
   });
 
   it("should exclude tool results from rule matching to prevent loops", () => {
@@ -100,7 +100,7 @@ describe("NimisManager rules integration", () => {
     // 3. Tool result is added as user message (should NOT trigger rule again)
     const conversationHistory: Array<{ role: "user" | "assistant" | "system"; content: string }> = [
       { role: "user", content: "Please use mcp_tool_name to get data." },
-      { role: "assistant", content: 'tool_call(name="mcp_tool_name", arguments={})' },
+      { role: "assistant", content: '<tool_call name="mcp_tool_name" args=\'{}\' />' },
       { role: "user", content: '{"type":"text","text":"Tool result with mcp_tool_name in it"}' }, // Tool result
     ];
     
@@ -114,7 +114,7 @@ describe("NimisManager rules integration", () => {
     // Verify that if we only had the tool result (without the original user message),
     // the rule would NOT match
     const toolResultOnlyHistory: Array<{ role: "user" | "assistant" | "system"; content: string }> = [
-      { role: "assistant", content: 'tool_call(name="mcp_tool_name", arguments={})' },
+      { role: "assistant", content: '<tool_call name="mcp_tool_name" args=\'{}\' />' },
       { role: "user", content: '{"type":"text","text":"Tool result with mcp_tool_name in it"}' }, // Tool result
     ];
     const rulesFromToolResult = rulesManager.getApplicableRulesFromHistory(toolResultOnlyHistory);

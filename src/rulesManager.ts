@@ -358,7 +358,8 @@ export class RulesManager {
         const prevMsg = i > 0 ? conversationHistory[i - 1] : null;
         const isToolResult = prevMsg && 
           prevMsg.role === 'assistant' && 
-          (prevMsg.content.includes('tool_call(') ||
+          (prevMsg.content.includes('<tool_call') ||
+           prevMsg.content.includes('tool_call(') || // Keep for backward compatibility
            // Also check for JSON-like tool results (common pattern for MCP results)
            (msg.content.trim().startsWith('{') && msg.content.trim().endsWith('}')) ||
            // Check if content looks like structured tool output (MCP format)

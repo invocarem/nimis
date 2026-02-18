@@ -80,8 +80,12 @@ describe("extractToolCall", () => {
     expect(result).toBeTruthy();
     expect(result?.name).toBe("edit_file");
     // After parsing, \"\"\" becomes """ (triple quotes)
-    expect(result?.arguments.old_text).toContain('"""def add');
-    expect(result?.arguments.old_text).not.toContain('""def add');
+    // The fix should convert \"\"def to \"\"\"def, so the string should start with """def
+    const oldText = result?.arguments.old_text;
+    expect(oldText).toBeTruthy();
+    expect(oldText).toContain('"""def add');
+    // Verify the fix worked: the string should start with """def (three quotes), not ""def (two quotes)
+    expect(oldText?.startsWith('"""def')).toBe(true);
   });
 
   it("preserves indentation in triple-quoted strings for edit_file", () => {

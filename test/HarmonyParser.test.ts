@@ -95,7 +95,7 @@ describe("HarmonyParser", () => {
     });
 
     it("should extract tool calls from response", () => {
-      const input = 'Let me help you. tool_call(name="read_file", arguments={"path": "test.ts"})';
+      const input = 'Let me help you. <tool_call name="read_file" args=\'{"path": "test.ts"}\' />';
       const result: ParsedResponse = HarmonyParser.parse(input);
 
       expect(result.tool_calls).toBeDefined();
@@ -104,7 +104,7 @@ describe("HarmonyParser", () => {
     });
 
     it("should extract multiple tool calls", () => {
-      const input = 'tool_call(name="tool1", arguments={}) and tool_call(name="tool2", arguments={})';
+      const input = '<tool_call name="tool1" args=\'{}\' /> and <tool_call name="tool2" args=\'{}\' />';
       const result: ParsedResponse = HarmonyParser.parse(input);
 
       expect(result.tool_calls).toBeDefined();

@@ -23,14 +23,16 @@ export class NimisManager {
     return (
       "### How to invoke tool_call\n" +
       "IMPORTANT: do NOT use the model's built-in function-calling API or any other tool-call format.\n" +
-      "You MUST use the exact textual syntax shown below when invoking a tool. The assistant's response should contain the literal `tool_call(...)` expression (preferably on its own line) and must NOT rely on model-level function calls.\n\n" +
-      'tool_call(name="TOOL_NAME", arguments={ ... })\n\n' +
+      "You MUST use the exact XML syntax shown below when invoking a tool. The assistant's response should contain the literal XML tag (preferably on its own line) and must NOT rely on model-level function calls.\n\n" +
+      '<tool_call name="TOOL_NAME" args="{ ... }" />\n\n' +
       "Example (exact):\n" +
-      'tool_call(name="read_file", arguments={ "file_path": "src/index.ts" })\n\n' +
+      '<tool_call name="read_file" args=\'{ "file_path": "src/index.ts" }\' />\n\n' +
       "Notes:\n" +
-      "- Use the keys `name` (or `tool_name`) and `arguments` (or `args`) exactly.\n" +
-      "- When calling a tool, output only the `tool_call(...)` expression (no extra explanation in the same assistant message).\n" +
-      "- Ensure the `arguments` object is valid JSON-like so it can be parsed by the tool extractor.\n\n" +
+      "- Use the attributes `name` and `args` exactly.\n" +
+      "- The `args` attribute should contain a valid JSON object as a string.\n" +
+      "- Use single quotes around the args value if it contains double quotes: args='{ \"key\": \"value\" }'\n" +
+      "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
+      "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
       NimisManager.buildToolDocs(nativeToolManager, mcpManager)
     );
   }
@@ -40,13 +42,15 @@ export class NimisManager {
   ): string {
     return (
       "### How to use **tool_call**\n" +
-      'Format: tool_call(name="TOOL_NAME", args={ ... })\n\n' +
+      'Format: <tool_call name="TOOL_NAME" args="{ ... }" />\n\n' +
       "Example (exact):\n" +
-      'tool_call(name="read_file", args={ "file_path": "src/index.ts" })\n\n' +
+      '<tool_call name="read_file" args=\'{ "file_path": "src/index.ts" }\' />\n\n' +
       "Notes:\n" +
-      "- Use the keys `name` (or `tool_name`) and `arguments` (or `args`) exactly.\n" +
-      "- When calling a tool, output only the `tool_call(...)` expression (no extra explanation in the same assistant message).\n" +
-      "- Ensure the `arguments` object is valid JSON-like so it can be parsed by the tool extractor.\n\n" +
+      "- Use the attributes `name` and `args` exactly.\n" +
+      "- The `args` attribute should contain a valid JSON object as a string.\n" +
+      "- Use single quotes around the args value if it contains double quotes: args='{ \"key\": \"value\" }'\n" +
+      "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
+      "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
       NimisManager.buildToolDocs(nativeToolManager, mcpManager)
     );
   }

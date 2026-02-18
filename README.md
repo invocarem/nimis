@@ -25,7 +25,7 @@ The extension is modular and supports advanced AI-driven workflows:
 - **Native Tools**: Run local tools (e.g., file operations, shell commands) securely from the extension or LLM.
 - **MCP Tools**: Connect to external MCP servers for distributed tool execution and orchestration.
 - **Rules**: Author custom rules (YAML/JSON/Markdown) to automate tasks, enforce policies, or guide LLM output.
-- **Tool Extraction**: The tool extractor parses LLM responses for tool_call(...) patterns and executes them.
+- **Tool Extraction**: The tool extractor parses LLM responses for XML tool call tags (`<tool_call>`) and executes them.
 - **Tool Executor**: Central logic for dispatching tool calls to native or MCP tools.
 - **Webview UI**: Rich chat interface for interacting with LLM, tools, and rules.
 
@@ -104,7 +104,7 @@ console.log("Code with syntax highlighting!");
 You can call tools directly from the chat using the `tool_call` syntax:
 
 ```
-tool_call(name="read_file", arguments={ "file_path": "src/index.ts" })
+<tool_call name="read_file" args='{"file_path": "src/index.ts"}' />
 ```
 
 Both native and MCP tools are supported. The extension will extract and execute tool calls from LLM responses automatically.

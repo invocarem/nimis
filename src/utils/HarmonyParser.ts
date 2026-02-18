@@ -1,5 +1,6 @@
 import { extractToolCall, extractHarmonyToolCall, MCPToolCall } from "./toolCallExtractor";
 import { LLMResponseProcessor } from "./llmResponseProcessor";
+import { XmlProcessor } from "./xmlProcessor";
 
 /**
  * Interface for the result of parsing a Harmony protocol message
@@ -159,7 +160,19 @@ export class HarmonyParser {
     }
     if (toolCalls.length > 0) return toolCalls;
 
-    // Fallback: find all tool_call( patterns in the response
+    // Try XML format using XmlProcessor (preferred for robust JSON parsing)
+    if (XmlProcessor.looksLikeXmlToolCall(response)) {
+      const xmlToolCalls = XmlProcessor.extractToolCalls(response);
+      if (xmlToolCalls.length > 0) {
+        // Convert XmlToolCall[] to MCPToolCall[] (args -> arguments)
+        return xmlToolCalls.map(xmlCall => ({
+          name: xmlCall.name,
+          arguments: xmlCall.args || {}
+        }));
+      }
+    }
+
+    // Fallback: find all tool_call( patterns in the response (deprecated, kept for backward compatibility)
     let searchString = response;
     while (true) {
       const callStart = searchString.indexOf("tool_call(");

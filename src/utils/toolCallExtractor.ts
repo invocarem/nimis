@@ -73,26 +73,34 @@ function safeJsonParse(jsonStr: string): any {
           continue;
         } else {
           // Could be end of string OR embedded quote
-          // Look ahead to see what follows
-          const afterQuote = jsonStr.substring(i + 1).match(/^\s*([,:}\]])/);
+          // Look ahead to see what follows (skip whitespace, but check for structural characters)
+          let j = i + 1;
+          // Skip whitespace (spaces, tabs, newlines)
+          while (j < jsonStr.length && /\s/.test(jsonStr[j])) {
+            j++;
+          }
+          const nextChar = j < jsonStr.length ? jsonStr[j] : '';
 
-          if (afterQuote) {
-            const nextToken = afterQuote[1];
-            // Closing quote if:
-            // - Followed by : and we're expecting a key
-            // - Followed by , } ] (end of value)
-            const isClosing = (nextToken === ':' && expectingKey) || (nextToken === ',' || nextToken === '}' || nextToken === ']');
+          // Closing quote if:
+          // - End of string (no more characters after whitespace)
+          // - Followed by : and we're expecting a key
+          // - Followed by , } ] (end of value)
+          const isClosing =
+            nextChar === '' ||
+            (nextChar === ':' && expectingKey) ||
+            nextChar === ',' ||
+            nextChar === '}' ||
+            nextChar === ']';
 
-            if (isClosing) {
-              // End of string
-              inString = false;
-              if (nextToken === ':') {
-                expectingKey = false; // After :, we expect a value
-              }
-              result += char;
-              i++;
-              continue;
+          if (isClosing) {
+            // End of string
+            inString = false;
+            if (nextChar === ':') {
+              expectingKey = false; // After :, we expect a value
             }
+            result += char;
+            i++;
+            continue;
           }
 
           // Embedded quote - escape it
@@ -138,10 +146,12 @@ function safeJsonParse(jsonStr: string): any {
  * This must be done BEFORE JSON parsing to preserve the correct format.
  */
 function fixEscapedDoubleQuotes(jsonStr: string): string {
-  // Match: ": " followed by \"\" then a letter/underscore/newline (start of Python code)
-  // Convert \"\" to \"\"\" (add one more escaped quote)
+  // Match: ": " followed by \"\" (two escaped quotes) then a letter/underscore/newline (start of Python code)
+  // In the actual JSON string, \"\" appears as \\"\\" (backslash-quote-backslash-quote)
+  // Convert \\"\\" to \\"\\"\\" (add one more escaped quote)
   // Only match when \"\" appears right after the opening quote of a value
-  return jsonStr.replace(/(":\s*")(\\"\\")([a-zA-Z_\n])/g, '$1\\"\\"\\"$3');
+  // Pattern: ": " then \" then \" then a letter/underscore/newline
+  return jsonStr.replace(/(:\s*")(\\"\\")([a-zA-Z_\n])/g, '$1\\"\\"\\"$3');
 }
 
 /**
@@ -264,6 +274,10 @@ export interface MCPToolCall {
 /**
  * Extracts a tool call from a string, supporting large/nested JSON arguments.
  * Returns null if no valid tool call is found.
+ * 
+ * @deprecated This function-call syntax (tool_call(...)) is deprecated.
+ * Use XML format (<tool_call name="..." args="..."/>) instead, which is handled by XmlProcessor.
+ * This function is kept for backward compatibility only.
  */
 export function extractToolCall(response: string): MCPToolCall | null {
   // Find the start of tool_call(
@@ -308,6 +322,7 @@ export function extractToolCall(response: string): MCPToolCall | null {
   let jsonStart = inside.indexOf("{", argsKeyIdx);
   if (jsonStart === -1) return null;
   // Find the end of the JSON object (brace matching, supports multiline and escaped braces)
+  // Need to handle unescaped quotes in content, so we check if quotes are delimiters
   let braceDepth = 1;
   let j = jsonStart + 1;
   let inString = false;
@@ -319,7 +334,32 @@ export function extractToolCall(response: string): MCPToolCall | null {
     } else if (ch === '\\') {
       escape = true;
     } else if (ch === '"') {
-      inString = !inString;
+      // Check if this quote is a string delimiter or embedded quote
+      if (!inString) {
+        // Opening quote - always a delimiter
+        inString = true;
+      } else {
+        // Inside a string - check if it's a closing delimiter
+        // Look ahead to see if it's followed by structural characters
+        let k = j + 1;
+        // Skip whitespace
+        while (k < inside.length && /\s/.test(inside[k])) {
+          k++;
+        }
+        const nextChar = k < inside.length ? inside[k] : '';
+        // Closing delimiter if followed by : , } ] or end of string
+        const isClosingDelimiter =
+          nextChar === '' ||
+          nextChar === ':' ||
+          nextChar === ',' ||
+          nextChar === '}' ||
+          nextChar === ']';
+
+        if (isClosingDelimiter) {
+          inString = false;
+        }
+        // If it's an embedded quote (not a delimiter), don't toggle inString
+      }
     } else if (!inString) {
       if (ch === "{") braceDepth++;
       else if (ch === "}") braceDepth--;

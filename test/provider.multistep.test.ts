@@ -16,7 +16,7 @@ jest.mock("vscode", () => ({
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { extractToolCall } from "../src/utils/toolCallExtractor";
+import { XmlProcessor } from "../src/utils/xmlProcessor";
 import { toolExecutor } from "../src/toolExecutor";
 import { ResponseParser } from "../src/utils/responseParser";
 
@@ -24,8 +24,11 @@ import { ResponseParser } from "../src/utils/responseParser";
 async function simulateMultiStepToolCall(llmResponses: string[]) {
   let toolResults: any[] = [];
   for (const response of llmResponses) {
-    const toolCall = extractToolCall(response);
-    if (toolCall) {
+    const xmlToolCalls = XmlProcessor.extractToolCalls(response);
+    if (xmlToolCalls.length > 0) {
+      const xmlCall = xmlToolCalls[0];
+      // Convert XmlToolCall to MCPToolCall format
+      const toolCall = { name: xmlCall.name, arguments: xmlCall.args || {} };
       // Simulate tool execution (mocked)
       const result = await toolExecutor(toolCall);
       toolResults.push({ tool: toolCall.name, result });
@@ -52,10 +55,10 @@ describe("Multi-step tool call chain", () => {
   it("should execute find_files then read_file in sequence", async () => {
     // Step 1: LLM asks to find files
     const findFilesResponse =
-      'tool_call(name="find_files", arguments={"name_pattern": "provider.ts"})';
+      '<tool_call name="find_files" args=\'{"name_pattern": "provider.ts"}\' />';
     // Step 2: LLM asks to read the file found (simulate as if LLM got the result)
     const readFileResponse =
-      'tool_call(name="read_file", arguments={"file_path": "src/webview/provider.ts"})';
+      '<tool_call name="read_file" args=\'{"file_path": "src/webview/provider.ts"}\' />';
 
     // Simulate the provider running both tool calls in sequence
     const results = await simulateMultiStepToolCall([
@@ -75,9 +78,9 @@ describe("Multi-step tool call chain", () => {
     it("should extract and execute all tool calls from a single response", async () => {
       const response = 
         'I need to do multiple things. ' +
-        'tool_call(name="read_file", arguments={"file_path": "package.json"}) ' +
+        '<tool_call name="read_file" args=\'{"file_path": "package.json"}\' /> ' +
         'and also ' +
-        'tool_call(name="list_files", arguments={"directory_path": "src"})';
+        '<tool_call name="list_files" args=\'{"directory_path": "src"}\' />';
 
       const results = await simulateProviderMultipleToolCalls(response);
 
@@ -90,9 +93,9 @@ describe("Multi-step tool call chain", () => {
 
     it("should execute tool calls in the order they appear", async () => {
       const response = 
-        'tool_call(name="read_file", arguments={"file_path": "package.json"}) ' +
-        'tool_call(name="list_files", arguments={"directory_path": "src"}) ' +
-        'tool_call(name="read_file", arguments={"file_path": "tsconfig.json"})';
+        '<tool_call name="read_file" args=\'{"file_path": "package.json"}\' /> ' +
+        '<tool_call name="list_files" args=\'{"directory_path": "src"}\' /> ' +
+        '<tool_call name="read_file" args=\'{"file_path": "tsconfig.json"}\' />';
 
       const executionOrder: string[] = [];
       const parsedResponse = ResponseParser.parse(response);
@@ -121,8 +124,8 @@ describe("Multi-step tool call chain", () => {
         // Include context to meet edit_file requirements (min 10 chars, 2+ lines)
         const filePathEscaped = testFile.replace(/\\/g, "/"); // Use forward slashes for cross-platform
         const response = 
-          `tool_call(name="edit_file", arguments={"file_path": "${filePathEscaped}", "old_text": "Header line\\nLine 1\\nLine 2", "new_text": "Header line\\nLine 1 (edited)\\nLine 2"}) ` +
-          `tool_call(name="edit_file", arguments={"file_path": "${filePathEscaped}", "old_text": "Line 1 (edited)\\nLine 2\\nLine 3", "new_text": "Line 1 (edited)\\nLine 2 (edited)\\nLine 3"})`;
+          `<tool_call name="edit_file" args='{"file_path": "${filePathEscaped}", "old_text": "Header line\\nLine 1\\nLine 2", "new_text": "Header line\\nLine 1 (edited)\\nLine 2"}' /> ` +
+          `<tool_call name="edit_file" args='{"file_path": "${filePathEscaped}", "old_text": "Line 1 (edited)\\nLine 2\\nLine 3", "new_text": "Line 1 (edited)\\nLine 2 (edited)\\nLine 3"}' />`;
 
         const parsedResponse = ResponseParser.parse(response);
         const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
@@ -170,8 +173,8 @@ describe("Multi-step tool call chain", () => {
 
     it("should stop execution on first error", async () => {
       const response = 
-        'tool_call(name="read_file", arguments={"file_path": "nonexistent1.txt"}) ' +
-        'tool_call(name="read_file", arguments={"file_path": "nonexistent2.txt"})';
+        '<tool_call name="read_file" args=\'{"file_path": "nonexistent1.txt"}\' /> ' +
+        '<tool_call name="read_file" args=\'{"file_path": "nonexistent2.txt"}\' />';
 
       const parsedResponse = ResponseParser.parse(response);
       const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
@@ -194,9 +197,9 @@ describe("Multi-step tool call chain", () => {
 
     it("should handle ResponseParser.getAllToolCalls correctly", () => {
       const response = 
-        'tool_call(name="tool1", arguments={}) ' +
-        'tool_call(name="tool2", arguments={}) ' +
-        'tool_call(name="tool3", arguments={})';
+        '<tool_call name="tool1" args=\'{}\' /> ' +
+        '<tool_call name="tool2" args=\'{}\' /> ' +
+        '<tool_call name="tool3" args=\'{}\' />';
 
       const parsedResponse = ResponseParser.parse(response);
       const allToolCalls = ResponseParser.getAllToolCalls(parsedResponse);
@@ -219,7 +222,7 @@ describe("Multi-step tool call chain", () => {
     it("should add error results to conversation history and continue loop", async () => {
       // Simulate a tool call that will fail (e.g., executing a Python file with syntax error)
       const response = 
-        'tool_call(name="exec_terminal", arguments={"command": "python calc.py add 2 3"})';
+        '<tool_call name="exec_terminal" args=\'{"command": "python calc.py add 2 3"}\' />';
 
       const parsedResponse = ResponseParser.parse(response);
       const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
@@ -292,7 +295,7 @@ describe("Multi-step tool call chain", () => {
 
       try {
         const response = 
-          `tool_call(name="exec_terminal", arguments={"command": "python "${testFile}" add 2 3", "working_directory": "${tempDir}"})`;
+          `<tool_call name="exec_terminal" args='{"command": "python "${testFile}" add 2 3", "working_directory": "${tempDir}"}' />`;
 
         const parsedResponse = ResponseParser.parse(response);
         const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
