@@ -16,6 +16,7 @@ export interface NimisStateSnapshot {
   rulesApplied: RuleAppliedRecord[];
   feedback: string[];
   lastUpdated: string;
+  currentFilePath?: string;
 }
 
 /**
@@ -34,6 +35,9 @@ export class NimisStateTracker {
   private readonly persistPath?: string;
   /** Tool calls in the current turn (reset when user sends a new message). */
   private toolCallsThisTurn: number = 0;
+
+  // File context tracking — keep a single current file path so the LLM "remembers"
+  private currentFilePath?: string;
 
   private static readonly LOG_PREFIX = "[NimisStateTracker]";
 
@@ -54,6 +58,7 @@ export class NimisStateTracker {
         rulesApplied: [...this.rulesApplied],
         feedback: [...this.feedback],
         lastUpdated: new Date().toISOString(),
+        currentFilePath: this.currentFilePath,
       };
       fs.writeFileSync(
         this.persistPath,
@@ -75,6 +80,49 @@ export class NimisStateTracker {
       p.substring(0, 100) + (p.length > 100 ? "..." : "")
     );
     this._persist();
+  }
+
+  /** File context management — remember only the current file path.
+   *  Exclude internal persisted state file (.nimis/state.json).
+   */
+  setCurrentFile(filePath: string, _content?: string): void {
+    try {
+      const normalized = path.normalize(filePath);
+      const excluded = path.join(".nimis", "state.json");
+      if (normalized.endsWith(excluded)) {
+        console.debug(
+          `${NimisStateTracker.LOG_PREFIX} setCurrentFile ignored (excluded path):`,
+          filePath
+        );
+        return;
+      }
+
+      this.currentFilePath = normalized;
+      console.debug(
+        `${NimisStateTracker.LOG_PREFIX} setCurrentFile:`,
+        this.currentFilePath
+      );
+      this._persist();
+    } catch (err) {
+      // Fallback: if normalization fails, still attempt to set the path
+      console.debug(
+        `${NimisStateTracker.LOG_PREFIX} setCurrentFile - normalize failed, using raw path:`,
+        filePath,
+        err
+      );
+      this.currentFilePath = filePath;
+      this._persist();
+    }
+  }
+
+  clearCurrentFile(): void {
+    this.currentFilePath = undefined;
+    console.debug(`${NimisStateTracker.LOG_PREFIX} clearCurrentFile`);
+    this._persist();
+  }
+
+  getCurrentFilePath(): string | undefined {
+    return this.currentFilePath;
   }
 
   /** Call when the user sends a new message to reset per-turn tool count. */
@@ -133,6 +181,7 @@ export class NimisStateTracker {
     this.rulesApplied = [];
     this.feedback = [];
     this.toolCallsThisTurn = 0;
+    this.currentFilePath = undefined;
     console.debug(`${NimisStateTracker.LOG_PREFIX} reset`);
     this._persist();
   }
@@ -161,6 +210,11 @@ export class NimisStateTracker {
       parts.push(`**User feedback:** ${this.feedback.join("; ")}`);
     }
 
+    // Current file (if any)
+    if (this.currentFilePath) {
+      parts.push(`**Current file:** ${this.currentFilePath} (current)`);
+    }
+
     if (parts.length === 0) return "";
 
     const formatted =
@@ -170,6 +224,7 @@ export class NimisStateTracker {
       toolsCount: this.toolsCalled.length,
       rulesCount: this.rulesApplied.length,
       feedbackCount: this.feedback.length,
+      hasCurrentFile: !!this.currentFilePath,
     });
     return formatted;
   }

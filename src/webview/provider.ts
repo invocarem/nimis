@@ -55,6 +55,24 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     // Initialize the llama client
     this._initializeLlamaClient();
 
+    // If there is an active editor when the view opens, remember that file as initial context
+    // (This is just a fallback - currentFilePath will be updated when LLM uses tools to access files)
+    const active = vscode.window.activeTextEditor;
+    if (
+      active &&
+      active.document &&
+      active.document.uri &&
+      active.document.uri.fsPath
+    ) {
+      this.nimisManager
+        .getStateTracker()
+        .setCurrentFile(active.document.uri.fsPath);
+    }
+
+    // Note: We no longer listen for active-editor changes.
+    // currentFilePath is now tracked based on tool calls (read_file, find_files, etc.)
+    // so the LLM "remembers" which files it has actually accessed.
+
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
@@ -120,6 +138,49 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Extracts a file path from a tool call and its result.
+   * Updates currentFilePath when tools successfully locate or access files.
+   */
+  private _extractFilePathFromToolCall(
+    toolCall: { name: string; arguments?: Record<string, any> },
+    toolResult: { content?: Array<{ type: string; text?: string }>; isError?: boolean }
+  ): string | undefined {
+    // Only extract file path if tool execution was successful
+    if (toolResult.isError) {
+      return undefined;
+    }
+
+    const toolName = toolCall.name;
+    const args = toolCall.arguments || {};
+
+    // For tools that take file_path as argument
+    if (
+      toolName === "read_file" ||
+      toolName === "edit_file" ||
+      toolName === "replace_file" ||
+      toolName === "create_file"
+    ) {
+      const filePath = args.file_path || args.filePath;
+      if (typeof filePath === "string" && filePath.trim()) {
+        return filePath;
+      }
+    }
+
+    // For find_files: extract first file path from result text
+    if (toolName === "find_files") {
+      const resultText = toolResult.content?.map((c) => c.text).join("\n") || "";
+      // Result format: "Found N file(s) matching "...":\n\n📄 path/to/file1\n📄 path/to/file2"
+      // Extract the first file path after the emoji
+      const match = resultText.match(/📄\s+([^\n]+)/);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+
+    return undefined;
+  }
+
   private async _handleUserMessage(userMessage: string) {
     if (!this.llamaClient) {
       this._sendMessageToWebview({
@@ -139,6 +200,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     this.isProcessing = true;
 
     const stateTracker = this.nimisManager.getStateTracker();
+
     if (this.conversationHistory.length === 0) {
       stateTracker.setProblem(userMessage);
     } else {
@@ -202,7 +264,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           );
         } catch (streamError: any) {
           // If cancelled, break out of loop
-          if (this.cancellationToken?.signal.aborted || streamError.name === "CanceledError" || streamError.name === "AbortError") {
+          if (
+            this.cancellationToken?.signal.aborted ||
+            streamError.name === "CanceledError" ||
+            streamError.name === "AbortError"
+          ) {
             continueLoop = false;
             break;
           }
@@ -215,7 +281,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
-        const parsedResponse: ParsedResponse = ResponseParser.parse(fullResponse);
+        const parsedResponse: ParsedResponse =
+          ResponseParser.parse(fullResponse);
 
         if (ResponseParser.hasToolCalls(parsedResponse)) {
           const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
@@ -258,9 +325,29 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 break;
               }
 
-              const toolText = toolResult.content?.map(c => c.text).join("\n") || JSON.stringify(toolResult);
+              const toolText =
+                toolResult.content?.map((c) => c.text).join("\n") ||
+                JSON.stringify(toolResult);
               allToolResults.push(toolText);
-              
+
+              // Extract file path from tool call and result, and update currentFilePath
+              // This tracks when the LLM successfully locates or accesses files via tools
+              try {
+                const filePath = this._extractFilePathFromToolCall(
+                  toolCall,
+                  toolResult
+                );
+                if (filePath) {
+                  stateTracker.setCurrentFile(filePath);
+                }
+              } catch (e) {
+                // ignore errors in file path extraction
+                console.debug(
+                  "[Provider] Error extracting file path from tool call:",
+                  e
+                );
+              }
+
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
                 chunk: toolText,
@@ -287,7 +374,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
           // Add assistant message and tool results to conversation history
           // Include tool results even when there's an error so the AI can see and respond to errors
-          if (!this.cancellationToken?.signal.aborted && allToolResults.length > 0) {
+          if (
+            !this.cancellationToken?.signal.aborted &&
+            allToolResults.length > 0
+          ) {
             this.conversationHistory.push({
               role: "assistant",
               content: parsedResponse.raw,
@@ -320,7 +410,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         });
         this._sendMessageToWebview({
           type: "requestFeedback",
-          message: "Operation cancelled. Please provide feedback to guide the assistant.",
+          message:
+            "Operation cancelled. Please provide feedback to guide the assistant.",
         });
       } else {
         this._sendMessageToWebview({
@@ -329,7 +420,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       }
     } catch (error: any) {
       // Don't show error if it was a cancellation
-      if (!this.cancellationToken?.signal.aborted && error.name !== "CanceledError" && error.name !== "AbortError") {
+      if (
+        !this.cancellationToken?.signal.aborted &&
+        error.name !== "CanceledError" &&
+        error.name !== "AbortError"
+      ) {
         this._sendMessageToWebview({
           type: "error",
           message: error.message,

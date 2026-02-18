@@ -73,6 +73,55 @@ describe("extractToolCall", () => {
     expect(result?.arguments.content).toContain("Return a greeting message");
   });
 
+  it("fixes \\\"\\\" to \\\"\\\"\\\" at start of string values", () => {
+    // Test case for LLM outputting \"\" instead of \"\"\"
+    const response = `tool_call(name="edit_file", arguments={ "file_path": "calc.py", "old_text": "\\"\\"def add(a, b):\\n \\"\\"\\"Return the sum\\"\\"\\"\\n return a + b" })`;
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("edit_file");
+    // After parsing, \"\"\" becomes """ (triple quotes)
+    expect(result?.arguments.old_text).toContain('"""def add');
+    expect(result?.arguments.old_text).not.toContain('""def add');
+  });
+
+  it("preserves indentation in triple-quoted strings for edit_file", () => {
+    // Test case matching actual LLM output format with triple quotes
+    // The LLM outputs: """\ndef add(a, b):\n \"\"\"Return the sum...\n return a + b\n"""
+    const response = `tool_call(name="edit_file", arguments={ "file_path": "calc.py", "old_text": """
+def add(a, b):
+ \"\"\"Return the sum of a and b.\"\"\"
+ return a + b
+""", "new_text": """
+def add(a, b):
+    \"\"\"Return the sum of a and b.\"\"\"
+    return a + b
+""" })`;
+    const result = extractToolCall(response);
+    expect(result).toBeTruthy();
+    expect(result?.name).toBe("edit_file");
+    expect(result?.arguments.file_path).toBe("calc.py");
+
+    // Verify the extracted strings preserve all whitespace
+    const oldText = result?.arguments.old_text;
+    const newText = result?.arguments.new_text;
+
+    // Check that newlines are preserved (actual \n characters in the string)
+    expect(oldText).toContain("\ndef add");
+    expect(oldText).toContain("\n return");
+
+    // Check that indentation spaces are preserved
+    // old_text should have " return" (1 space before return)
+    expect(oldText).toMatch(/\n return a \+ b/);
+
+    // new_text should have "    return" (4 spaces before return)  
+    expect(newText).toMatch(/\n    return a \+ b/);
+    expect(newText).toContain("    return");
+
+    // Verify docstring quotes are properly escaped in the JSON string
+    // After JSON.parse, they become actual quotes, so check for the docstring content
+    expect(oldText).toContain('"""Return the sum');
+  });
+
   it("handles replace_file tool_call with Python script content", () => {
     const response = `tool_call(name="replace_file", arguments={ "file_path": "hello.py", "content": "#!/usr/bin/env python3\n\"\"\"\nA simple Python script that prints greetings.\n\"\"\"\nimport argparse\n\n\ndef greet(name):\n    \"\"\"Greet someone by name.\"\"\"\n    return f\"Hello, {name}!\"\n\n\ndef main():\n    parser = argparse.ArgumentParser(description='Greet someone.')\n    parser.add_argument('--name', type=str, default='World', \n                        help='Name of the person to greet')\n    args = parser.parse_args()\n    \n    print(greet(args.name))\n\nif __name__ == \"__main__\":\n    main()\n" })`;
 
