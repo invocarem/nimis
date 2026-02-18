@@ -1,5 +1,6 @@
 out
 test
+coverage
 .vscode-test
 .vscode-test/
 *.vsix
