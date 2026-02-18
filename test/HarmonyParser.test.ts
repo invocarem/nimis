@@ -47,6 +47,17 @@ describe("HarmonyParser", () => {
       expect(result.raw).toBe(input);
     });
 
+    it("should parse partial Harmony (streaming chunk without <|end|>)", () => {
+      const input =
+        "<|start|>assistant<|channel|>final<|message|>Sure! I'd be happy to analyze a Latin word for you. Please provide the word";
+      const result: ParsedResponse = HarmonyParser.parse(input);
+
+      expect(result.content).toBe(
+        "Sure! I'd be happy to analyze a Latin word for you. Please provide the word"
+      );
+      expect(result.raw).toBe(input);
+    });
+
     it("should return input as-is if no Harmony tags are present", () => {
       const input = "This is a plain text message.";
       const result: ParsedResponse = HarmonyParser.parse(input);

@@ -6,9 +6,8 @@
  * Parse Harmony protocol messages and extract the final message
  */
 function parseHarmonyMessage(input) {
-  // Check if input contains Harmony protocol tags
-  if (!input.includes("<|start|>") || !input.includes("<|end|>")) {
-    // Not a Harmony message, return as-is
+  // If no Harmony start tag, return as-is
+  if (!input.includes("<|start|>")) {
     return {
       finalMessage: input,
       channels: [],
@@ -20,50 +19,49 @@ function parseHarmonyMessage(input) {
   const metadata = {};
   let finalMessage = "";
 
-  // Simple parser using regex to extract sections
-  const tagRegex = /<\|(\w+)\|>(.*?)(?=<\|[\w]+\|>|$)/gs;
-  let match;
-  let currentChannel = "";
-  let inFinal = false;
+  // Parse each block (split by <|start|>); last block may be partial (streaming, no <|end|>)
+  const blocks = input.split(/<\|start\|>/g).filter(Boolean);
+  for (const block of blocks) {
+    const blockContent = block.includes("<|end|>")
+      ? block.split(/<\|end\|>/)[0]
+      : block;
+    const tagRegex = /<\|(\w+)\|>(.*?)(?=<\|[\w]+\|>|$)/gs;
+    let match;
+    let currentChannel = "";
+    let blockMessage = "";
 
-  while ((match = tagRegex.exec(input)) !== null) {
-    const tag = match[1];
-    const content = match[2].trim();
+    while ((match = tagRegex.exec(blockContent)) !== null) {
+      const tag = match[1];
+      const content = match[2].trim();
 
-    switch (tag) {
-      case "start":
-        // Reset for new message
-        currentChannel = "";
-        inFinal = false;
-        break;
-      case "channel":
-        currentChannel = content;
-        if (!channels.includes(content)) {
-          channels.push(content);
-        }
-        break;
-      case "message":
-        if (inFinal || currentChannel === "final") {
-          finalMessage += content + " ";
-        }
-        break;
-      case "final":
-        inFinal = true;
-        finalMessage += content + " ";
-        break;
-      case "assistant":
-        // Ignore assistant tag for metadata
-        break;
-      case "end":
-        // End of current message
-        break;
-      default:
-        // Unknown tag, add to metadata
-        metadata[tag] = content;
+      switch (tag) {
+        case "channel":
+          currentChannel = content;
+          if (!channels.includes(content)) {
+            channels.push(content);
+          }
+          break;
+        case "message":
+        case "final":
+          blockMessage += content + " ";
+          break;
+        case "assistant":
+          break;
+        case "end":
+          break;
+        default:
+          if (tag !== "start") {
+            metadata[tag] = content;
+          }
+      }
+    }
+
+    blockMessage = blockMessage.trim();
+    if (blockMessage) {
+      finalMessage = blockMessage;
     }
   }
 
-  // Clean up final message
   finalMessage = finalMessage.trim();
 
   // If no final message found, use the entire input as fallback
@@ -96,9 +94,11 @@ function preprocessMarkdown(text) {
     const line = lines[i].trim();
     const nextLine = lines[i + 1] || "";
 
-    // Check if this line is just a language name and next line starts with code
+    // Check if this line is just a language name and next line starts with code.
+    // Skip lines that already start with ``` (existing markdown code fence).
     if (
       line &&
+      !line.startsWith("```") &&
       !line.includes(" ") &&
       !line.startsWith("#") &&
       !line.startsWith("-") &&

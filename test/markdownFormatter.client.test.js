@@ -33,6 +33,17 @@ describe("Client-side Markdown Formatting", () => {
       expect(result.channels).toEqual([]);
       expect(result.metadata).toEqual({});
     });
+
+    it("should parse partial Harmony (streaming chunk without <|end|>)", () => {
+      const input =
+        "<|start|>assistant<|channel|>final<|message|>Sure! I'd be happy to analyze a Latin word for you. Please provide the word";
+      const result = parseHarmonyMessage(input);
+
+      expect(result.finalMessage).toBe(
+        "Sure! I'd be happy to analyze a Latin word for you. Please provide the word"
+      );
+      expect(result.channels).toEqual(["final"]);
+    });
   });
 
   describe("formatMarkdown", () => {

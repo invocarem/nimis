@@ -431,6 +431,25 @@ bashpython hello.py --name Maria
         expect(output).toContain("--name Maria");
       });
 
+      it("should not close code block on blank line between two functions (preprocess)", () => {
+        // Simulates LLM output: one code block with two functions and a blank line between them.
+        // Preprocess must NOT insert ``` after the blank line (bug: empty nextLine was closing the block).
+        const input = `\`\`\`python
+def sine(x):
+    return math.sin(x)
+
+def cosine(x):
+    return math.cos(x)
+\`\`\``;
+        const preprocessed = LLMResponseProcessor.preprocess(input);
+        expect(preprocessed).toContain("def sine(x):");
+        expect(preprocessed).toContain("def cosine(x):");
+        // Both functions must appear in one block: no extra ``` between them (erroneous early close).
+        expect(preprocessed).not.toMatch(/```\s*\n\s*def cosine/);
+        // Second function should be present after the first (same block).
+        expect(preprocessed).toMatch(/def sine[\s\S]*def cosine/);
+      });
+
       it("should preprocess concatenated LLM output with no line breaks", () => {
         const input = `Alright! Let me create a simple hello.py script that greets Maria.python# hello.pydef greet(name): """Returns a greeting message for the given name.""" return f"Hello, {name}!"if __name__ == "__main__": # Greet Maria when run as a script print(greet("Maria"))This creates:- A reusable greet() function- Direct execution when running the file- Clean output: "Hello, Maria!"`;
 

@@ -27,9 +27,11 @@ export class LLMResponseProcessor {
       const currentLine = inputLines[lineIndex].trim();
       const nextLine = inputLines[lineIndex + 1] || "";
 
-      // Check if this line is just a language name and next line starts with code
+      // Check if this line is just a language name and next line starts with code.
+      // Skip lines that already start with ``` (existing markdown code fence).
       if (
         currentLine &&
+        !currentLine.startsWith("```") &&
         !currentLine.includes(" ") &&
         !currentLine.startsWith("#") &&
         !currentLine.startsWith("-") &&
@@ -119,7 +121,8 @@ export class LLMResponseProcessor {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const nextLine = lines[i + 1] || "";
+      const nextLine = lines[i + 1];
+      const hasNextLine = i + 1 < lines.length;
 
       // Check if this looks like the start of a code block
       if (!inCodeBlock && /^(\w+)# /.test(line)) {
@@ -132,18 +135,19 @@ export class LLMResponseProcessor {
       } else if (inCodeBlock) {
         codeBuffer.push(line);
 
-        // Check if we should close the code block
-        // Close if next line is empty or starts a new section (like "Usage:", "## ", etc.)
+        // Check if we should close the code block.
+        // Only close at end of stream or when next line starts a new section (heading, list, "Usage:", etc.).
+        // Do NOT close on a blank line — blank lines are valid inside code (e.g. between two functions).
+        // Use hasNextLine so we only close at true end (!hasNextLine), not when next line is "".
         if (
-          !nextLine ||
-          nextLine.trim() === "" ||
-          /^#{1,6} /.test(nextLine) ||
-          /^[A-Z][^:]*:/.test(nextLine) ||
-          /^- /.test(nextLine) ||
-          /^\d+\. /.test(nextLine) ||
-          /^With /.test(nextLine) ||
-          /^Would /.test(nextLine) ||
-          /^# Output/.test(nextLine)
+          !hasNextLine ||
+          /^#{1,6} /.test(nextLine ?? "") ||
+          /^[A-Z][^:]*:/.test(nextLine ?? "") ||
+          /^- /.test(nextLine ?? "") ||
+          /^\d+\. /.test(nextLine ?? "") ||
+          /^With /.test(nextLine ?? "") ||
+          /^Would /.test(nextLine ?? "") ||
+          /^# Output/.test(nextLine ?? "")
         ) {
           // Close the code block
           if (!codeBuffer[codeBuffer.length - 1].trim().endsWith("```")) {

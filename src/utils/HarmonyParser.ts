@@ -30,13 +30,12 @@ export class HarmonyParser {
    * Parse a Harmony protocol string and extract reasoning, tool calls, and final content
    */
   static parse(input: string): ParsedResponse {
-    // Check if input contains Harmony protocol tags
-    if (!input.includes("<|start|>") || !input.includes("<|end|>")) {
-      // Not a Harmony message, process as plain text
+    // If no Harmony start tag, treat as plain text
+    if (!input.includes("<|start|>")) {
       const reasoning = this.extractReasoning(input, [], {});
       const tool_calls = this.extractToolCalls(input);
       const content = LLMResponseProcessor.preprocess(input);
-      
+
       return {
         reasoning,
         tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
@@ -49,13 +48,15 @@ export class HarmonyParser {
     const metadata: Record<string, any> = {};
     let finalMessage = "";
 
-    // Split input into message blocks by <|start|>...<|end|>
+    // Split input into message blocks by <|start|>; allow partial (streaming) blocks without <|end|>
     const messageBlocks = input.split(/<\|start\|>/g).filter(Boolean);
     let lastMessage = "";
     let lastChannels: string[] = [];
     for (const block of messageBlocks) {
-      if (!block.includes("<|end|>")) continue;
-      const content = block.split(/<\|end\|>/)[0];
+      // For streaming, the last block may not have <|end|> yet; still parse it
+      const content = block.includes("<|end|>")
+        ? block.split(/<\|end\|>/)[0]
+        : block;
       const tagRegex = /<\|(\w+)\|>(.*?)(?=<\|[\w]+\|>|$)/gs;
       let match;
       let currentChannel = "";
