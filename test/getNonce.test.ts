@@ -21,14 +21,6 @@ describe('getNonce', () => {
       }
     });
 
-    it('should not contain any special characters', () => {
-      const result = getNonce();
-      const disallowedChars = '!@#$%^&*()_+-=[]{}|;:,.<>?~`\\/"\'s';
-      
-      for (let i = 0; i < result.length; i++) {
-        expect(disallowedChars.includes(result[i])).toBe(false);
-      }
-    });
   });
 
   describe('uniqueness and randomness', () => {

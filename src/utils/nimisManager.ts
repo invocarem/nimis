@@ -113,6 +113,7 @@ export class NimisManager {
         "Your name is **Nimis**. You are a helpful AI assistant, " +
         "you provide prototyping help to engineers, assisting them in problem solving.\n\n" +
         "You apply a tool or rule only when if it is directly related to the user's current task; otherwise discard them. \n\n" +
+        "Tool call: edit_file, old_text please select a group of text to modify, do not use the full text. \n\n" +
         NimisManager.toolCallHelp(nativeToolManager, mcpManager) +
         "\n\n" +
         "## Guide on **rule** \n\n" +

@@ -165,8 +165,6 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       const maxTokens = config.get<number>("maxTokens", 2048);
 
       let continueLoop = true;
-      let lastToolResult: string | undefined = undefined;
-      let isFirst = true;
 
       stateTracker.startNewTurn();
 
@@ -220,10 +218,13 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         const parsedResponse: ParsedResponse = ResponseParser.parse(fullResponse);
 
         if (ResponseParser.hasToolCalls(parsedResponse)) {
-          const firstToolCall = ResponseParser.getFirstToolCall(parsedResponse);
+          const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
+          let allToolResults: string[] = [];
+          let hasError = false;
 
-          if (firstToolCall) {
-            // Check for cancellation before tool execution
+          // Execute all tool calls sequentially
+          for (const toolCall of toolCalls) {
+            // Check for cancellation before each tool execution
             if (this.cancellationToken?.signal.aborted) {
               continueLoop = false;
               break;
@@ -235,16 +236,19 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 message: `Tool call limit (${TOOL_CALL_LIMIT_PER_TURN}) reached this turn. Add feedback below to guide the assistant.`,
               });
               continueLoop = false;
+              hasError = true;
               break;
             }
+
             this._sendMessageToWebview({
               type: "assistantMessageChunk",
-              chunk: `Executing tool: ${firstToolCall.name}...`,
+              chunk: `Executing tool: ${toolCall.name}...`,
               isFullContent: false,
             });
+
             try {
-              stateTracker.recordToolCall(firstToolCall.name, firstToolCall.arguments);
-              const toolResult = await toolExecutor(firstToolCall, {
+              stateTracker.recordToolCall(toolCall.name, toolCall.arguments);
+              const toolResult = await toolExecutor(toolCall, {
                 mcpManager: this.mcpManager,
               });
 
@@ -255,32 +259,51 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               }
 
               const toolText = toolResult.content?.map(c => c.text).join("\n") || JSON.stringify(toolResult);
+              allToolResults.push(toolText);
+              
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
                 chunk: toolText,
                 isFullContent: true,
               });
-              this.conversationHistory.push({
-                role: "assistant",
-                content: parsedResponse.raw,
-              });
-              this.conversationHistory.push({
-                role: "user",
-                content: toolText,
-              });
-              isFirst = false;
-              continue;
+
+              // If tool execution failed, stop processing remaining tool calls
+              if (toolResult.isError) {
+                hasError = true;
+                break;
+              }
             } catch (err: any) {
+              const errorText = `Tool execution error: ${err.message}`;
+              allToolResults.push(errorText);
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
-                chunk: `Tool execution error: ${err.message}`,
+                chunk: errorText,
                 isFullContent: true,
               });
-              continueLoop = false;
+              hasError = true;
               break;
             }
           }
+
+          // Add assistant message and tool results to conversation history
+          // Only include the raw response if we successfully executed all tool calls
+          if (!hasError && !this.cancellationToken?.signal.aborted) {
+            this.conversationHistory.push({
+              role: "assistant",
+              content: parsedResponse.raw,
+            });
+            this.conversationHistory.push({
+              role: "user",
+              content: allToolResults.join("\n\n"),
+            });
+            // Continue loop to get next LLM response
+            continue;
+          } else {
+            // If there was an error or cancellation, stop the loop
+            continueLoop = false;
+          }
         } else {
+          // No tool calls, add final response and exit
           this.conversationHistory.push({
             role: "assistant",
             content: parsedResponse.raw,

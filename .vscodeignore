@@ -13,3 +13,4 @@ webpack.config.js
 .eslintrc.json
 jest.config.js
 *.map
+.nimis

@@ -28,6 +28,13 @@ export class ResponseParser {
   static getFirstToolCall(response: ParsedResponse): MCPToolCall | undefined {
     return response.tool_calls?.[0];
   }
+
+  /**
+   * Get all tool calls from the response
+   */
+  static getAllToolCalls(response: ParsedResponse): MCPToolCall[] {
+    return response.tool_calls || [];
+  }
 }
 
 // Re-export ParsedResponse for convenience
