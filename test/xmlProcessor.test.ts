@@ -460,6 +460,53 @@ describe("XmlProcessor", () => {
       });
     });
 
+    describe("Malformed JSON - LLM output with unescaped quotes in code", () => {
+      // Reproduces: [SimpleQuoteParser] JSON parse failed, [LenientParser] JSON parse failed,
+      // [XmlProcessor] Failed to parse tool call attributes
+      // Root cause: LLM produces args="..." with JSON containing unescaped double quotes
+      // (e.g. Python code with "if __name__ == "__main__":" or print("Usage: ..."))
+      it("should fail to parse when args uses double quotes and JSON has unescaped inner quotes (calc.py snippet)", () => {
+        // Simulates malformed LLM output: args="..." with unescaped " in "if __name__ == "__main__":
+        // and in print("Usage: ..."). The inner quotes break JSON.parse.
+        // Use a variable to inject unescaped quotes - \" would be valid JSON, we need raw "
+        const q = '"';
+        const malformedToolCall =
+          `<tool_call name="edit_file" args="{ \"file_path\": \"src/calc.py\", \"old_text\": \"if __name__ == ${q}__main__${q}:\n # Simple CLI for testing\n import sys\n    if len(sys.argv) != 4:\n        print(${q}Usage: python calc.py <operation> <num1> <num2>${q})\n        print(${q}Operations: add, subtract, multiply, divide${q})\n        sys.exit(1)\", \"new_text\": \"if __name__ == ${q}__main__${q}:\n # Simple CLI for testing\n import sys\n    if len(sys.argv) != 4:\n        print(${q}Usage: python calc.py <operation> <num1> <num2>${q})\n        print(${q}Operations: add, subtract, multiply, divide${q})\n        sys.exit(1)\" }" />`;
+
+        const result = XmlProcessor.extractToolCalls(malformedToolCall);
+
+        // Parser correctly fails - cannot parse invalid JSON with unescaped quotes
+        expect(result).toHaveLength(0);
+      });
+
+      it("should parse the same content when args uses single quotes (correct format)", () => {
+        // Same calc.py snippet with properly escaped JSON (using args='...' avoids escaping complexity)
+        const pythonCode = `if __name__ == "__main__":
+ # Simple CLI for testing
+ import sys
+    if len(sys.argv) != 4:
+        print("Usage: python calc.py <operation> <num1> <num2>")
+        print("Operations: add, subtract, multiply, divide")
+        sys.exit(1)`;
+        const jsonArgs = JSON.stringify({
+          file_path: "src/calc.py",
+          old_text: pythonCode,
+          new_text: pythonCode,
+        });
+        const toolCall = `<tool_call name="edit_file" args='${jsonArgs}' />`;
+
+        const result = XmlProcessor.extractToolCalls(toolCall);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("edit_file");
+        expect(result[0].args.file_path).toBe("src/calc.py");
+        expect(result[0].args.old_text).toContain('if __name__ == "__main__":');
+        expect(result[0].args.old_text).toContain(
+          'print("Usage: python calc.py <operation> <num1> <num2>")'
+        );
+      });
+    });
+
     describe("Incomplete tool calls", () => {
       it("should extract content from incomplete tool call without including closing brace", () => {
         // Simulate an incomplete tool call where the content string is truncated

@@ -141,12 +141,12 @@ export class NativeToolsManager {
             file_path: {
               type: "string",
               description:
-                "Path to the file to edit. Can be relative to workspace root or absolute.",
+                "Path to the file to edit. Must be absolute path.",
             },
             old_text: {
               type: "string",
               description:
-                "Exact text snippet to be replaced. Must match the file content exactly (including whitespace).",
+                "Exact text snippet to be replaced. Minimum 3 lines. Must match the file content exactly (including whitespace or tab).",
             },
             new_text: {
               type: "string",

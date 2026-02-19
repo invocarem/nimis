@@ -281,7 +281,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               fullResponse += chunk;
               //console.debug("[Provider] received:", chunk); // Log each chunk to DEBUG console
               const parsed = ResponseParser.parse(fullResponse);
-              console.debug("[Provider] content:", parsed.content);
+              //console.debug("[Provider] content:", parsed.content);
 
               // Diagnostic logging: Check if edit_file tool call appears in streaming response
               if (parsed.tool_calls) {
