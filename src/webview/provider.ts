@@ -367,8 +367,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               isFullContent: false,
             });
 
+            // Record tool call before execution (for counting/limit checking)
+            stateTracker.recordToolCall(toolCall.name, toolCall.arguments);
+
             try {
-              stateTracker.recordToolCall(toolCall.name, toolCall.arguments);
               const toolResult = await toolExecutor(toolCall, {
                 mcpManager: this.mcpManager,
               });
@@ -383,6 +385,15 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 toolResult.content?.map((c) => c.text).join("\n") ||
                 JSON.stringify(toolResult);
               allToolResults.push(toolText);
+
+              // Update the last tool call with result information
+              const resultSummary = toolText.length > 200 
+                ? toolText.substring(0, 200) + "..."
+                : toolText;
+              stateTracker.updateLastToolCallResult({
+                success: !toolResult.isError,
+                summary: resultSummary || undefined,
+              });
 
               // Extract file path from tool call and result, and update working files
               // This tracks when the LLM successfully locates or accesses files via tools
@@ -431,6 +442,13 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             } catch (err: any) {
               const errorText = `Tool execution error: ${err.message}`;
               allToolResults.push(errorText);
+              
+              // Update the last tool call with error result
+              stateTracker.updateLastToolCallResult({
+                success: false,
+                summary: errorText,
+              });
+              
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
                 chunk: errorText,

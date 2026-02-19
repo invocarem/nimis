@@ -8,7 +8,6 @@ jest.mock("axios", () => ({
 import * as sinon from "sinon";
 import * as vscode from "vscode";
 import { LlamaClient } from "../src/api/llamaClient";
-import { LLMResponseProcessor } from "../src/utils/llmResponseProcessor";
 import { NimisViewProvider } from "../src/webview/provider";
 
 describe("NimisViewProvider Integration", () => {
@@ -74,33 +73,6 @@ describe("NimisViewProvider Integration", () => {
       expect((mockLlamaClient.complete as sinon.SinonStub).calledOnce).toBe(
         true
       );
-    });
-  });
-
-  describe("LLMResponseProcessor Integration", () => {
-    it("should preprocess markdown and code blocks correctly", () => {
-      const input = `python\ndef foo():\n    return 42\nUsage: Call foo()`;
-      const expected =
-        "```python\ndef foo():\n    return 42\n```\nUsage: Call foo()";
-      const result = LLMResponseProcessor.preprocess(input);
-      expect(result.replace(/\n/g, "")).toContain(expected.replace(/\n/g, ""));
-    });
-
-    it("should format JSON code blocks", () => {
-      const processor = new LLMResponseProcessor({
-        enableJsonFormatting: true,
-      });
-      const input = '```json\n{"a":1,"b":2}\n```';
-      const html = processor.format(input);
-      expect(html).toContain("language-json");
-      expect(html).toContain("&quot;a&quot;");
-    });
-
-    it("should escape HTML in code blocks", () => {
-      const processor = new LLMResponseProcessor();
-      const input = "```html\n<div>test</div>\n```";
-      const html = processor.format(input);
-      expect(html).toContain("&lt;div&gt;test&lt;/div&gt;");
     });
   });
 

@@ -4,6 +4,10 @@ import * as path from "path";
 export interface ToolCallRecord {
   name: string;
   args?: Record<string, unknown>;
+  result?: {
+    success: boolean;
+    summary?: string; // Brief summary of the result (first 200 chars)
+  };
 }
 
 export interface RuleAppliedRecord {
@@ -182,15 +186,50 @@ export class NimisStateTracker {
     return this.toolCallsThisTurn >= TOOL_CALL_LIMIT_PER_TURN;
   }
 
-  recordToolCall(name: string, args?: Record<string, unknown>): void {
-    this.toolsCalled.push({ name, args });
+  recordToolCall(
+    name: string,
+    args?: Record<string, unknown>,
+    result?: { success: boolean; summary?: string }
+  ): void {
+    this.toolsCalled.push({ name, args, result });
     this.toolCallsThisTurn += 1;
+    // Only log with status if result is provided (otherwise it will be updated later)
+    if (result) {
+      const status = result.success ? "✓" : "✗";
+      const summary = result.summary
+        ? ` - ${result.summary.substring(0, 100)}${result.summary.length > 100 ? "..." : ""}`
+        : "";
+      console.log(
+        `${NimisStateTracker.LOG_PREFIX} [${status}] ${name}${summary}`
+      );
+    } else {
+      console.debug(
+        `${NimisStateTracker.LOG_PREFIX} recordToolCall: ${name} (pending)`
+      );
+    }
     console.debug(
       `${NimisStateTracker.LOG_PREFIX} recordToolCall:`,
       name,
-      args ?? {}
+      args ?? {},
+      result ?? {}
     );
     this._persist();
+  }
+
+  /** Update the result of the last recorded tool call. */
+  updateLastToolCallResult(result: { success: boolean; summary?: string }): void {
+    if (this.toolsCalled.length > 0) {
+      const lastCall = this.toolsCalled[this.toolsCalled.length - 1];
+      lastCall.result = result;
+      const status = result.success ? "✓" : "✗";
+      const summary = result.summary
+        ? ` - ${result.summary.substring(0, 100)}${result.summary.length > 100 ? "..." : ""}`
+        : "";
+      console.log(
+        `${NimisStateTracker.LOG_PREFIX} [${status}] ${lastCall.name}${summary}`
+      );
+      this._persist();
+    }
   }
 
   recordRuleApplied(id: string): void {

@@ -27,7 +27,6 @@ export class NimisManager {
       '<tool_call name="TOOL_NAME" args="{ ... }" />\n\n' +
       "Example (exact):\n" +
       '<tool_call name="read_file" args=\'{ "file_path": "c:/code/foo/src/index.ts" }\' />\n' +
-      'remember to pass the absolute path  \n\n' +
       "Notes:\n" +
       "- Use the attributes `name` and `args` exactly.\n" +
       "- The `args` attribute should contain a valid JSON object as a string.\n" +
@@ -105,7 +104,7 @@ export class NimisManager {
           .join("\n\n");
       }
     }
-    console.log("Generated tool documentation for prompt:\n", doc);
+    //console.log("Generated tool documentation for prompt:\n", doc);
     return doc;
   }
 
@@ -118,7 +117,6 @@ export class NimisManager {
         "Your name is **Nimis**. You are a helpful AI assistant, " +
         "you provide prototyping help to engineers, assisting them in problem solving.\n\n" +
         "You apply a tool or rule only when if it is directly related to the user's current task; otherwise discard them. \n\n" +
-        "Tool call: edit_file, old_text please select multiple lines (minimum 3) of text to modify, do not use the full text. \n\n" +
         NimisManager.forceToolCallHelp(nativeToolManager, mcpManager) +
         "\n\n" +
         "## Guide on **rule** \n\n" +

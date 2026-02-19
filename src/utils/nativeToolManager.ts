@@ -4,6 +4,7 @@ import * as path from "path";
 import * as util from "util";
 import { promisify } from "util";
 import { exec } from "child_process";
+import { EditFileHandler } from "./editFileHandler";
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -49,6 +50,7 @@ export interface NativeToolResult {
 
 export class NativeToolsManager {
   private workspaceRoot: string | undefined;
+  private editFileHandler: EditFileHandler;
 
   constructor(workspaceRoot?: string) {
     if (workspaceRoot) {
@@ -60,6 +62,7 @@ export class NativeToolsManager {
         this.workspaceRoot = workspaceFolders[0].uri.fsPath;
       }
     }
+    this.editFileHandler = new EditFileHandler(workspaceRoot);
   }
 
   private shouldExcludeFolder(
@@ -134,24 +137,26 @@ export class NativeToolsManager {
       {
         name: "edit_file",
         description:
-          "Edit a specific part of a file by replacing an exact text snippet with new text.",
+          "Edit a specific part of a file by replacing an exact text snippet with new text. " +
+          "IMPORTANT: Always include at least 3 lines of context (the line to change plus 1-2 lines before and after). " +
+          "The old_text must match EXACTLY including whitespace. Use read_file first to copy the exact text.",
+
         inputSchema: {
           type: "object",
           properties: {
             file_path: {
               type: "string",
-              description:
-                "Path to the file to edit. Must be absolute path.",
+              description: "Path to the file to edit. Must be absolute path.",
             },
             old_text: {
               type: "string",
               description:
-                "Exact text snippet to be replaced. Minimum 3 lines. Must match the file content exactly (including whitespace or tab).",
+                "EXACT text snippet to be replaced. Include at least 3 lines of context. Must match the file content exactly (including whitespace).",
             },
             new_text: {
               type: "string",
               description:
-                "The replacement text that will substitute `old_text`.",
+                "The replacement text that will substitute `old_text`. Preserve the same indentation level.",
             },
           },
           required: ["file_path", "old_text", "new_text"],
@@ -1215,374 +1220,6 @@ export class NativeToolsManager {
     oldText: string,
     newText: string
   ): Promise<NativeToolResult> {
-    try {
-      const resolvedPath = this.resolvePath(filePath);
-      console.log(
-        `[NativeTools] Editing file: "${filePath}" -> resolved to: "${resolvedPath}"`
-      );
-
-      // Diagnostic logging for old_text mismatch debugging
-      console.log("[NativeTools] [DEBUG] editFile called with:");
-      console.log("[NativeTools] [DEBUG]   oldText length:", oldText?.length);
-      console.log(
-        "[NativeTools] [DEBUG]   oldText (JSON):",
-        JSON.stringify(oldText)
-      );
-      console.log(
-        "[NativeTools] [DEBUG]   oldText (visible whitespace):",
-        oldText?.replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/ /g, "·")
-      );
-      console.log("[NativeTools] [DEBUG]   newText length:", newText?.length);
-
-      // Validate parameters exist (fix "cannot read 'trim' of undefined" error)
-      if (oldText === undefined || oldText === null) {
-        console.error(
-          "[NativeTools] editFile called with undefined/null oldText"
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: old_text parameter is missing or undefined. This usually means the tool call was not parsed correctly. Check the XML processor logs for parsing errors.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      if (newText === undefined || newText === null) {
-        console.error(
-          "[NativeTools] editFile called with undefined/null newText"
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: new_text parameter is missing or undefined. This usually means the tool call was not parsed correctly. Check the XML processor logs for parsing errors.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Validate old_text has sufficient context to avoid ambiguous matches
-      const oldTextTrimmed = oldText.trim();
-      const lineCount = oldTextTrimmed.split("\n").length;
-
-      // Reject if old_text is too short (likely too generic)
-      if (oldTextTrimmed.length < 10) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: old_text is too short (${oldTextTrimmed.length} chars). Please include at least 3 lines of context before and after the text you want to change to ensure a unique match. Consider using read_file first to see the file content, or use replace_file for complete file replacement.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Warn if old_text has insufficient context (less than 2 lines)
-      if (lineCount < 2) {
-        console.warn(
-          `[NativeTools] Warning: old_text has only ${lineCount} line(s). This may match multiple locations.`
-        );
-      }
-
-      // Read the file content
-      const content = await readFile(resolvedPath, "utf-8");
-
-      // Diagnostic logging: Compare oldText with file content
-      console.log("[NativeTools] [DEBUG] File content length:", content.length);
-      console.log(
-        "[NativeTools] [DEBUG] File content (first 500 chars):",
-        content.substring(0, 500)
-      );
-
-      // Check if oldText appears in file (for debugging)
-      const oldTextInFile = content.includes(oldText);
-      console.log(
-        "[NativeTools] [DEBUG] oldText found in file (exact match):",
-        oldTextInFile
-      );
-
-      if (!oldTextInFile) {
-        // Try to find similar text with different whitespace
-        const oldTextLines = oldText.split("\n");
-        const contentLines = content.split("\n");
-        console.log("[NativeTools] [DEBUG] Searching for similar text...");
-        console.log(
-          "[NativeTools] [DEBUG]   oldText first line:",
-          JSON.stringify(oldTextLines[0])
-        );
-        console.log(
-          "[NativeTools] [DEBUG]   oldText second line:",
-          oldTextLines.length > 1 ? JSON.stringify(oldTextLines[1]) : "N/A"
-        );
-
-        // Find the function in the file and show its exact content
-        const functionStartIndex = content.indexOf("def divide(a, b):");
-        if (functionStartIndex !== -1) {
-          const functionEndIndex = content.indexOf(
-            "\ndef ",
-            functionStartIndex + 1
-          );
-          const functionEndIndex2 = content.indexOf(
-            "\nif __name__",
-            functionStartIndex + 1
-          );
-          const actualEnd =
-            functionEndIndex === -1
-              ? functionEndIndex2 === -1
-                ? content.length
-                : functionEndIndex2
-              : Math.min(functionEndIndex, functionEndIndex2);
-          const actualFunctionContent = content.substring(
-            functionStartIndex,
-            actualEnd
-          );
-          console.log(
-            "[NativeTools] [DEBUG]   Actual function in file (JSON):"
-          );
-          console.log(
-            "[NativeTools] [DEBUG]   ",
-            JSON.stringify(actualFunctionContent)
-          );
-          console.log(
-            "[NativeTools] [DEBUG]   Actual function (visible whitespace):"
-          );
-          console.log(
-            "[NativeTools] [DEBUG]   ",
-            actualFunctionContent
-              .replace(/\n/g, "\\n")
-              .replace(/\t/g, "\\t")
-              .replace(/ /g, "·")
-          );
-          console.log("[NativeTools] [DEBUG]   oldText (JSON):");
-          console.log("[NativeTools] [DEBUG]   ", JSON.stringify(oldText));
-          console.log(
-            "[NativeTools] [DEBUG]   Character-by-character comparison:"
-          );
-          const minLen = Math.min(oldText.length, actualFunctionContent.length);
-          for (let i = 0; i < minLen && i < 200; i++) {
-            if (oldText[i] !== actualFunctionContent[i]) {
-              console.log(
-                "[NativeTools] [DEBUG]     Mismatch at position",
-                i,
-                ":"
-              );
-              console.log(
-                "[NativeTools] [DEBUG]       oldText char:",
-                JSON.stringify(oldText[i]),
-                "code:",
-                oldText.charCodeAt(i)
-              );
-              console.log(
-                "[NativeTools] [DEBUG]       file char:",
-                JSON.stringify(actualFunctionContent[i]),
-                "code:",
-                actualFunctionContent.charCodeAt(i)
-              );
-              console.log(
-                "[NativeTools] [DEBUG]       Context (oldText):",
-                JSON.stringify(oldText.substring(Math.max(0, i - 10), i + 10))
-              );
-              console.log(
-                "[NativeTools] [DEBUG]       Context (file):",
-                JSON.stringify(
-                  actualFunctionContent.substring(Math.max(0, i - 10), i + 10)
-                )
-              );
-              break;
-            }
-          }
-          if (oldText.length !== actualFunctionContent.length) {
-            console.log(
-              "[NativeTools] [DEBUG]     Length mismatch: oldText=",
-              oldText.length,
-              "file=",
-              actualFunctionContent.length
-            );
-          }
-        }
-
-        // Find lines in file that might match
-        for (let i = 0; i < contentLines.length && i < 20; i++) {
-          if (contentLines[i].includes(oldTextLines[0]?.trim() || "")) {
-            console.log(
-              "[NativeTools] [DEBUG]   Found similar line in file at index",
-              i,
-              ":",
-              JSON.stringify(contentLines[i])
-            );
-            // Show surrounding lines
-            for (
-              let j = Math.max(0, i - 2);
-              j < Math.min(contentLines.length, i + 5);
-              j++
-            ) {
-              console.log(
-                "[NativeTools] [DEBUG]     Line",
-                j,
-                ":",
-                JSON.stringify(contentLines[j])
-              );
-            }
-          }
-        }
-      }
-
-      // Normalize line endings: convert both to LF for comparison
-      // This handles Windows (CRLF) vs Unix (LF) line ending differences
-      const normalizedOldText = oldText
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n");
-      const normalizedContent = content
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n");
-
-      // Check if normalized oldText appears in normalized file content
-      const normalizedMatch = normalizedContent.includes(normalizedOldText);
-      console.log("[NativeTools] [DEBUG] After line ending normalization:");
-      console.log(
-        "[NativeTools] [DEBUG]   Normalized match found:",
-        normalizedMatch
-      );
-
-      if (normalizedMatch) {
-        // Use normalized versions for matching and replacement
-        const escapedOldText = normalizedOldText.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          "\\$&"
-        );
-        const matchRegex = new RegExp(escapedOldText, "g");
-        const matches = normalizedContent.match(matchRegex);
-        const occurrences = matches ? matches.length : 0;
-
-        console.log(
-          "[NativeTools] [DEBUG] Normalized regex match occurrences:",
-          occurrences
-        );
-
-        if (occurrences === 0) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error: Could not find the specified text in ${filePath}. The old_text must match exactly (including whitespace and line breaks).`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        if (occurrences > 1) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error: Found ${occurrences} matches for old_text in ${filePath}. Please include more surrounding context (3-5 lines before and after) to make the match unique.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        // Perform the replacement on normalized content, then convert back to original line endings
-        const normalizedNewText = newText
-          .replace(/\r\n/g, "\n")
-          .replace(/\r/g, "\n");
-        let newNormalizedContent = normalizedContent.replace(
-          normalizedOldText,
-          normalizedNewText
-        );
-
-        // Preserve original line endings from file (convert back to CRLF if file had CRLF)
-        const hasCRLF = content.includes("\r\n");
-        if (hasCRLF) {
-          newNormalizedContent = newNormalizedContent.replace(/\n/g, "\r\n");
-        }
-
-        // Write the updated content back to the file
-        await writeFile(resolvedPath, newNormalizedContent, "utf-8");
-
-        console.log(
-          `[NativeTools] File edited successfully (with line ending normalization)`
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Successfully edited ${filePath}`,
-            },
-          ],
-        };
-      }
-
-      // Fallback to original matching if normalization didn't help
-      // Escape special regex characters in oldText for literal matching
-      const escapedOldText = oldText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-      // Count occurrences of oldText in the file
-      const matchRegex = new RegExp(escapedOldText, "g");
-      const matches = content.match(matchRegex);
-      const occurrences = matches ? matches.length : 0;
-
-      console.log(
-        "[NativeTools] [DEBUG] Regex match occurrences:",
-        occurrences
-      );
-
-      if (occurrences === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: Could not find the specified text in ${filePath}. The old_text must match exactly (including whitespace and line breaks).`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      if (occurrences > 1) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: Found ${occurrences} matches for old_text in ${filePath}. Please include more surrounding context (3-5 lines before and after) to make the match unique.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Perform the replacement - use the literal oldText for replacement
-      const newContent = content.replace(oldText, newText);
-
-      // Write the updated content back to the file
-      await writeFile(resolvedPath, newContent, "utf-8");
-
-      console.log(`[NativeTools] File edited successfully`);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Successfully edited ${filePath}`,
-          },
-        ],
-      };
-    } catch (error: any) {
-      console.error(`[NativeTools] Error in editFile: ${error.message}`);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error editing file ${filePath}: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
-    }
+    return await this.editFileHandler.editFile(filePath, oldText, newText);
   }
 }
