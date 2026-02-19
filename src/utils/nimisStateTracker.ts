@@ -276,6 +276,20 @@ export class NimisStateTracker {
   formatForPrompt(): string {
     const parts: string[] = [];
 
+    // Working files (if any) - prioritize this section and make it very explicit
+    // Put it first so the LLM sees it early and knows which files are available
+    if (Object.keys(this.workingFiles).length > 0) {
+      const fileList = Object.entries(this.workingFiles)
+        .map(([fileName, fullPath]) => `  - ${fileName} → ${fullPath}`)
+        .join("\n");
+      parts.push(
+        `**📁 Available Working Files (use these exact paths in tool calls):**\n` +
+        `${fileList}\n` +
+        `\n⚠️ IMPORTANT: When referencing files, use the FULL PATH shown above. ` +
+        `If you need to read/edit a file, use the exact path from this list in your tool calls.`
+      );
+    }
+
     if (this.problem) {
       parts.push(`**Problem:** ${this.problem}`);
     }
@@ -296,18 +310,10 @@ export class NimisStateTracker {
       parts.push(`**User feedback:** ${this.feedback.join("; ")}`);
     }
 
-    // Working files (if any) - files that have been accessed/read in this session
-    if (Object.keys(this.workingFiles).length > 0) {
-      const fileList = Object.entries(this.workingFiles)
-        .map(([fileName, fullPath]) => `  - ${fileName} (${fullPath})`)
-        .join("\n");
-      parts.push(`**Working files:**\n${fileList}`);
-    }
-
     if (parts.length === 0) return "";
 
     const formatted =
-      "\n\n## Current session state\n" + parts.join("\n") + "\n";
+      "\n\n## Current session state\n" + parts.join("\n\n") + "\n";
     console.debug(`${NimisStateTracker.LOG_PREFIX} formatForPrompt:`, {
       problem: !!this.problem,
       toolsCount: this.toolsCalled.length,
