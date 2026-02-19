@@ -443,8 +443,7 @@ export class NativeToolsManager {
     try {
       const resolvedPath = this.resolvePath(filePath);
       console.log(
-        `[NativeTools] Reading file: "${filePath}" -> resolved to: "${resolvedPath}" (workspaceRoot: ${
-          this.workspaceRoot || "undefined"
+        `[NativeTools] Reading file: "${filePath}" -> resolved to: "${resolvedPath}" (workspaceRoot: ${this.workspaceRoot || "undefined"
         })`
       );
 
@@ -482,13 +481,12 @@ export class NativeToolsManager {
           content: [
             {
               type: "text",
-              text: `Cannot read binary file "${filePath}". Binary files (${ext}) cannot be read as text.${
-                ext === ".docx" || ext === ".pdf"
-                  ? ' To convert DOCX/PDF files to markdown, use the conversion command: "convert ' +
-                    filePath +
-                    ' to markdown"'
-                  : ""
-              }`,
+              text: `Cannot read binary file "${filePath}". Binary files (${ext}) cannot be read as text.${ext === ".docx" || ext === ".pdf"
+                ? ' To convert DOCX/PDF files to markdown, use the conversion command: "convert ' +
+                filePath +
+                ' to markdown"'
+                : ""
+                }`,
             },
           ],
           isError: true,
@@ -697,8 +695,7 @@ export class NativeToolsManager {
       const formatted = results
         .map(
           (item) =>
-            `${item.type === "directory" ? "📁" : "📄"} ${item.path}${
-              item.size !== undefined ? ` (${this.formatSize(item.size)})` : ""
+            `${item.type === "directory" ? "📁" : "📄"} ${item.path}${item.size !== undefined ? ` (${this.formatSize(item.size)})` : ""
             }`
         )
         .join("\n");
@@ -707,9 +704,8 @@ export class NativeToolsManager {
         content: [
           {
             type: "text",
-            text: `Files in ${
-              directoryPath || "workspace root"
-            }:\n\n${formatted}`,
+            text: `Files in ${directoryPath || "workspace root"
+              }:\n\n${formatted}`,
           },
         ],
       };
@@ -1017,9 +1013,39 @@ export class NativeToolsManager {
     return regex.test(filename);
   }
 
+  private async detectShell(): Promise<string> {
+    // On Windows, prefer Git Bash if available (common in development environments)
+    if (process.platform === "win32") {
+      const gitBashPaths = [
+        "C:\\Program Files\\Git\\bin\\bash.exe",
+        "C:\\Program Files (x86)\\Git\\bin\\bash.exe",
+        process.env.GIT_BASH_PATH, // Allow override via environment variable
+      ].filter(Boolean) as string[];
+
+      for (const bashPath of gitBashPaths) {
+        try {
+          await stat(bashPath);
+          console.log(`[NativeTools] Using Git Bash: ${bashPath}`);
+          return bashPath;
+        } catch {
+          // Continue to next path
+          continue;
+        }
+      }
+
+      // Fallback to cmd.exe on Windows
+      console.log(`[NativeTools] Using cmd.exe (Git Bash not found)`);
+      return "cmd.exe";
+    }
+
+    // On Unix-like systems, use bash
+    return "/bin/bash";
+  }
+
   private async enhanceCommandWithVenv(
     command: string,
-    cwd: string
+    cwd: string,
+    shell: string
   ): Promise<string> {
     // Check if command targets Python
     const pythonTargetRegex =
@@ -1029,6 +1055,10 @@ export class NativeToolsManager {
       // Not a Python command, return as is
       return command;
     }
+
+    // Determine if we're using bash or cmd.exe
+    const isBash = shell.includes("bash") || shell === "/bin/bash";
+    const isCmd = shell === "cmd.exe" || shell.endsWith("cmd.exe");
 
     // Look for virtual environment in the working directory
     const venvPaths = [
@@ -1052,19 +1082,34 @@ export class NativeToolsManager {
 
           try {
             await stat(activatePath);
-            // Unix-style venv found - use absolute path so it works from any directory
+            // Unix-style venv found
             console.log(`[NativeTools] Found venv at ${venvPath}`);
-            return `source "${activatePath}" && ${command}`;
-          } catch {
-            try {
-              await stat(activateWindowsPath);
-              // Windows-style venv found - use absolute path so it works from any directory
-              console.log(`[NativeTools] Found venv at ${venvPath}`);
-              return `"${activateWindowsPath}" && ${command}`;
-            } catch {
-              // Continue to next venv path
-              continue;
+            if (isBash) {
+              // Use source for bash (works in Git Bash and Unix)
+              return `source "${activatePath}" && ${command}`;
             }
+            // cmd.exe can't use Unix-style activate, skip and try Windows-style
+            // (fall through to check activateWindowsPath)
+          } catch {
+            // Unix-style not found, continue to check Windows-style
+          }
+
+          try {
+            await stat(activateWindowsPath);
+            // Windows-style venv found
+            console.log(`[NativeTools] Found venv at ${venvPath}`);
+            if (isBash) {
+              // Git Bash can use source with Windows paths
+              return `source "${activateWindowsPath}" && ${command}`;
+            } else if (isCmd) {
+              // Use call for cmd.exe (or just run it directly)
+              return `"${activateWindowsPath}" && ${command}`;
+            }
+            // Fallback: try bash syntax
+            return `source "${activateWindowsPath}" && ${command}`;
+          } catch {
+            // Neither activate script found, continue to next venv path
+            continue;
           }
         }
       } catch {
@@ -1113,8 +1158,22 @@ export class NativeToolsManager {
         `[NativeTools] Executing command: "${command}" in directory: "${cwd}"`
       );
 
+      // Detect the appropriate shell (prefer Git Bash on Windows if available)
+      const shell = await this.detectShell();
+
       // Check if command targets Python and use venv if available
-      const enhancedCommand = await this.enhanceCommandWithVenv(command, cwd);
+      const enhancedCommand = await this.enhanceCommandWithVenv(
+        command,
+        cwd,
+        shell
+      );
+
+      // Log the enhanced command for debugging
+      if (enhancedCommand !== command) {
+        console.log(
+          `[NativeTools] Enhanced command with venv: "${enhancedCommand}"`
+        );
+      }
 
       // Use promisify to convert exec to promise-based
       const execAsync = promisify(exec);
@@ -1123,7 +1182,7 @@ export class NativeToolsManager {
       const timeout = 30000; // 30 seconds
       const execPromise = execAsync(enhancedCommand, {
         cwd: cwd,
-        shell: process.platform === "win32" ? "cmd.exe" : "/bin/bash",
+        shell: shell,
         maxBuffer: 1024 * 1024 * 10, // 10MB buffer for output
         timeout: timeout,
       });
