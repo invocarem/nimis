@@ -16,7 +16,7 @@ export interface NimisStateSnapshot {
   rulesApplied: RuleAppliedRecord[];
   feedback: string[];
   lastUpdated: string;
-  currentFilePath?: string;
+  workingFiles?: Record<string, string>; // filename -> full path
 }
 
 /**
@@ -36,13 +36,41 @@ export class NimisStateTracker {
   /** Tool calls in the current turn (reset when user sends a new message). */
   private toolCallsThisTurn: number = 0;
 
-  // File context tracking — keep a single current file path so the LLM "remembers"
-  private currentFilePath?: string;
+  // File context tracking — map of filename -> full path for all accessed files
+  private workingFiles: Record<string, string> = {};
 
   private static readonly LOG_PREFIX = "[NimisStateTracker]";
 
   constructor(options?: { persistPath?: string }) {
     this.persistPath = options?.persistPath;
+    // Load persisted state if it exists
+    this._load();
+  }
+
+  private _load(): void {
+    if (!this.persistPath || !fs.existsSync(this.persistPath)) return;
+    try {
+      const content = fs.readFileSync(this.persistPath, "utf-8");
+      const snapshot: any = JSON.parse(content);
+
+      this.problem = snapshot.problem || "";
+      this.toolsCalled = snapshot.toolsCalled || [];
+      this.rulesApplied = snapshot.rulesApplied || [];
+      this.feedback = snapshot.feedback || [];
+
+      // Load workingFiles
+      if (snapshot.workingFiles) {
+        this.workingFiles = { ...snapshot.workingFiles };
+      } else {
+        this.workingFiles = {};
+      }
+
+      console.debug(
+        `${NimisStateTracker.LOG_PREFIX} loaded state from ${this.persistPath}`
+      );
+    } catch (err) {
+      console.warn(`${NimisStateTracker.LOG_PREFIX} failed to load state:`, err);
+    }
   }
 
   private _persist(): void {
@@ -58,7 +86,7 @@ export class NimisStateTracker {
         rulesApplied: [...this.rulesApplied],
         feedback: [...this.feedback],
         lastUpdated: new Date().toISOString(),
-        currentFilePath: this.currentFilePath,
+        workingFiles: Object.keys(this.workingFiles).length > 0 ? { ...this.workingFiles } : undefined,
       };
       fs.writeFileSync(
         this.persistPath,
@@ -82,7 +110,7 @@ export class NimisStateTracker {
     this._persist();
   }
 
-  /** File context management — remember only the current file path.
+  /** File context management — remember all accessed files as a map of filename -> full path.
    *  Exclude internal persisted state file (.nimis/state.json).
    */
   setCurrentFile(filePath: string, _content?: string): void {
@@ -97,10 +125,11 @@ export class NimisStateTracker {
         return;
       }
 
-      this.currentFilePath = normalized;
+      const fileName = path.basename(normalized);
+      this.workingFiles[fileName] = normalized;
       console.debug(
         `${NimisStateTracker.LOG_PREFIX} setCurrentFile:`,
-        this.currentFilePath
+        `${fileName} -> ${normalized}`
       );
       this._persist();
     } catch (err) {
@@ -110,19 +139,37 @@ export class NimisStateTracker {
         filePath,
         err
       );
-      this.currentFilePath = filePath;
+      const fileName = path.basename(filePath);
+      this.workingFiles[fileName] = filePath;
       this._persist();
     }
   }
 
-  clearCurrentFile(): void {
-    this.currentFilePath = undefined;
-    console.debug(`${NimisStateTracker.LOG_PREFIX} clearCurrentFile`);
+  /** Clear a specific file by filename, or clear all files if no filename provided. */
+  clearCurrentFile(fileName?: string): void {
+    if (fileName) {
+      delete this.workingFiles[fileName];
+      console.debug(`${NimisStateTracker.LOG_PREFIX} clearCurrentFile:`, fileName);
+    } else {
+      this.workingFiles = {};
+      console.debug(`${NimisStateTracker.LOG_PREFIX} clearCurrentFile: all files cleared`);
+    }
     this._persist();
   }
 
-  getCurrentFilePath(): string | undefined {
-    return this.currentFilePath;
+  /** Get the full path for a specific file by filename, or undefined if not found. */
+  getCurrentFilePath(fileName?: string): string | undefined {
+    if (fileName) {
+      return this.workingFiles[fileName];
+    }
+    // For backward compatibility: return the most recently added file (last in object)
+    const entries = Object.entries(this.workingFiles);
+    return entries.length > 0 ? entries[entries.length - 1][1] : undefined;
+  }
+
+  /** Get all working files as a map of filename -> full path. */
+  getWorkingFiles(): Readonly<Record<string, string>> {
+    return { ...this.workingFiles };
   }
 
   /** Call when the user sends a new message to reset per-turn tool count. */
@@ -181,7 +228,7 @@ export class NimisStateTracker {
     this.rulesApplied = [];
     this.feedback = [];
     this.toolCallsThisTurn = 0;
-    this.currentFilePath = undefined;
+    this.workingFiles = {};
     console.debug(`${NimisStateTracker.LOG_PREFIX} reset`);
     this._persist();
   }
@@ -210,9 +257,12 @@ export class NimisStateTracker {
       parts.push(`**User feedback:** ${this.feedback.join("; ")}`);
     }
 
-    // Current file (if any)
-    if (this.currentFilePath) {
-      parts.push(`**Current file:** ${this.currentFilePath} (current)`);
+    // Working files (if any) - files that have been accessed/read in this session
+    if (Object.keys(this.workingFiles).length > 0) {
+      const fileList = Object.entries(this.workingFiles)
+        .map(([fileName, fullPath]) => `  - ${fileName} (${fullPath})`)
+        .join("\n");
+      parts.push(`**Working files:**\n${fileList}`);
     }
 
     if (parts.length === 0) return "";
@@ -224,7 +274,7 @@ export class NimisStateTracker {
       toolsCount: this.toolsCalled.length,
       rulesCount: this.rulesApplied.length,
       feedbackCount: this.feedback.length,
-      hasCurrentFile: !!this.currentFilePath,
+      workingFilesCount: Object.keys(this.workingFiles).length,
     });
     return formatted;
   }

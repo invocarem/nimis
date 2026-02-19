@@ -26,7 +26,7 @@ export class NimisManager {
       "You MUST use the exact XML syntax shown below when invoking a tool. The assistant's response should contain the literal XML tag (preferably on its own line) and must NOT rely on model-level function calls.\n\n" +
       '<tool_call name="TOOL_NAME" args="{ ... }" />\n\n' +
       "Example (exact):\n" +
-      '<tool_call name="read_file" args=\'{ "file_path": "src/index.ts" }\' />\n\n' +
+      '<tool_call name="read_file" args=\'{ "file_path": "c:/code/foo/src/index.ts" }\' />\n\n' +
       "Notes:\n" +
       "- Use the attributes `name` and `args` exactly.\n" +
       "- The `args` attribute should contain a valid JSON object as a string.\n" +

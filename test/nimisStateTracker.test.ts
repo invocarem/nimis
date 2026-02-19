@@ -1,14 +1,13 @@
 import * as path from "path";
 import { NimisStateTracker } from "../src/utils/nimisStateTracker";
 
-describe("NimisStateTracker — currentFile", () => {
-  it("setCurrentFile and formatForPrompt includes current file path", () => {
+describe("NimisStateTracker — workingFiles", () => {
+  it("setCurrentFile and formatForPrompt includes working files path", () => {
     const s = new NimisStateTracker();
     s.setCurrentFile("src/index.ts", "export const x = 1;");
     const prompt = s.formatForPrompt();
     expect(prompt).toContain("Current session state");
     expect(prompt).toContain(path.normalize("src/index.ts"));
-    expect(prompt).toContain("(current)");
     expect(prompt).not.toContain("export const x = 1;");
   });
 

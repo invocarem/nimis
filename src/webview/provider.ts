@@ -8,6 +8,7 @@ import { TOOL_CALL_LIMIT_PER_TURN } from "../utils/nimisStateTracker";
 import type { MCPManager } from "../mcpManager";
 import type { RulesManager } from "../rulesManager";
 import { parse } from "path";
+import * as path from "path";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -56,7 +57,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     this._initializeLlamaClient();
 
     // If there is an active editor when the view opens, remember that file as initial context
-    // (This is just a fallback - currentFilePath will be updated when LLM uses tools to access files)
+    // (This is just a fallback - working files will be updated when LLM uses tools to access files)
     const active = vscode.window.activeTextEditor;
     if (
       active &&
@@ -70,7 +71,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     }
 
     // Note: We no longer listen for active-editor changes.
-    // currentFilePath is now tracked based on tool calls (read_file, find_files, etc.)
+    // Working files are now tracked based on tool calls (read_file, find_files, etc.)
     // so the LLM "remembers" which files it has actually accessed.
 
     // Handle messages from the webview
@@ -140,7 +141,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
   /**
    * Extracts a file path from a tool call and its result.
-   * Updates currentFilePath when tools successfully locate or access files.
+   * Updates working files map when tools successfully locate or access files.
    */
   private _extractFilePathFromToolCall(
     toolCall: { name: string; arguments?: Record<string, any> },
@@ -163,7 +164,28 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     ) {
       const filePath = args.file_path || args.filePath;
       if (typeof filePath === "string" && filePath.trim()) {
-        return filePath;
+        // Resolve to absolute path if relative
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceRoot && !path.isAbsolute(filePath)) {
+          return path.resolve(workspaceRoot, filePath);
+        }
+        return path.isAbsolute(filePath) ? filePath : undefined;
+      }
+    }
+
+    // For list_files: track the directory that was listed
+    if (toolName === "list_files") {
+      const directoryPath = args.directory_path || args.directoryPath;
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (directoryPath && typeof directoryPath === "string" && directoryPath.trim()) {
+        // Resolve to absolute path if relative
+        if (workspaceRoot && !path.isAbsolute(directoryPath)) {
+          return path.resolve(workspaceRoot, directoryPath);
+        }
+        return path.isAbsolute(directoryPath) ? directoryPath : undefined;
+      } else if (workspaceRoot) {
+        // No directory specified, means workspace root was listed
+        return workspaceRoot;
       }
     }
 
@@ -174,7 +196,13 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       // Extract the first file path after the emoji
       const match = resultText.match(/📄\s+([^\n]+)/);
       if (match && match[1]) {
-        return match[1].trim();
+        const extractedPath = match[1].trim();
+        // Resolve to absolute path if relative
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceRoot && !path.isAbsolute(extractedPath)) {
+          return path.resolve(workspaceRoot, extractedPath);
+        }
+        return path.isAbsolute(extractedPath) ? extractedPath : undefined;
       }
     }
 
@@ -356,7 +384,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 JSON.stringify(toolResult);
               allToolResults.push(toolText);
 
-              // Extract file path from tool call and result, and update currentFilePath
+              // Extract file path from tool call and result, and update working files
               // This tracks when the LLM successfully locates or accesses files via tools
               try {
                 const filePath = this._extractFilePathFromToolCall(
@@ -364,7 +392,22 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                   toolResult
                 );
                 if (filePath) {
+                  console.debug(
+                    "[Provider] Extracted file path from tool call:",
+                    toolCall.name,
+                    "->",
+                    filePath
+                  );
                   stateTracker.setCurrentFile(filePath);
+                } else {
+                  console.debug(
+                    "[Provider] No file path extracted from tool call:",
+                    toolCall.name,
+                    "args:",
+                    toolCall.arguments,
+                    "isError:",
+                    toolResult.isError
+                  );
                 }
               } catch (e) {
                 // ignore errors in file path extraction
