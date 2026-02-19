@@ -1212,7 +1212,7 @@ export class NativeToolsManager {
             content: [
               {
                 type: "text",
-                text: `Command timed out after ${timeout}ms. The command may still be running.`,
+                text: "timeout",
               },
             ],
             isError: true,
@@ -1266,7 +1266,7 @@ export class NativeToolsManager {
         content: [
           {
             type: "text",
-            text: `Error executing command: ${error.message}`,
+            text: "Error executing command",
           },
         ],
         isError: true,
