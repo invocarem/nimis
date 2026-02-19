@@ -252,7 +252,7 @@ export class NativeToolsManager {
       {
         name: "exec_terminal",
         description:
-          "Execute a shell command in the terminal. Use this to run scripts, execute programs, change directories, or run any command-line operations. Supports command chaining with && (e.g., 'cd /path/to/folder && python calc.py'). Returns the command output. The command runs in the workspace root directory by default, or in the specified working_directory. IMPORTANT: Never use .harmony folder as working_directory - it's only for storing metadata files.",
+          "Execute a shell command in the terminal. Use this to run scripts, execute programs, change directories, or run any command-line operations. Supports command chaining with && (e.g., 'cd /path/to/folder && python calc.py'). Returns the command output. The command runs in the workspace root directory by default, or in the specified working_directory. IMPORTANT: Never use .nimis folder as working_directory - it's only for storing metadata files.",
         inputSchema: {
           type: "object",
           properties: {
@@ -777,7 +777,7 @@ export class NativeToolsManager {
   ): Promise<NativeToolResult> {
     try {
       const resolvedPath = this.resolveDirectoryPath(directoryPath);
-
+      console.log(`[find_files] Workspace root: ${this.workspaceRoot}`);
       const results: Array<{
         file: string;
         path: string;
@@ -1090,20 +1090,20 @@ export class NativeToolsManager {
         ? this.resolvePath(workingDirectory, true)
         : this.resolveDirectoryPath();
 
-      // If the working directory is inside .harmony folder, use the workspace root instead
-      // .harmony is just for storing files, not for executing commands
-      if (cwd.includes(path.sep + ".harmony")) {
+      // If the working directory is inside .nimis folder, use the workspace root instead
+      // .nimis is just for storing files, not for executing commands
+      if (cwd.includes(path.sep + ".nimis")) {
         // First try to use the stored workspace root
         if (this.workspaceRoot) {
           console.log(
-            `[NativeTools] Working directory is inside .harmony folder, using workspace root instead: "${this.workspaceRoot}"`
+            `[NativeTools] Working directory is inside .nimis folder, using workspace root instead: "${this.workspaceRoot}"`
           );
           cwd = this.workspaceRoot;
         } else {
           // Fallback: extract workspace root from the path
-          const workspaceRoot = cwd.split(path.sep + ".harmony")[0];
+          const workspaceRoot = cwd.split(path.sep + ".nimis")[0];
           console.log(
-            `[NativeTools] Working directory is inside .harmony folder, using extracted workspace root: "${workspaceRoot}"`
+            `[NativeTools] Working directory is inside .nimis folder, using extracted workspace root: "${workspaceRoot}"`
           );
           cwd = workspaceRoot;
         }
