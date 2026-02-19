@@ -1,5 +1,4 @@
 import { extractToolCall, extractHarmonyToolCall, MCPToolCall } from "./toolCallExtractor";
-import { LLMResponseProcessor } from "./llmResponseProcessor";
 import { XmlProcessor } from "./xmlProcessor";
 
 /**
@@ -35,7 +34,8 @@ export class HarmonyParser {
     if (!input.includes("<|start|>")) {
       const reasoning = this.extractReasoning(input, [], {});
       const tool_calls = this.extractToolCalls(input);
-      const content = LLMResponseProcessor.preprocess(input);
+      // Send raw content - client will handle all formatting
+      const content = input;
 
       return {
         reasoning,
@@ -90,16 +90,16 @@ export class HarmonyParser {
     }
     // If we found a message in any block, use the last one; else fallback
     finalMessage = lastMessage || input;
-    
+
     // Extract reasoning from channels or tags
     const reasoning = this.extractReasoning(input, channels, metadata);
-    
+
     // Extract tool calls
     const tool_calls = this.extractToolCalls(input);
-    
-    // Preprocess content for display
-    const content = LLMResponseProcessor.preprocess(finalMessage.trim());
-    
+
+    // Send raw content - client will handle all formatting
+    const content = finalMessage.trim();
+
     return {
       reasoning,
       tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
@@ -107,7 +107,7 @@ export class HarmonyParser {
       raw: input,
     };
   }
-  
+
   /**
    * Extract reasoning/thinking content from response
    * Looks for content between <thinking> tags or similar patterns
@@ -118,27 +118,27 @@ export class HarmonyParser {
     if (thinkingMatch) {
       return thinkingMatch[1].trim();
     }
-    
+
     // Look for reasoning tags
     const reasoningMatch = response.match(/<reasoning>(.*?)<\/reasoning>/s);
     if (reasoningMatch) {
       return reasoningMatch[1].trim();
     }
-    
+
     // Look for Harmony channel="think" or channel="reasoning"
     const thinkChannelMatch = response.match(/<\|channel\|>think<\|message\|>(.*?)(?=<\|channel\|>|<\|end\|>)/s);
     if (thinkChannelMatch) {
       return thinkChannelMatch[1].trim();
     }
-    
+
     const reasoningChannelMatch = response.match(/<\|channel\|>reasoning<\|message\|>(.*?)(?=<\|channel\|>|<\|end\|>)/s);
     if (reasoningChannelMatch) {
       return reasoningChannelMatch[1].trim();
     }
-    
+
     return undefined;
   }
-  
+
   /**
    * Extract all tool calls from response (supports multiple)
    * Returns array of tool calls in order they appear
@@ -192,7 +192,7 @@ export class HarmonyParser {
 
     return toolCalls;
   }
-  
+
   /**
    * Legacy method for backward compatibility
    * @deprecated Use parse() instead which returns ParsedResponse
