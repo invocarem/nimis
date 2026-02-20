@@ -109,6 +109,37 @@ describe("XmlProcessor", () => {
         expect(result[0].args.content).toBe(codeContent);
       });
 
+      it("should parse exec_terminal with Windows path (unescaped backslashes in JSON)", () => {
+        // LLM outputs c:\code instead of c:\\code - "Bad escaped character" at \c, \g
+        const toolCall =
+          '<tool_call name="exec_terminal" args=\'{ "command": "cd c:\\code\\github\\calc && python hello.py --name Bob" }\' />';
+        const result = XmlProcessor.extractToolCalls(toolCall);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("exec_terminal");
+        expect(result[0].args.command).toBe(
+          "cd c:\\code\\github\\calc && python hello.py --name Bob"
+        );
+      });
+
+      it("should parse create_file tool call from llama-server dump (content-only format)", () => {
+        // Exact tool call from llama-server parsed message - uses \\n and \\" for valid JSON escapes
+        const toolCall =
+          '<tool_call name="create_file" args=\'{ "file_path": "hello.py", "content": "# Python script to greet Maria\\n\\ndef greet_maria():\\n    \\"\\"\\"Function to greet Maria\\"\\"\\"\\n    print(\\"Hello, Maria!\\")\\n    print(\\"Nice to meet you!\\")\\n\\nif __name__ == \\"__main__\\":\\n    greet_maria()\\n" }\' />';
+        const result = XmlProcessor.extractToolCalls(toolCall);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("create_file");
+        expect(result[0].args.file_path).toBe("hello.py");
+        const content = result[0].args.content;
+        expect(content).toContain("# Python script to greet Maria");
+        expect(content).toContain("def greet_maria():");
+        expect(content).toContain('"""Function to greet Maria"""');
+        expect(content).toContain('print("Hello, Maria!")');
+        expect(content).toContain('if __name__ == "__main__":');
+        expect(content).toContain("greet_maria()");
+      });
+
       it("should handle JSON with HTML entities", () => {
         const jsonArgs =
           '{"file_path": "test.html", "content": "&lt;div&gt;Hello&lt;/div&gt;"}';

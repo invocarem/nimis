@@ -1,4 +1,4 @@
-import { extractToolCall, extractHarmonyToolCall, MCPToolCall } from "./toolCallExtractor";
+import { extractHarmonyToolCall, MCPToolCall } from "./toolCallExtractor";
 import { XmlProcessor } from "./xmlProcessor";
 
 /**
@@ -169,24 +169,6 @@ export class HarmonyParser {
           name: xmlCall.name,
           arguments: xmlCall.args || {}
         }));
-      }
-    }
-
-    // Fallback: find all tool_call( patterns in the response (deprecated, kept for backward compatibility)
-    let searchString = response;
-    while (true) {
-      const callStart = searchString.indexOf("tool_call(");
-      if (callStart === -1) break;
-
-      const remaining = searchString.slice(callStart);
-      const toolCall = extractToolCall(remaining);
-
-      if (toolCall) {
-        toolCalls.push(toolCall);
-        const callEnd = remaining.indexOf(")", remaining.indexOf("tool_call(")) + 1;
-        searchString = remaining.slice(callEnd);
-      } else {
-        searchString = searchString.slice(callStart + "tool_call(".length);
       }
     }
 

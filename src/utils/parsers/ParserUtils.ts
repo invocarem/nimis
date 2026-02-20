@@ -41,12 +41,32 @@ export class ParserUtils {
   /**
    * Decode HTML entities and parse JSON
    * Handles triple-quoted strings (""") that LLMs sometimes output in JSON
+   * Fixes invalid escape sequences (e.g. Windows paths c:\code where LLM outputs single backslash)
    */
   static decodeAndParseJson(jsonStr: string): any {
     const decoded = HtmlEntityDecoder.decode(jsonStr);
     // Normalize triple-quoted strings before JSON.parse
     const normalized = this.normalizeTripleQuotedStrings(decoded);
-    return JSON.parse(normalized);
+    // Fix invalid JSON escapes (e.g. \c, \g in c:\code\github - valid: \" \\ \/ \b \f \n \r \t \uXXXX)
+    const fixedEscapes = this.fixInvalidJsonEscapes(normalized);
+    return JSON.parse(fixedEscapes);
+  }
+
+  /**
+   * Fix invalid JSON escape sequences. LLMs often output Windows paths like c:\code
+   * with single backslashes; JSON requires \\ for literal backslash.
+   * Valid escapes: \" \\ \/ \b \f \n \r \t \uXXXX
+   */
+  private static fixInvalidJsonEscapes(jsonStr: string): string {
+    return jsonStr.replace(/\\(.)/g, (match, char, offset) => {
+      if ('"\\/bfnrt'.includes(char)) return match;
+      if (char === "u") {
+        const hex = jsonStr.slice(offset + 2, offset + 6);
+        if (/^[0-9a-fA-F]{4}$/.test(hex)) return match;
+      }
+      // Invalid: \c, \g, \:, etc. - escape the backslash so it becomes literal
+      return "\\\\" + char;
+    });
   }
 
   /**

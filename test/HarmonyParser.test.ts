@@ -112,5 +112,25 @@ describe("HarmonyParser", () => {
       expect(result.tool_calls?.[0].name).toBe("tool1");
       expect(result.tool_calls?.[1].name).toBe("tool2");
     });
+
+    it("should extract create_file from llama-server content-only format (parsed message)", () => {
+      // Simulates the content field from llama-server parsed message:
+      // Content-only format with optional prefix + tool call
+      const toolCall =
+        '<tool_call name="create_file" args=\'{ "file_path": "hello.py", "content": "# Python script to greet Maria\\n\\ndef greet_maria():\\n    \\"\\"\\"Function to greet Maria\\"\\"\\"\\n    print(\\"Hello, Maria!\\")\\n    print(\\"Nice to meet you!\\")\\n\\nif __name__ == \\"__main__\\":\\n    greet_maria()\\n" }\' />';
+      const contentOnly =
+        "æ<88><91>ä¼<9a>å¸®ä½ å<88><9b>å»ºä¸<80>ä¸ªPythonè<84><9a>æ<9c>¬æ<9d>¥é<97>®å<80><99>Mariaã<80><82>\n\n" +
+        toolCall;
+      const result: ParsedResponse = HarmonyParser.parse(contentOnly);
+
+      expect(result.tool_calls).toBeDefined();
+      expect(result.tool_calls?.length).toBe(1);
+      expect(result.tool_calls?.[0].name).toBe("create_file");
+      expect(result.tool_calls?.[0].arguments?.file_path).toBe("hello.py");
+      const content = result.tool_calls?.[0].arguments?.content ?? "";
+      expect(content).toContain("# Python script to greet Maria");
+      expect(content).toContain("def greet_maria():");
+      expect(content).toContain('if __name__ == "__main__":');
+    });
   });
 });

@@ -25,7 +25,7 @@ export class LlamaClient {
     this.serverUrl = serverUrl;
     this.client = axios.create({
       baseURL: serverUrl,
-      timeout: 120000, // 2 minutes timeout
+      timeout: 300000, // 5 minutes timeout
       headers: {
         "Content-Type": "application/json",
       },
@@ -127,7 +127,11 @@ export class LlamaClient {
                   resolve();
                 }
               } catch (e) {
-                console.error(`[STREAM] Failed to parse streaming data:`, line, e);
+                console.error(
+                  `[STREAM] Failed to parse streaming data:`,
+                  line,
+                  e
+                );
               }
             }
           }
@@ -150,7 +154,11 @@ export class LlamaClient {
       });
     } catch (error: any) {
       // Handle abort errors gracefully
-      if (error.name === "CanceledError" || error.name === "AbortError" || abortSignal?.aborted) {
+      if (
+        error.name === "CanceledError" ||
+        error.name === "AbortError" ||
+        abortSignal?.aborted
+      ) {
         return; // Cancellation is not an error
       }
       if (error.code === "ECONNREFUSED") {
@@ -181,7 +189,7 @@ export class LlamaClient {
     this.serverUrl = serverUrl;
     this.client = axios.create({
       baseURL: serverUrl,
-      timeout: 120000,
+      timeout: 240000,
       headers: {
         "Content-Type": "application/json",
       },
