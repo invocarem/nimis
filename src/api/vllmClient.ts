@@ -1,32 +1,17 @@
 import axios, { AxiosInstance } from "axios";
 import { CompletionRequest, ILLMClient } from "./llmClient";
 
-export interface LlamaCompletionRequest {
-  prompt: string;
-  temperature?: number;
-  top_k?: number;
-  top_p?: number;
-  n_predict?: number;
-  stop?: string[];
-  stream?: boolean;
-}
-
-export interface LlamaCompletionResponse {
-  content: string;
-  stop: boolean;
-  tokens_predicted?: number;
-  tokens_evaluated?: number;
-}
-
-export class LlamaClient implements ILLMClient {
+export class VLLMClient implements ILLMClient {
   private client: AxiosInstance;
   private serverUrl: string;
+  private model: string;
 
-  constructor(serverUrl: string) {
+  constructor(serverUrl: string, model: string) {
     this.serverUrl = serverUrl;
+    this.model = model;
     this.client = axios.create({
       baseURL: serverUrl,
-      timeout: 300000, // 5 minutes timeout
+      timeout: 300000,
       headers: {
         "Content-Type": "application/json",
       },
@@ -35,24 +20,24 @@ export class LlamaClient implements ILLMClient {
 
   async complete(request: CompletionRequest): Promise<string> {
     try {
-      const response = await this.client.post("/completion", {
+      const response = await this.client.post("/v1/completions", {
+        model: this.model,
         prompt: request.prompt,
         temperature: request.temperature ?? 0.7,
-        top_k: request.top_k ?? 40,
         top_p: request.top_p ?? 0.9,
-        n_predict: request.maxTokens ?? 2048,
+        max_tokens: request.maxTokens ?? 2048,
         stop: request.stop ?? [],
         stream: false,
       });
 
-      return response.data.content || "";
+      return response.data.choices?.[0]?.text || "";
     } catch (error: any) {
       if (error.code === "ECONNREFUSED") {
         throw new Error(
-          `Cannot connect to llama.cpp server at ${this.serverUrl}. Make sure the server is running.`
+          `Cannot connect to vLLM server at ${this.serverUrl}. Make sure the server is running.`
         );
       }
-      throw new Error(`LlamaClient error: ${error.message}`);
+      throw new Error(`VLLMClient error: ${error.message}`);
     }
   }
 
@@ -63,13 +48,13 @@ export class LlamaClient implements ILLMClient {
   ): Promise<void> {
     try {
       const response = await this.client.post(
-        "/completion",
+        "/v1/completions",
         {
+          model: this.model,
           prompt: request.prompt,
           temperature: request.temperature ?? 0.7,
-          top_k: request.top_k ?? 40,
           top_p: request.top_p ?? 0.9,
-          n_predict: request.maxTokens ?? 2048,
+          max_tokens: request.maxTokens ?? 2048,
           stop: request.stop ?? [],
           stream: true,
         },
@@ -105,18 +90,24 @@ export class LlamaClient implements ILLMClient {
             if (isAborted) {
               return;
             }
-            if (line.startsWith("data: ")) {
+            const trimmed = line.trim();
+            if (trimmed === "data: [DONE]") {
+              resolve();
+              return;
+            }
+            if (trimmed.startsWith("data: ")) {
               try {
-                const data = JSON.parse(line.slice(6));
-                if (data.content) {
-                  onChunk(data.content);
+                const data = JSON.parse(trimmed.slice(6));
+                const text = data.choices?.[0]?.text;
+                if (text) {
+                  onChunk(text);
                 }
-                if (data.stop) {
+                if (data.choices?.[0]?.finish_reason) {
                   resolve();
                 }
               } catch (e) {
                 console.error(
-                  `[STREAM] Failed to parse streaming data:`,
+                  `[STREAM] Failed to parse vLLM streaming data:`,
                   line,
                   e
                 );
@@ -149,10 +140,10 @@ export class LlamaClient implements ILLMClient {
       }
       if (error.code === "ECONNREFUSED") {
         throw new Error(
-          `Cannot connect to llama.cpp server at ${this.serverUrl}. Make sure the server is running.`
+          `Cannot connect to vLLM server at ${this.serverUrl}. Make sure the server is running.`
         );
       }
-      throw new Error(`LlamaClient stream error: ${error.message}`);
+      throw new Error(`VLLMClient stream error: ${error.message}`);
     }
   }
 

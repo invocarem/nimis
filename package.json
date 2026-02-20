@@ -1,7 +1,7 @@
 {
   "name": "nimis",
   "displayName": "Nimis - AI Prototyping",
-  "description": "AI prototyping assistant powered by llama.cpp",
+  "description": "AI prototyping assistant powered by llama.cpp / vLLM",
   "version": "0.0.15",
   "publisher": "dashtotherock",
   "repository": {
@@ -72,10 +72,26 @@
     "configuration": {
       "title": "Nimis",
       "properties": {
+        "nimis.serverType": {
+          "type": "string",
+          "default": "llama",
+          "enum": ["llama", "vllm"],
+          "enumDescriptions": [
+            "llama.cpp server (default port 8080)",
+            "vLLM server with OpenAI-compatible API (default port 8000)"
+          ],
+          "description": "Type of LLM server backend to connect to"
+        },
+        "nimis.serverUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL of the LLM server (llama.cpp default: http://localhost:8080, vLLM default: http://localhost:8000)"
+        },
         "nimis.llamaServerUrl": {
           "type": "string",
-          "default": "http://localhost:8080",
-          "description": "URL of the llama.cpp server"
+          "default": "",
+          "description": "Deprecated: use nimis.serverUrl instead",
+          "deprecationMessage": "This setting is deprecated. Please use nimis.serverUrl instead."
         },
         "nimis.mcpServers": {
           "type": "array",

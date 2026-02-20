@@ -87,8 +87,8 @@ describe("NimisViewProvider Integration", () => {
       };
 
       const provider = new NimisViewProvider(vscode.Uri.file("/fake"));
-      // Stub llamaClient to avoid external calls
-      (provider as any).llamaClient = {
+      // Stub llmClient to avoid external calls
+      (provider as any).llmClient = {
         streamComplete: async (_opts: any, onChunk: (c: string) => void) => {
           onChunk("Assistant final response.");
           return Promise.resolve();

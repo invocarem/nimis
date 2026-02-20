@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
+import { ILLMClient, CompletionRequest } from "../api/llmClient";
 import { LlamaClient } from "../api/llamaClient";
+import { VLLMClient } from "../api/vllmClient";
 import { getNonce } from "../utils/getNonce";
 import { NimisManager } from "../utils/nimisManager";
 import { toolExecutor } from "../toolExecutor";
@@ -18,7 +20,7 @@ interface Message {
 export class NimisViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "nimis.chatView";
   private _view?: vscode.WebviewView;
-  private llamaClient?: LlamaClient;
+  private llmClient?: ILLMClient;
   private conversationHistory: Message[] = [];
   private nimisManager: NimisManager;
   private mcpManager?: MCPManager;
@@ -53,8 +55,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    // Initialize the llama client
-    this._initializeLlamaClient();
+    // Initialize the LLM client
+    this._initializeLLMClient();
 
     // If there is an active editor when the view opens, remember that file as initial context
     // (This is just a fallback - working files will be updated when LLM uses tools to access files)
@@ -98,23 +100,37 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
     // Listen for configuration changes
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("nimis.llamaServerUrl")) {
-        this._initializeLlamaClient();
+      if (
+        e.affectsConfiguration("nimis.serverUrl") ||
+        e.affectsConfiguration("nimis.llamaServerUrl") ||
+        e.affectsConfiguration("nimis.serverType") ||
+        e.affectsConfiguration("nimis.model")
+      ) {
+        this._initializeLLMClient();
       }
     });
   }
 
-  private _initializeLlamaClient() {
+  private _initializeLLMClient() {
     const config = vscode.workspace.getConfiguration("nimis");
-    const serverUrl = config.get<string>(
-      "llamaServerUrl",
-      "http://localhost:8080"
-    );
-    this.llamaClient = new LlamaClient(serverUrl);
+    const serverType = config.get<string>("serverType", "llama");
+    const defaultUrl =
+      serverType === "vllm" ? "http://localhost:8000" : "http://localhost:8080";
+    const serverUrl =
+      config.get<string>("serverUrl") ||
+      config.get<string>("llamaServerUrl") ||
+      defaultUrl;
+
+    if (serverType === "vllm") {
+      const model = config.get<string>("model", "default");
+      this.llmClient = new VLLMClient(serverUrl, model);
+    } else {
+      this.llmClient = new LlamaClient(serverUrl);
+    }
   }
 
   private async _checkConnection() {
-    if (!this.llamaClient) {
+    if (!this.llmClient) {
       this._sendMessageToWebview({
         type: "connectionStatus",
         connected: false,
@@ -124,7 +140,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
-      const connected = await this.llamaClient.healthCheck();
+      const connected = await this.llmClient.healthCheck();
       this._sendMessageToWebview({
         type: "connectionStatus",
         connected,
@@ -210,10 +226,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _handleUserMessage(userMessage: string) {
-    if (!this.llamaClient) {
+    if (!this.llmClient) {
       this._sendMessageToWebview({
         type: "error",
-        message: "Llama client not initialized",
+        message: "LLM client not initialized",
       });
       return;
     }
@@ -266,11 +282,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         let fullResponse = "";
 
         try {
-          await this.llamaClient.streamComplete(
+          await this.llmClient.streamComplete(
             {
               prompt,
               temperature,
-              n_predict: maxTokens,
+              maxTokens,
               stop: ["User:", "\nUser:", "Human:", "\nHuman:"],
             },
             (chunk: string) => {
