@@ -1,4 +1,6 @@
 // xmlProcessor.ts
+import * as fs from "fs";
+import * as path from "path";
 import { HtmlEntityDecoder } from "./htmlEntityDecoder";
 import { AttributeParser } from "./parsers/AttributeParser";
 import { SimpleQuoteParser } from "./parsers/SimpleQuoteParser";
@@ -12,11 +14,85 @@ export interface XmlToolCall {
 }
 
 export class XmlProcessor {
+  private static logDir: string | undefined;
+  private static readonly LOG_FILE = "xmlprocessor-debug.log";
+  private static readonly MAX_LOG_SIZE = 512 * 1024; // 512KB, rotate after this
+
   private static parsers: AttributeParser[] = [
     new SimpleQuoteParser(),
     new BraceMatchingParser(),
     new LenientParser(),
   ];
+
+  /**
+   * Set the directory for debug log files (typically the .nimis folder).
+   * Call once during initialization with the workspace's .nimis path.
+   */
+  static setLogDir(dir: string): void {
+    this.logDir = dir;
+  }
+
+  /**
+   * Append a debug entry to the log file.
+   * Silently ignores write failures to avoid disrupting normal operation.
+   */
+  private static writeDebugLog(entry: {
+    timestamp: string;
+    event: string;
+    inputLength?: number;
+    input?: string;
+    error?: string;
+    extractedCalls?: number;
+    details?: string;
+  }): void {
+    if (!this.logDir) return;
+    try {
+      if (!fs.existsSync(this.logDir)) {
+        fs.mkdirSync(this.logDir, { recursive: true });
+      }
+      const logPath = path.join(this.logDir, this.LOG_FILE);
+
+      // Rotate if too large
+      if (fs.existsSync(logPath)) {
+        const stat = fs.statSync(logPath);
+        if (stat.size > this.MAX_LOG_SIZE) {
+          const rotatedPath = logPath + ".prev";
+          if (fs.existsSync(rotatedPath)) {
+            fs.unlinkSync(rotatedPath);
+          }
+          fs.renameSync(logPath, rotatedPath);
+        }
+      }
+
+      const separator = "=".repeat(80);
+      const lines = [
+        separator,
+        `[${entry.timestamp}] ${entry.event}`,
+      ];
+      if (entry.inputLength !== undefined) {
+        lines.push(`Input length: ${entry.inputLength} chars`);
+      }
+      if (entry.error) {
+        lines.push(`Error: ${entry.error}`);
+      }
+      if (entry.extractedCalls !== undefined) {
+        lines.push(`Extracted calls: ${entry.extractedCalls}`);
+      }
+      if (entry.details) {
+        lines.push(`Details: ${entry.details}`);
+      }
+      if (entry.input !== undefined) {
+        lines.push("--- RAW INPUT ---");
+        lines.push(entry.input);
+        lines.push("--- END RAW INPUT ---");
+      }
+      lines.push("");
+
+      fs.appendFileSync(logPath, lines.join("\n") + "\n", "utf-8");
+    } catch {
+      // Silently ignore - debug logging must never break normal operation
+    }
+  }
   /**
    * Extract XML tool calls from text
    */
@@ -595,9 +671,17 @@ export class XmlProcessor {
       }
     }
 
-    // Only log if we found tool calls or if there was a potential issue
     if (results.length > 0) {
       console.log(`[XmlProcessor] Found ${results.length} XML tool call(s)`);
+    } else if (this.looksLikeXmlToolCall(text)) {
+      this.writeDebugLog({
+        timestamp: new Date().toISOString(),
+        event: "EXTRACT_TOOL_CALLS_FAILED",
+        inputLength: text.length,
+        input: text,
+        extractedCalls: 0,
+        details: "Input looks like XML tool call but extraction returned 0 results",
+      });
     }
     return results;
   }
@@ -646,6 +730,13 @@ export class XmlProcessor {
       console.warn(
         `[XmlProcessor] Failed to parse tool call attributes (${attributes.length} chars, raw: ${raw.length} chars)`
       );
+      this.writeDebugLog({
+        timestamp: new Date().toISOString(),
+        event: "PARSE_ATTRIBUTES_FAILED",
+        inputLength: raw.length,
+        input: raw,
+        details: `attributes=${attributes.length} chars, allowIncomplete=${allowIncomplete}`,
+      });
     }
     return null;
   }

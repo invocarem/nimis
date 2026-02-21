@@ -6,8 +6,10 @@
 // Import formatting utilities
 // Note: In production, this would be bundled, but for development we load it separately
 if (typeof require !== "undefined") {
-  var { formatMarkdown, setupThinkingBlockHandlers } =
-    require("./markdownFormatter.js");
+  var {
+    formatMarkdown,
+    setupThinkingBlockHandlers,
+  } = require("./markdownFormatter.js");
 } else {
   // Fallback for when not in Node environment
   console.warn("markdownFormatter not loaded, using fallback");
@@ -237,10 +239,10 @@ window.addEventListener("message", (event) => {
 
     case "connectionStatus":
       if (message.connected) {
-        statusIndicator.textContent = "Connected to llama.cpp";
+        statusIndicator.textContent = "Connected to LLM";
         statusIndicator.className = "status-indicator status-connected";
       } else {
-        statusIndicator.textContent = "Not connected to llama.cpp";
+        statusIndicator.textContent = "Not connected to LLM";
         statusIndicator.className = "status-indicator status-disconnected";
       }
       break;

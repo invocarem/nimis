@@ -8,6 +8,7 @@ export interface PromptTemplate {
 import * as path from "path";
 import { NativeToolsManager } from "./nativeToolManager";
 import { NimisStateTracker } from "./nimisStateTracker";
+import { XmlProcessor } from "./xmlProcessor";
 import { MCPManager } from "../mcpManager";
 import type { Rule } from "../rulesManager";
 import type { RulesManager } from "../rulesManager";
@@ -59,7 +60,7 @@ export class NimisManager {
     nativeToolManager?: NativeToolsManager,
     mcpManager?: MCPManager
   ): string {
-    const manager = nativeToolManager || new NativeToolsManager();
+    const manager = nativeToolManager || NativeToolsManager.getInstance();
     const nativeTools = manager.getAvailableTools();
     let doc = "**Available native tools:**\n";
     doc += nativeTools
@@ -115,16 +116,13 @@ export class NimisManager {
     return {
       systemMessage:
         "You are Nimis, an AI assistant helping engineers with prototyping and problem-solving.\n\n" +
-        "## Core Rules\n" +
-        "1. Show code/analysis BEFORE using tools to save/modify\n" +
-        "2. Only use tools/rules directly related to current task\n" +
-        "3. Keep responses concise and practical\n\n" +
+        "You speak English only. You show code snippet first to demonstrate solution, and wait for user's approve\n\n" +
+        "You apply a tool or rule only when if it is directly related to the user's current task; otherwise discard them. \n\n" +
         NimisManager.forceToolCallHelp(nativeToolManager, mcpManager) +
         "\n\n" +
-        "## Rules Guide\n" +
-        "When rules are provided, only apply if directly relevant to current task. " +
-        "Don't reference or apply rules unless they help solve the current request.",
-
+        "## Guide on **rule** \n\n" +
+        "When rules are provided, apply them only if they are directly relevant to the user's current task; otherwise discard them. Treat rules like tools — do NOT reference or " +
+        "apply a rule unless it clearly helps solve the current request.\n\n",
       userPrefix: "User:",
       assistantPrefix: "Assistant:",
       separator: "\n\n",
@@ -159,11 +157,17 @@ export class NimisManager {
     this.rulesManager = options?.rulesManager;
     this.nativeToolManager = options?.nativeToolManager;
     this.mcpManager = options?.mcpManager;
-    const persistPath = options?.workspaceRoot
-      ? path.join(options.workspaceRoot, ".nimis", "state.json")
+    const nimisDir = options?.workspaceRoot
+      ? path.join(options.workspaceRoot, ".nimis")
+      : undefined;
+    const persistPath = nimisDir
+      ? path.join(nimisDir, "state.json")
       : undefined;
     this.stateTracker =
       options?.stateTracker ?? new NimisStateTracker({ persistPath });
+    if (nimisDir) {
+      XmlProcessor.setLogDir(nimisDir);
+    }
     this.currentTemplate = {
       ...NimisManager.buildDefaultTemplate(
         this.nativeToolManager,

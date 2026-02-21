@@ -5,6 +5,7 @@ import * as util from "util";
 import { promisify } from "util";
 import { exec } from "child_process";
 import { EditFileHandler } from "./editFileHandler";
+import { assertWithinWorkspace } from "./workspacePath";
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -49,6 +50,15 @@ export interface NativeToolResult {
 }
 
 export class NativeToolsManager {
+  private static instance: NativeToolsManager | undefined;
+
+  static getInstance(): NativeToolsManager {
+    if (!NativeToolsManager.instance) {
+      NativeToolsManager.instance = new NativeToolsManager();
+    }
+    return NativeToolsManager.instance;
+  }
+
   private workspaceRoot: string | undefined;
   private editFileHandler: EditFileHandler;
 
@@ -56,13 +66,12 @@ export class NativeToolsManager {
     if (workspaceRoot) {
       this.workspaceRoot = workspaceRoot;
     } else {
-      // Get workspace root from VS Code if not provided
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (workspaceFolders && workspaceFolders.length > 0) {
         this.workspaceRoot = workspaceFolders[0].uri.fsPath;
       }
     }
-    this.editFileHandler = new EditFileHandler(workspaceRoot);
+    this.editFileHandler = new EditFileHandler(this.workspaceRoot);
   }
 
   private shouldExcludeFolder(
@@ -98,7 +107,7 @@ export class NativeToolsManager {
       {
         name: "create_file",
         description:
-          "Create a new file with the specified content. Creates parent directories if they don't exist. If the file already exists, the system will automatically use replace_file instead. Use this when you want to create a new file or update an existing one.",
+          "Create a new file with the specified content. Creates parent directories if they don't exist. Use this when you want to create a new file.",
         inputSchema: {
           type: "object",
           properties: {
@@ -109,26 +118,6 @@ export class NativeToolsManager {
             content: {
               type: "string",
               description: "Content to write to the file.",
-            },
-          },
-          required: ["file_path", "content"],
-        },
-      },
-      {
-        name: "replace_file",
-        description:
-          "Replace the entire contents of a file with new content. Creates the file if it doesn't exist. Use this when you explicitly want to overwrite an existing file. Note: create_file will automatically fall back to replace_file if the file exists, so you can use either tool for updating files.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            file_path: {
-              type: "string",
-              description:
-                "Path to the file to replace. Can be relative to workspace root or absolute.",
-            },
-            content: {
-              type: "string",
-              description: "New content to write to the file.",
             },
           },
           required: ["file_path", "content"],
@@ -146,7 +135,7 @@ export class NativeToolsManager {
           properties: {
             file_path: {
               type: "string",
-              description: "Path to the file to edit. Must be absolute path.",
+              description: "Absolute path to the file to edit. ",
             },
             old_text: {
               type: "string",
@@ -270,6 +259,25 @@ export class NativeToolsManager {
           required: ["command"],
         },
       },
+      {
+        name: "replace_file",
+        description:
+          "Replace the entire contents of a file with new content. Creates the file if it doesn't exist. Use this when you explicitly want to overwrite an existing file. Note: create_file will automatically fall back to replace_file if the file exists, so you can use either tool for updating files.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            file_path: {
+              type: "string",
+              description: "Absolute path to the file to replace.",
+            },
+            content: {
+              type: "string",
+              description: "New content to write to the file.",
+            },
+          },
+          required: ["file_path", "content"],
+        },
+      },
     ];
   }
 
@@ -352,9 +360,20 @@ export class NativeToolsManager {
     filePath: string,
     useCurrentEditor: boolean = false
   ): string {
-    // If absolute path, use as-is (treat /Tests as absolute)
+    const resolved = this.resolvePathRaw(filePath, useCurrentEditor);
+    if (this.workspaceRoot) {
+      assertWithinWorkspace(resolved, this.workspaceRoot);
+    }
+    return resolved;
+  }
+
+  private resolvePathRaw(
+    filePath: string,
+    useCurrentEditor: boolean = false
+  ): string {
+    // If absolute path, normalize it
     if (path.isAbsolute(filePath)) {
-      return filePath;
+      return path.resolve(filePath);
     }
 
     // Get workspace root - check dynamically if not set in constructor
@@ -412,6 +431,14 @@ export class NativeToolsManager {
   }
 
   private resolveDirectoryPath(directoryPath?: string): string {
+    const resolved = this.resolveDirectoryPathRaw(directoryPath);
+    if (this.workspaceRoot) {
+      assertWithinWorkspace(resolved, this.workspaceRoot);
+    }
+    return resolved;
+  }
+
+  private resolveDirectoryPathRaw(directoryPath?: string): string {
     if (!directoryPath) {
       // If no path specified, try to use current editor's directory as a smart default
       const editor = vscode.window.activeTextEditor;
@@ -436,14 +463,15 @@ export class NativeToolsManager {
       );
       return process.cwd();
     }
-    return this.resolvePath(directoryPath, true);
+    return this.resolvePathRaw(directoryPath, true);
   }
 
   private async readFile(filePath: string): Promise<NativeToolResult> {
     try {
       const resolvedPath = this.resolvePath(filePath);
       console.log(
-        `[NativeTools] Reading file: "${filePath}" -> resolved to: "${resolvedPath}" (workspaceRoot: ${this.workspaceRoot || "undefined"
+        `[NativeTools] Reading file: "${filePath}" -> resolved to: "${resolvedPath}" (workspaceRoot: ${
+          this.workspaceRoot || "undefined"
         })`
       );
 
@@ -481,12 +509,13 @@ export class NativeToolsManager {
           content: [
             {
               type: "text",
-              text: `Cannot read binary file "${filePath}". Binary files (${ext}) cannot be read as text.${ext === ".docx" || ext === ".pdf"
-                ? ' To convert DOCX/PDF files to markdown, use the conversion command: "convert ' +
-                filePath +
-                ' to markdown"'
-                : ""
-                }`,
+              text: `Cannot read binary file "${filePath}". Binary files (${ext}) cannot be read as text.${
+                ext === ".docx" || ext === ".pdf"
+                  ? ' To convert DOCX/PDF files to markdown, use the conversion command: "convert ' +
+                    filePath +
+                    ' to markdown"'
+                  : ""
+              }`,
             },
           ],
           isError: true,
@@ -695,7 +724,8 @@ export class NativeToolsManager {
       const formatted = results
         .map(
           (item) =>
-            `${item.type === "directory" ? "📁" : "📄"} ${item.path}${item.size !== undefined ? ` (${this.formatSize(item.size)})` : ""
+            `${item.type === "directory" ? "📁" : "📄"} ${item.path}${
+              item.size !== undefined ? ` (${this.formatSize(item.size)})` : ""
             }`
         )
         .join("\n");
@@ -704,8 +734,9 @@ export class NativeToolsManager {
         content: [
           {
             type: "text",
-            text: `Files in ${directoryPath || "workspace root"
-              }:\n\n${formatted}`,
+            text: `Files in ${
+              directoryPath || "workspace root"
+            }:\n\n${formatted}`,
           },
         ],
       };

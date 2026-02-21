@@ -21,7 +21,6 @@ describe("NativeToolsManager - exec_terminal", () => {
     let execStub: jest.Mock;
 
     beforeEach(() => {
-        manager = new NativeToolsManager();
         testDir = path.join(__dirname, "temp_test_files");
 
         // Create test directory if it doesn't exist
@@ -29,8 +28,7 @@ describe("NativeToolsManager - exec_terminal", () => {
             fs.mkdirSync(testDir, { recursive: true });
         }
 
-        // Set workspace root for path resolution
-        (manager as any).workspaceRoot = testDir;
+        manager = new NativeToolsManager(testDir);
 
         // Reset exec mock
         execStub = exec as unknown as jest.Mock;

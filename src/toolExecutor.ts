@@ -25,7 +25,7 @@ export async function toolExecutor(
   // Log tool call execution
   console.log(`[toolExecutor] Executing tool call: ${toolName}`, args);
   // Always check native tools first
-  const nativeMgr = nativeToolManager || new NativeToolsManager();
+  const nativeMgr = nativeToolManager || NativeToolsManager.getInstance();
   const nativeTools = nativeMgr.getAvailableTools().map(t => t.name);
   if (nativeTools.includes(toolName)) {
     console.log(`[toolExecutor] Using native tool: ${toolName}`);

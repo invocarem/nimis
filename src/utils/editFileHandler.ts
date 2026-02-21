@@ -2,6 +2,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
+import { assertWithinWorkspace } from "./workspacePath";
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -100,12 +101,17 @@ export class EditFileHandler {
   }
 
   private resolvePath(filePath: string): string {
-    if (path.isAbsolute(filePath)) {
-      return filePath;
+    if (!this.workspaceRoot) {
+      throw new Error(
+        "No workspace root available. Cannot resolve path safely."
+      );
     }
-    if (this.workspaceRoot) {
-      return path.resolve(this.workspaceRoot, filePath);
-    }
-    return path.resolve(filePath);
+
+    const resolved = path.isAbsolute(filePath)
+      ? path.resolve(filePath)
+      : path.resolve(this.workspaceRoot, filePath);
+
+    assertWithinWorkspace(resolved, this.workspaceRoot);
+    return resolved;
   }
 }

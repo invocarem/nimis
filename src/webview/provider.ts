@@ -161,7 +161,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
    */
   private _extractFilePathFromToolCall(
     toolCall: { name: string; arguments?: Record<string, any> },
-    toolResult: { content?: Array<{ type: string; text?: string }>; isError?: boolean }
+    toolResult: {
+      content?: Array<{ type: string; text?: string }>;
+      isError?: boolean;
+    }
   ): string | undefined {
     // Only extract file path if tool execution was successful
     if (toolResult.isError) {
@@ -181,7 +184,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       const filePath = args.file_path || args.filePath;
       if (typeof filePath === "string" && filePath.trim()) {
         // Resolve to absolute path if relative
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const workspaceRoot =
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (workspaceRoot && !path.isAbsolute(filePath)) {
           return path.resolve(workspaceRoot, filePath);
         }
@@ -193,7 +197,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     if (toolName === "list_files") {
       const directoryPath = args.directory_path || args.directoryPath;
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      if (directoryPath && typeof directoryPath === "string" && directoryPath.trim()) {
+      if (
+        directoryPath &&
+        typeof directoryPath === "string" &&
+        directoryPath.trim()
+      ) {
         // Resolve to absolute path if relative
         if (workspaceRoot && !path.isAbsolute(directoryPath)) {
           return path.resolve(workspaceRoot, directoryPath);
@@ -207,14 +215,16 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
     // For find_files: extract first file path from result text
     if (toolName === "find_files") {
-      const resultText = toolResult.content?.map((c) => c.text).join("\n") || "";
+      const resultText =
+        toolResult.content?.map((c) => c.text).join("\n") || "";
       // Result format: "Found N file(s) matching "...":\n\n📄 path/to/file1\n📄 path/to/file2"
       // Extract the first file path after the emoji
       const match = resultText.match(/📄\s+([^\n]+)/);
       if (match && match[1]) {
         const extractedPath = match[1].trim();
         // Resolve to absolute path if relative
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const workspaceRoot =
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (workspaceRoot && !path.isAbsolute(extractedPath)) {
           return path.resolve(workspaceRoot, extractedPath);
         }
@@ -295,16 +305,19 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 return;
               }
               fullResponse += chunk;
-              //console.debug("[Provider] received:", chunk); // Log each chunk to DEBUG console
               const parsed = ResponseParser.parse(fullResponse);
-              //console.debug("[Provider] content:", parsed.content);
 
               // Diagnostic logging: Check if edit_file tool call appears in streaming response
               if (parsed.tool_calls) {
                 for (const toolCall of parsed.tool_calls) {
-                  if (toolCall.name === "edit_file" && toolCall.arguments?.old_text) {
-                    console.log("[Provider] [STREAMING] edit_file detected in chunk, old_text length:",
-                      toolCall.arguments.old_text.length);
+                  if (
+                    toolCall.name === "edit_file" &&
+                    toolCall.arguments?.old_text
+                  ) {
+                    console.log(
+                      "[Provider] [STREAMING] edit_file detected in chunk, old_text length:",
+                      toolCall.arguments.old_text.length
+                    );
                   }
                 }
               }
@@ -337,6 +350,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
         const parsedResponse: ParsedResponse =
           ResponseParser.parse(fullResponse);
+        console.debug("[Provider] content:", parsedResponse.content);
 
         // Diagnostic logging for edit_file old_text mismatch issues
         if (ResponseParser.hasToolCalls(parsedResponse)) {
@@ -347,13 +361,33 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             if (toolCall.name === "edit_file" && toolCall.arguments?.old_text) {
               const oldText = toolCall.arguments.old_text;
               console.log("[Provider] edit_file tool call detected:");
-              console.log("[Provider]   Raw fullResponse length:", fullResponse.length);
-              console.log("[Provider]   Raw fullResponse (first 500 chars):", fullResponse.substring(0, 500));
-              console.log("[Provider]   Extracted old_text length:", oldText.length);
-              console.log("[Provider]   Extracted old_text (JSON):", JSON.stringify(oldText));
-              console.log("[Provider]   Extracted old_text (visible whitespace):",
-                oldText.replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/ /g, "·"));
-              console.log("[Provider]   Extracted new_text (JSON):", JSON.stringify(toolCall.arguments.new_text));
+              console.log(
+                "[Provider]   Raw fullResponse length:",
+                fullResponse.length
+              );
+              console.log(
+                "[Provider]   Raw fullResponse (first 500 chars):",
+                fullResponse.substring(0, 500)
+              );
+              console.log(
+                "[Provider]   Extracted old_text length:",
+                oldText.length
+              );
+              console.log(
+                "[Provider]   Extracted old_text (JSON):",
+                JSON.stringify(oldText)
+              );
+              console.log(
+                "[Provider]   Extracted old_text (visible whitespace):",
+                oldText
+                  .replace(/\n/g, "\\n")
+                  .replace(/\t/g, "\\t")
+                  .replace(/ /g, "·")
+              );
+              console.log(
+                "[Provider]   Extracted new_text (JSON):",
+                JSON.stringify(toolCall.arguments.new_text)
+              );
             }
           }
           let allToolResults: string[] = [];
@@ -403,9 +437,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               allToolResults.push(toolText);
 
               // Update the last tool call with result information
-              const resultSummary = toolText.length > 200 
-                ? toolText.substring(0, 200) + "..."
-                : toolText;
+              const resultSummary =
+                toolText.length > 200
+                  ? toolText.substring(0, 200) + "..."
+                  : toolText;
               stateTracker.updateLastToolCallResult({
                 success: !toolResult.isError,
                 summary: resultSummary || undefined,
@@ -458,13 +493,13 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             } catch (err: any) {
               const errorText = `Tool execution error: ${err.message}`;
               allToolResults.push(errorText);
-              
+
               // Update the last tool call with error result
               stateTracker.updateLastToolCallResult({
                 success: false,
                 summary: errorText,
               });
-              
+
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
                 chunk: errorText,

@@ -13,7 +13,6 @@ describe("NativeToolsManager - editFile", () => {
   let testFile: string;
 
   beforeEach(() => {
-    manager = new NativeToolsManager();
     testDir = path.join(__dirname, "temp_test_files");
     testFile = path.join(testDir, "test_edit.py");
     
@@ -21,6 +20,8 @@ describe("NativeToolsManager - editFile", () => {
     if (!fs.existsSync(testDir)) {
       fs.mkdirSync(testDir, { recursive: true });
     }
+
+    manager = new NativeToolsManager(testDir);
   });
 
   afterEach(async () => {
@@ -39,9 +40,6 @@ describe("NativeToolsManager - editFile", () => {
       // Create a file with CRLF line endings (Windows style)
       const originalContent = "def divide(a, b):\r\n \"\"\"Return the quotient.\"\"\"\r\n if b == 0:\r\n raise ValueError(\"Cannot divide by zero\")\r\n return a / b\r\n";
       await writeFile(testFile, originalContent, "utf-8");
-
-      // Set workspace root so manager can resolve the path
-      (manager as any).workspaceRoot = testDir;
 
       // old_text has LF line endings (Unix style) - what LLM typically outputs
       const oldText = "def divide(a, b):\n \"\"\"Return the quotient.\"\"\"\n if b == 0:\n raise ValueError(\"Cannot divide by zero\")\n return a / b";
@@ -71,9 +69,6 @@ describe("NativeToolsManager - editFile", () => {
       const originalContent = "def divide(a, b):\n \"\"\"Return the quotient.\"\"\"\n if b == 0:\n raise ValueError(\"Cannot divide by zero\")\n return a / b\n";
       await writeFile(testFile, originalContent, "utf-8");
 
-      // Set workspace root
-      (manager as any).workspaceRoot = testDir;
-
       // old_text also has LF line endings
       const oldText = "def divide(a, b):\n \"\"\"Return the quotient.\"\"\"\n if b == 0:\n raise ValueError(\"Cannot divide by zero\")\n return a / b";
       const newText = "def divide(a, b):\n \"\"\"Return the quotient.\"\"\"\n if b == 0:\n raise ValueError(\"Division by zero is not allowed\")\n return a / b";
@@ -100,9 +95,6 @@ describe("NativeToolsManager - editFile", () => {
       const originalContent = "def divide(a, b):\r\n \"\"\"Return the quotient.\"\"\"\r\n if b == 0:\r\n raise ValueError(\"Cannot divide by zero\")\r\n return a / b\r\n";
       await writeFile(testFile, originalContent, "utf-8");
 
-      // Set workspace root
-      (manager as any).workspaceRoot = testDir;
-
       // old_text also has CRLF line endings
       const oldText = "def divide(a, b):\r\n \"\"\"Return the quotient.\"\"\"\r\n if b == 0:\r\n raise ValueError(\"Cannot divide by zero\")\r\n return a / b";
       const newText = "def divide(a, b):\r\n \"\"\"Return the quotient.\"\"\"\r\n if b == 0:\r\n raise ValueError(\"Division by zero is not allowed\")\r\n return a / b";
@@ -127,9 +119,6 @@ describe("NativeToolsManager - editFile", () => {
       // Create a file with CRLF line endings
       const originalContent = "line 1\r\nline 2\r\nline 3\r\n";
       await writeFile(testFile, originalContent, "utf-8");
-
-      // Set workspace root
-      (manager as any).workspaceRoot = testDir;
 
       // Edit with LF in old_text and new_text
       const oldText = "line 1\nline 2";
