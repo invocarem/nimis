@@ -2,7 +2,7 @@
   "name": "nimis",
   "displayName": "Nimis - AI Prototyping",
   "description": "AI prototyping assistant powered by llama.cpp / vLLM",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "publisher": "dashtotherock",
   "repository": {
     "type": "git",
@@ -75,7 +75,10 @@
         "nimis.serverType": {
           "type": "string",
           "default": "llama",
-          "enum": ["llama", "vllm"],
+          "enum": [
+            "llama",
+            "vllm"
+          ],
           "enumDescriptions": [
             "llama.cpp server (default port 8080)",
             "vLLM server with OpenAI-compatible API (default port 8000)"
