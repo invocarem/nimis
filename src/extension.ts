@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { NimisViewProvider } from "./webview/provider";
 import { registerNativeToolServer } from "./api/nativeToolServer";
+import { registerVimToolServer } from "./api/vimToolServer";
 import { registerRuleServer } from "./api/ruleServer";
 import { MCPManager } from "./mcpManager";
 import { MCPToolServer } from "./api/mcpToolServer";
@@ -11,6 +12,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register native tool server (for LLM/native tool integration)
   registerNativeToolServer(context);
+  // Register vim tool server (for Vim-style editing tools)
+  registerVimToolServer(context);
   // Register rule server (for rule management) and get RulesManager for prompts
   const ruleServer = registerRuleServer(context);
   const rulesManager = ruleServer.getRulesManager();

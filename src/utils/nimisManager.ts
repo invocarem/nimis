@@ -5,8 +5,10 @@ export interface PromptTemplate {
   separator: string;
 }
 
+import * as fs from "fs";
 import * as path from "path";
 import { NativeToolsManager } from "./nativeToolManager";
+import { VimToolManager } from "./vim";
 import { NimisStateTracker } from "./nimisStateTracker";
 import { XmlProcessor } from "./xmlProcessor";
 import { MCPManager } from "../mcpManager";
@@ -14,64 +16,22 @@ import type { Rule } from "../rulesManager";
 import type { RulesManager } from "../rulesManager";
 
 export class NimisManager {
-  /**
-   * Returns help text for tool_call usage, including examples and available tools.
-   */
-  static forceToolCallHelp(
-    nativeToolManager?: NativeToolsManager,
-    mcpManager?: MCPManager
-  ): string {
-    return (
-      "### How to invoke tool_call\n" +
-      "IMPORTANT: do NOT use the model's built-in function-calling API or any other tool-call format.\n" +
-      "You MUST use the exact XML syntax shown below when invoking a tool. The assistant's response should contain the literal XML tag (preferably on its own line) and must NOT rely on model-level function calls.\n\n" +
-      'Simple format: <tool_call name="TOOL_NAME" args=\'{ ... }\' />\n\n' +
-      "Example (exact):\n" +
-      '<tool_call name="read_file" args=\'{ "file_path": "c:/code/__foo__/src/index.ts" }\' />\n' +
-      "Notes:\n" +
-      "- Use the attributes `name` and `args` exactly.\n" +
-      "- The `args` attribute should contain a valid JSON object as a string.\n" +
-      '- Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
-      "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
-      "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
-      "**For edit_lines, create_file, and replace_file, you MUST use CDATA format** (avoids escaping issues with code):\n" +
-      '<tool_call name="edit_lines">\n' +
-      "<file_path>path/to/file.ts</file_path>\n" +
-      "<line_start>10</line_start>\n" +
-      "<line_end>12</line_end>\n" +
-      "<new_text><![CDATA[\nreplacement text\n]]></new_text>\n" +
-      "</tool_call>\n\n" +
-      '<tool_call name="create_file">\n' +
-      "<file_path>path/to/file.ts</file_path>\n" +
-      "<content><![CDATA[\nfile content here\n]]></content>\n" +
-      "</tool_call>\n\n" +
-      "CDATA rules:\n" +
-      "- Wrap code/text parameters (old_text, new_text, content) in <![CDATA[...]]>\n" +
-      "- Simple parameters like file_path, line_start, line_end use plain child elements (no CDATA needed)\n" +
-      "- Content inside CDATA is preserved exactly — no escaping needed for quotes, brackets, etc.\n\n" +
-      NimisManager.buildToolDocs(nativeToolManager, mcpManager)
-    );
-  }
   static toolCallHelp(
     nativeToolManager?: NativeToolsManager,
+    vimToolManager?: VimToolManager,
     mcpManager?: MCPManager
   ): string {
     return (
       "### How to use **tool_call**\n" +
-      'Simple format: <tool_call name="TOOL_NAME" args=\'{ ... }\' />\n\n' +
+      'format a: <tool_call name="TOOL_NAME" args=\'{ ... }\' />\n\n' +
+      'format b: <tool_call name="TOOL_NAME"><arg1>...</arg1><arg2>...</arg2></tool_call>\n\n' +
       "Notes:\n" +
-      "- Use the attributes `name` and `args` exactly.\n" +
-      "- The `args` attribute should contain a valid JSON object as a string.\n" +
-      '- Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
-      "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
-      "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
-      "**For  edit_lines, create_file, and replace_file, you MUST use CDATA format** (avoids escaping issues with code):\n" +
-     '<tool_call name="edit_lines">\n' +
-      "<file_path>path/to/file.ts</file_path>\n" +
-      "<line_start>10</line_start>\n" +
-      "<line_end>12</line_end>\n" +
-      "<new_text><![CDATA[\nreplacement text\n]]></new_text>\n" +
-      "</tool_call>\n\n" +
+      "- format a: Use the attributes `name` and `args` exactly.\n" +
+      "- format a: The `args` attribute should contain a valid JSON object as a string.\n" +
+      '- format a: Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
+      "- format a: When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
+      "- format a: Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
+      "- format b: For create_file, edit_file, and replace_file, you MUST use CDATA format** (avoids escaping issues with code):\n" +
       '<tool_call name="create_file">\n' +
       "<file_path>path/to/file.ts</file_path>\n" +
       "<content><![CDATA[\nfile content here\n]]></content>\n" +
@@ -80,16 +40,18 @@ export class NimisManager {
       "- Wrap code/text parameters (old_text, new_text, content) in <![CDATA[...]]>\n" +
       "- Simple parameters like file_path, line_start, line_end use plain child elements (no CDATA needed)\n" +
       "- Content inside CDATA is preserved exactly — no escaping needed for quotes, brackets, etc.\n\n" +
-      NimisManager.buildToolDocs(nativeToolManager, mcpManager)
+      NimisManager.buildToolDocs(nativeToolManager, vimToolManager, mcpManager)
     );
   }
 
   private static buildToolDocs(
     nativeToolManager?: NativeToolsManager,
+    vimToolManager?: VimToolManager,
     mcpManager?: MCPManager
   ): string {
     const manager = nativeToolManager || NativeToolsManager.getInstance();
     const nativeTools = manager.getAvailableTools();
+   nativeTools.splice(0, nativeTools.length);
     let doc = "**Available native tools:**\n";
     doc += nativeTools
       .map((tool) => {
@@ -106,6 +68,33 @@ export class NimisManager {
         return `- ${tool.name}: ${tool.description}${required}\n${params}`;
       })
       .join("\n\n");
+
+    if (vimToolManager) {
+      const vimTools = vimToolManager.getAvailableTools();
+      if (vimTools.length > 0) {
+        doc += "\n\n**Available Vim tools:**\n";
+        doc += vimTools
+          .map((tool) => {
+            const required =
+              tool.inputSchema.required && tool.inputSchema.required.length > 0
+                ? ` (required: ${tool.inputSchema.required.join(", ")})`
+                : "";
+            const params = Object.entries(tool.inputSchema.properties)
+              .map(
+                ([key, val]: [string, any]) =>
+                  `    - ${key}: ${val.description || ""}`
+              )
+              .join("\n");
+            return `- ${tool.name}: ${tool.description}${required}\n${params}`;
+          })
+          .join("\n\n");
+
+        const templates = NimisManager.loadVimTemplates();
+        if (templates) {
+          doc += "\n\n**Vim tool usage examples:**\n" + templates;
+        }
+      }
+    }
 
     if (mcpManager) {
       const mcpTools = mcpManager.getAllTools();
@@ -133,12 +122,23 @@ export class NimisManager {
           .join("\n\n");
       }
     }
-    //console.log("Generated tool documentation for prompt:\n", doc);
+
     return doc;
+  }
+
+  private static loadVimTemplates(): string | null {
+    try {
+      const templatesPath = path.join(__dirname, "templates", "vim_templates.xml");
+      return fs.readFileSync(templatesPath, "utf-8");
+    } catch (error: any) {
+      console.warn(`[NimisManager] Failed to load vim_templates.xml: ${error.message}`);
+      return null;
+    }
   }
 
   private static buildDefaultTemplate(
     nativeToolManager?: NativeToolsManager,
+    vimToolManager?: VimToolManager,
     mcpManager?: MCPManager
   ): PromptTemplate {
     return {
@@ -147,7 +147,7 @@ export class NimisManager {
         "## Priniples \n\n" +
         "You restate User's problem in your own words to show understanding. \n\n" +
         "You execute a tool or apply a rule when it is directly related to User's request. \n\n" +
-        NimisManager.toolCallHelp(nativeToolManager, mcpManager) +
+        NimisManager.toolCallHelp(nativeToolManager, vimToolManager, mcpManager) +
         "\n\n" +
         "## Guide on **rule** \n\n" +
         "When rules are provided, apply them only if they are directly relevant to the user's current task; otherwise discard them. Treat rules like tools — do NOT reference or " +
@@ -161,6 +161,7 @@ export class NimisManager {
   private _buildSystemMessage(): string {
     const base = NimisManager.buildDefaultTemplate(
       this.nativeToolManager,
+      this.vimToolManager,
       this.mcpManager
     );
     return base.systemMessage;
@@ -170,6 +171,7 @@ export class NimisManager {
   private rules: Rule[] = [];
   private rulesManager?: RulesManager;
   private nativeToolManager?: NativeToolsManager;
+  private vimToolManager?: VimToolManager;
   private mcpManager?: MCPManager;
   private stateTracker: NimisStateTracker;
 
@@ -178,6 +180,7 @@ export class NimisManager {
     rules?: Rule[];
     rulesManager?: RulesManager;
     nativeToolManager?: NativeToolsManager;
+    vimToolManager?: VimToolManager;
     mcpManager?: MCPManager;
     stateTracker?: NimisStateTracker;
     workspaceRoot?: string;
@@ -185,6 +188,7 @@ export class NimisManager {
     this.rules = options?.rules || [];
     this.rulesManager = options?.rulesManager;
     this.nativeToolManager = options?.nativeToolManager;
+    this.vimToolManager = options?.vimToolManager;
     this.mcpManager = options?.mcpManager;
     const nimisDir = options?.workspaceRoot
       ? path.join(options.workspaceRoot, ".nimis")
@@ -200,6 +204,7 @@ export class NimisManager {
     this.currentTemplate = {
       ...NimisManager.buildDefaultTemplate(
         this.nativeToolManager,
+        this.vimToolManager,
         this.mcpManager
       ),
       ...options?.template,
@@ -220,6 +225,7 @@ export class NimisManager {
     this.rules = rules;
     this.currentTemplate.systemMessage = NimisManager.buildDefaultTemplate(
       this.nativeToolManager,
+      this.vimToolManager,
       this.mcpManager
     ).systemMessage;
   }
@@ -296,6 +302,7 @@ export class NimisManager {
     this.currentTemplate = {
       ...NimisManager.buildDefaultTemplate(
         this.nativeToolManager,
+        this.vimToolManager,
         this.mcpManager
       ),
     };

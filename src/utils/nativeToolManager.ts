@@ -103,6 +103,34 @@ export class NativeToolsManager {
   getAvailableTools(): NativeTool[] {
     return [
       {
+        name: "edit_file",
+        description:
+          "Edit a specific part of a file by replacing an exact text snippet with new text. " +
+          "IMPORTANT: Always include at least 3 lines of context (the line to change plus 1-2 lines before and after). " +
+          "The old_text must match EXACTLY including whitespace. Use read_file first to copy the exact text.",
+
+        inputSchema: {
+          type: "object",
+          properties: {
+            file_path: {
+              type: "string",
+              description: "Absolute path to the file to edit. ",
+            },
+            old_text: {
+              type: "string",
+              description:
+                "EXACT text snippet to be replaced. Include at least 3 lines of context. Must match the file content exactly (including whitespace).",
+            },
+            new_text: {
+              type: "string",
+              description:
+                "The replacement text that will substitute `old_text`. Preserve the same indentation level.",
+            },
+          },
+          required: ["file_path", "old_text", "new_text"],
+        },
+      },
+      {
         name: "read_file",
         description:
           "Read the contents of a file. Returns the file content as text.",
@@ -256,6 +284,25 @@ export class NativeToolsManager {
           required: ["pattern"],
         },
       },
+     {
+        name: "replace_file",
+        description:
+          "Replace the entire contents of a file with new content. Creates the file if it doesn't exist. Use this when you explicitly want to overwrite an existing file. Note: create_file will automatically fall back to replace_file if the file exists, so you can use either tool for updating files.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            file_path: {
+              type: "string",
+              description: "Absolute path to the file to replace.",
+            },
+            content: {
+              type: "string",
+              description: "New content to write to the file.",
+            },
+          },
+          required: ["file_path", "content"],
+        },
+      },
       {
         name: "exec_terminal",
         description:
@@ -277,26 +324,7 @@ export class NativeToolsManager {
           required: ["command"],
         },
       },
-      {
-        name: "replace_file",
-        description:
-          "Replace the entire contents of a file with new content. Creates the file if it doesn't exist. Use this when you explicitly want to overwrite an existing file. Note: create_file will automatically fall back to replace_file if the file exists, so you can use either tool for updating files.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            file_path: {
-              type: "string",
-              description: "Absolute path to the file to replace.",
-            },
-            content: {
-              type: "string",
-              description: "New content to write to the file.",
-            },
-          },
-          required: ["file_path", "content"],
-        },
-      },
-    ];
+     ];
   }
 
   async callTool(

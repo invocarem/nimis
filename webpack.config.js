@@ -42,6 +42,11 @@ const config = {
           from: path.resolve(__dirname, 'src/webview/assets'),
           to: path.resolve(__dirname, 'dist/webview/assets'),
           noErrorOnMissing: true
+        },
+        {
+          from: path.resolve(__dirname, 'src/utils/templates'),
+          to: path.resolve(__dirname, 'dist/utils/templates'),
+          noErrorOnMissing: true
         }
       ]
     })

@@ -11,6 +11,7 @@ import type { MCPManager } from "../mcpManager";
 import type { RulesManager } from "../rulesManager";
 import * as path from "path";
 import { NativeToolsManager } from "../utils/nativeToolManager";
+import { VimToolManager } from "../utils/vim";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -36,11 +37,15 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     this.nimisManager = new NimisManager({
       mcpManager,
+      vimToolManager: VimToolManager.getInstance(),
       rulesManager,
       workspaceRoot,
     });
     const stateTracker = this.nimisManager.getStateTracker();
     NativeToolsManager.getInstance().setWorkspaceRootProvider(
+      () => stateTracker.getWorkspaceRoot()
+    );
+    VimToolManager.getInstance().setWorkspaceRootProvider(
       () => stateTracker.getWorkspaceRoot()
     );
   }
@@ -416,6 +421,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             try {
               const toolResult = await toolExecutor(toolCall, {
                 mcpManager: this.mcpManager,
+                vimToolManager: VimToolManager.getInstance(),
               });
 
               // Check for cancellation after tool execution

@@ -1,0 +1,49 @@
+<!-- Create and edit a file -->
+<tool_call name="vim_edit">
+  <file_path>src/components/Button.tsx</file_path>
+  <commands>
+    <![CDATA[iimport React from 'react';]]>
+    <![CDATA[
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+}]]>
+    <![CDATA[
+export const Button: React.FC<ButtonProps> = ({ label, onClick }) => {
+  return <button onClick={onClick}>{label}</button>;
+};]]>
+    <![CDATA[:w]]>
+  </commands>
+</tool_call>
+
+<!-- Search and replace in multiple files -->
+<tool_call name="vim_edit">
+  <file_path>src/utils.ts</file_path>
+  <commands>
+    <![CDATA[:%s/legacyApi/newApi/g]]>
+    <![CDATA[:w]]>
+    <![CDATA[:bn]]>
+    <![CDATA[:%s/legacyApi/newApi/g]]>
+    <![CDATA[:wq]]>
+  </commands>
+</tool_call>
+
+<!-- Copy a function to another file -->
+<tool_call name="vim_edit">
+  <file_path>src/old.ts</file_path>
+  <commands>
+    <![CDATA[:/function calculate/,/^}/y a]]>
+    <![CDATA[:e src/new.ts]]>
+    <![CDATA['ap]]>
+    <![CDATA[:w]]>
+  </commands>
+</tool_call>
+
+<!-- Delete all console.log statements -->
+<tool_call name="vim_edit">
+  <file_path>src/app.ts</file_path>
+  <commands>
+    <![CDATA[:g/^\\s*console\\.log/d]]>
+    <![CDATA[:w]]>
+  </commands>
+</tool_call>
