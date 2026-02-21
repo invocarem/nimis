@@ -25,15 +25,30 @@ export class NimisManager {
       "### How to invoke tool_call\n" +
       "IMPORTANT: do NOT use the model's built-in function-calling API or any other tool-call format.\n" +
       "You MUST use the exact XML syntax shown below when invoking a tool. The assistant's response should contain the literal XML tag (preferably on its own line) and must NOT rely on model-level function calls.\n\n" +
-      '<tool_call name="TOOL_NAME" args="{ ... }" />\n\n' +
+      'Simple format: <tool_call name="TOOL_NAME" args=\'{ ... }\' />\n\n' +
       "Example (exact):\n" +
-      '<tool_call name="read_file" args=\'{ "file_path": "c:/code/foo/src/index.ts" }\' />\n' +
+      '<tool_call name="read_file" args=\'{ "file_path": "c:/code/__foo__/src/index.ts" }\' />\n' +
       "Notes:\n" +
       "- Use the attributes `name` and `args` exactly.\n" +
       "- The `args` attribute should contain a valid JSON object as a string.\n" +
       '- Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
       "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
       "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
+      "**For edit_lines, create_file, and replace_file, you MUST use CDATA format** (avoids escaping issues with code):\n" +
+      '<tool_call name="edit_lines">\n' +
+      "<file_path>path/to/file.ts</file_path>\n" +
+      "<line_start>10</line_start>\n" +
+      "<line_end>12</line_end>\n" +
+      "<new_text><![CDATA[\nreplacement text\n]]></new_text>\n" +
+      "</tool_call>\n\n" +
+      '<tool_call name="create_file">\n' +
+      "<file_path>path/to/file.ts</file_path>\n" +
+      "<content><![CDATA[\nfile content here\n]]></content>\n" +
+      "</tool_call>\n\n" +
+      "CDATA rules:\n" +
+      "- Wrap code/text parameters (old_text, new_text, content) in <![CDATA[...]]>\n" +
+      "- Simple parameters like file_path, line_start, line_end use plain child elements (no CDATA needed)\n" +
+      "- Content inside CDATA is preserved exactly — no escaping needed for quotes, brackets, etc.\n\n" +
       NimisManager.buildToolDocs(nativeToolManager, mcpManager)
     );
   }
@@ -43,15 +58,28 @@ export class NimisManager {
   ): string {
     return (
       "### How to use **tool_call**\n" +
-      'Format: <tool_call name="TOOL_NAME" args="{ ... }" />\n\n' +
-      "Example (exact):\n" +
-      '<tool_call name="read_file" args=\'{ "file_path": "src/index.ts" }\' />\n\n' +
+      'Simple format: <tool_call name="TOOL_NAME" args=\'{ ... }\' />\n\n' +
       "Notes:\n" +
       "- Use the attributes `name` and `args` exactly.\n" +
       "- The `args` attribute should contain a valid JSON object as a string.\n" +
       '- Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
       "- When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
       "- Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
+      "**For  edit_lines, create_file, and replace_file, you MUST use CDATA format** (avoids escaping issues with code):\n" +
+     '<tool_call name="edit_lines">\n' +
+      "<file_path>path/to/file.ts</file_path>\n" +
+      "<line_start>10</line_start>\n" +
+      "<line_end>12</line_end>\n" +
+      "<new_text><![CDATA[\nreplacement text\n]]></new_text>\n" +
+      "</tool_call>\n\n" +
+      '<tool_call name="create_file">\n' +
+      "<file_path>path/to/file.ts</file_path>\n" +
+      "<content><![CDATA[\nfile content here\n]]></content>\n" +
+      "</tool_call>\n\n" +
+      "CDATA rules:\n" +
+      "- Wrap code/text parameters (old_text, new_text, content) in <![CDATA[...]]>\n" +
+      "- Simple parameters like file_path, line_start, line_end use plain child elements (no CDATA needed)\n" +
+      "- Content inside CDATA is preserved exactly — no escaping needed for quotes, brackets, etc.\n\n" +
       NimisManager.buildToolDocs(nativeToolManager, mcpManager)
     );
   }
@@ -116,9 +144,10 @@ export class NimisManager {
     return {
       systemMessage:
         "You are Nimis, an AI assistant helping engineers with prototyping and problem-solving.\n\n" +
-        "You speak English only. You show code snippet first to demonstrate solution, and wait for user's approve\n\n" +
-        "You apply a tool or rule only when if it is directly related to the user's current task; otherwise discard them. \n\n" +
-        NimisManager.forceToolCallHelp(nativeToolManager, mcpManager) +
+        "## Priniples \n\n" +
+        "You restate User's problem in your own words to show understanding. \n\n" +
+        "You execute a tool or apply a rule when it is directly related to User's request. \n\n" +
+        NimisManager.toolCallHelp(nativeToolManager, mcpManager) +
         "\n\n" +
         "## Guide on **rule** \n\n" +
         "When rules are provided, apply them only if they are directly relevant to the user's current task; otherwise discard them. Treat rules like tools — do NOT reference or " +
@@ -164,7 +193,7 @@ export class NimisManager {
       ? path.join(nimisDir, "state.json")
       : undefined;
     this.stateTracker =
-      options?.stateTracker ?? new NimisStateTracker({ persistPath });
+      options?.stateTracker ?? new NimisStateTracker({ persistPath, workspaceRoot: options?.workspaceRoot });
     if (nimisDir) {
       XmlProcessor.setLogDir(nimisDir);
     }

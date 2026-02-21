@@ -13,7 +13,22 @@ export interface NativeToolResult {
 }
 
 export class EditFileHandler {
-  constructor(private workspaceRoot?: string) {}
+  private _workspaceRootProvider: () => string | undefined;
+
+  constructor(workspaceRoot?: string | (() => string | undefined)) {
+    if (typeof workspaceRoot === "function") {
+      this._workspaceRootProvider = workspaceRoot;
+    } else if (workspaceRoot) {
+      const root = workspaceRoot;
+      this._workspaceRootProvider = () => root;
+    } else {
+      this._workspaceRootProvider = () => undefined;
+    }
+  }
+
+  private get workspaceRoot(): string | undefined {
+    return this._workspaceRootProvider();
+  }
 
   async editFile(filePath: string, oldText: string, newText: string): Promise<NativeToolResult> {
     try {
@@ -95,6 +110,104 @@ export class EditFileHandler {
     } catch (error: any) {
       return {
         content: [{ type: "text", text: `Error editing file: ${error.message}` }],
+        isError: true,
+      };
+    }
+  }
+
+  async editLines(
+    filePath: string,
+    lineStart: number,
+    lineEnd: number | undefined,
+    newText: string
+  ): Promise<NativeToolResult> {
+    try {
+      if (newText === undefined || newText === null) {
+        return {
+          content: [{ type: "text", text: "Error: new_text is required" }],
+          isError: true,
+        };
+      }
+
+      const effectiveEnd = lineEnd ?? lineStart;
+
+      if (!Number.isInteger(lineStart) || lineStart < 1) {
+        return {
+          content: [{ type: "text", text: `Error: line_start must be a positive integer (got ${lineStart})` }],
+          isError: true,
+        };
+      }
+      if (!Number.isInteger(effectiveEnd) || effectiveEnd < 1) {
+        return {
+          content: [{ type: "text", text: `Error: line_end must be a positive integer (got ${effectiveEnd})` }],
+          isError: true,
+        };
+      }
+      if (effectiveEnd < lineStart) {
+        return {
+          content: [{ type: "text", text: `Error: line_end (${effectiveEnd}) cannot be less than line_start (${lineStart})` }],
+          isError: true,
+        };
+      }
+
+      const resolvedPath = this.resolvePath(filePath);
+
+      let content: string;
+      try {
+        content = await readFile(resolvedPath, "utf-8");
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error reading file: ${error.message}` }],
+          isError: true,
+        };
+      }
+
+      const lineEnding = content.includes('\r\n') ? '\r\n' : '\n';
+      const lines = content.split(/\r?\n/);
+      const totalLines = lines.length;
+
+      if (lineStart > totalLines) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error: line_start (${lineStart}) exceeds total lines in file (${totalLines})`
+          }],
+          isError: true,
+        };
+      }
+      if (effectiveEnd > totalLines) {
+        return {
+          content: [{
+            type: "text",
+            text: `Error: line_end (${effectiveEnd}) exceeds total lines in file (${totalLines})`
+          }],
+          isError: true,
+        };
+      }
+
+      const before = lines.slice(0, lineStart - 1);
+      const after = lines.slice(effectiveEnd);
+      const replacementLines = newText.split(/\r?\n/);
+
+      const newLines = [...before, ...replacementLines, ...after];
+      const newContent = newLines.join(lineEnding);
+
+      await writeFile(resolvedPath, newContent, "utf-8");
+
+      const linesReplaced = effectiveEnd - lineStart + 1;
+      const summary = lineStart === effectiveEnd
+        ? `line ${lineStart}`
+        : `lines ${lineStart}-${effectiveEnd} (${linesReplaced} lines)`;
+
+      return {
+        content: [{
+          type: "text",
+          text: `Successfully edited ${path.basename(filePath)}: replaced ${summary} with ${replacementLines.length} line(s)`
+        }],
+      };
+    } catch (error: any) {
+      return {
+        content: [{ type: "text", text: `Error editing file by lines: ${error.message}` }],
         isError: true,
       };
     }

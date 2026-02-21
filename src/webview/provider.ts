@@ -9,8 +9,8 @@ import { ResponseParser, ParsedResponse } from "../utils/responseParser";
 import { TOOL_CALL_LIMIT_PER_TURN } from "../utils/nimisStateTracker";
 import type { MCPManager } from "../mcpManager";
 import type { RulesManager } from "../rulesManager";
-import { parse } from "path";
 import * as path from "path";
+import { NativeToolsManager } from "../utils/nativeToolManager";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -39,6 +39,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       rulesManager,
       workspaceRoot,
     });
+    const stateTracker = this.nimisManager.getStateTracker();
+    NativeToolsManager.getInstance().setWorkspaceRootProvider(
+      () => stateTracker.getWorkspaceRoot()
+    );
   }
 
   public resolveWebviewView(
@@ -174,18 +178,17 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     const toolName = toolCall.name;
     const args = toolCall.arguments || {};
 
-    // For tools that take file_path as argument
+    const workspaceRoot = this.nimisManager.getStateTracker().getWorkspaceRoot();
+
     if (
       toolName === "read_file" ||
       toolName === "edit_file" ||
+      toolName === "edit_lines" ||
       toolName === "replace_file" ||
       toolName === "create_file"
     ) {
       const filePath = args.file_path || args.filePath;
       if (typeof filePath === "string" && filePath.trim()) {
-        // Resolve to absolute path if relative
-        const workspaceRoot =
-          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (workspaceRoot && !path.isAbsolute(filePath)) {
           return path.resolve(workspaceRoot, filePath);
         }
@@ -193,38 +196,28 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    // For list_files: track the directory that was listed
     if (toolName === "list_files") {
       const directoryPath = args.directory_path || args.directoryPath;
-      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (
         directoryPath &&
         typeof directoryPath === "string" &&
         directoryPath.trim()
       ) {
-        // Resolve to absolute path if relative
         if (workspaceRoot && !path.isAbsolute(directoryPath)) {
           return path.resolve(workspaceRoot, directoryPath);
         }
         return path.isAbsolute(directoryPath) ? directoryPath : undefined;
       } else if (workspaceRoot) {
-        // No directory specified, means workspace root was listed
         return workspaceRoot;
       }
     }
 
-    // For find_files: extract first file path from result text
     if (toolName === "find_files") {
       const resultText =
         toolResult.content?.map((c) => c.text).join("\n") || "";
-      // Result format: "Found N file(s) matching "...":\n\n📄 path/to/file1\n📄 path/to/file2"
-      // Extract the first file path after the emoji
       const match = resultText.match(/📄\s+([^\n]+)/);
       if (match && match[1]) {
         const extractedPath = match[1].trim();
-        // Resolve to absolute path if relative
-        const workspaceRoot =
-          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (workspaceRoot && !path.isAbsolute(extractedPath)) {
           return path.resolve(workspaceRoot, extractedPath);
         }

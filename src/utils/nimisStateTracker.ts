@@ -20,6 +20,7 @@ export interface NimisStateSnapshot {
   rulesApplied: RuleAppliedRecord[];
   feedback: string[];
   lastUpdated: string;
+  workspaceRoot?: string;
   workingFiles?: Record<string, string>; // filename -> full path
 }
 
@@ -39,15 +40,16 @@ export class NimisStateTracker {
   private readonly persistPath?: string;
   /** Tool calls in the current turn (reset when user sends a new message). */
   private toolCallsThisTurn: number = 0;
+  private workspaceRoot?: string;
 
   // File context tracking — map of filename -> full path for all accessed files
   private workingFiles: Record<string, string> = {};
 
   private static readonly LOG_PREFIX = "[NimisStateTracker]";
 
-  constructor(options?: { persistPath?: string }) {
+  constructor(options?: { persistPath?: string; workspaceRoot?: string }) {
     this.persistPath = options?.persistPath;
-    // Load persisted state if it exists
+    this.workspaceRoot = options?.workspaceRoot;
     this._load();
   }
 
@@ -62,7 +64,10 @@ export class NimisStateTracker {
       this.rulesApplied = snapshot.rulesApplied || [];
       this.feedback = snapshot.feedback || [];
 
-      // Load workingFiles
+      if (!this.workspaceRoot && snapshot.workspaceRoot) {
+        this.workspaceRoot = snapshot.workspaceRoot;
+      }
+
       if (snapshot.workingFiles) {
         this.workingFiles = { ...snapshot.workingFiles };
       } else {
@@ -90,6 +95,7 @@ export class NimisStateTracker {
         rulesApplied: [...this.rulesApplied],
         feedback: [...this.feedback],
         lastUpdated: new Date().toISOString(),
+        workspaceRoot: this.workspaceRoot,
         workingFiles: Object.keys(this.workingFiles).length > 0 ? { ...this.workingFiles } : undefined,
       };
       fs.writeFileSync(
@@ -276,8 +282,10 @@ export class NimisStateTracker {
   formatForPrompt(): string {
     const parts: string[] = [];
 
-    // Working files (if any) - prioritize this section and make it very explicit
-    // Put it first so the LLM sees it early and knows which files are available
+    if (this.workspaceRoot) {
+      parts.push(`**Workspace root:** ${this.workspaceRoot}`);
+    }
+
     if (Object.keys(this.workingFiles).length > 0) {
       const fileList = Object.entries(this.workingFiles)
         .map(([fileName, fullPath]) => `  - ${fileName} → ${fullPath}`)
@@ -322,6 +330,16 @@ export class NimisStateTracker {
       workingFilesCount: Object.keys(this.workingFiles).length,
     });
     return formatted;
+  }
+
+  setWorkspaceRoot(root: string): void {
+    this.workspaceRoot = root;
+    console.debug(`${NimisStateTracker.LOG_PREFIX} setWorkspaceRoot:`, root);
+    this._persist();
+  }
+
+  getWorkspaceRoot(): string | undefined {
+    return this.workspaceRoot;
   }
 
   getProblem(): string {

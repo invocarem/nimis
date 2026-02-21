@@ -250,9 +250,10 @@ export class XmlProcessor {
     }
 
     // Full element format - support both <tool_call> and <MCP_CALL>
+    // Negative lookbehind (?<!\/) prevents matching self-closing tags (/>)
     const fullElementPatterns = [
-      /<tool_call[^>]*>([\s\S]*?)<\/tool_call>/g,
-      /<MCP_CALL[^>]*>([\s\S]*?)<\/MCP_CALL>/g,
+      /<tool_call[^>]*(?<!\/)>([\s\S]*?)<\/tool_call>/g,
+      /<MCP_CALL[^>]*(?<!\/)>([\s\S]*?)<\/MCP_CALL>/g,
     ];
 
     for (const fullElementRegex of fullElementPatterns) {
@@ -272,6 +273,21 @@ export class XmlProcessor {
         }
 
         try {
+          // Try child elements with CDATA first (preferred for code content)
+          const nameAttrMatch = raw.match(/<(?:tool_call|MCP_CALL)\s+[^>]*name=["']([^"']+)["']/);
+          if (nameAttrMatch) {
+            const childArgs = this.parseChildElements(content);
+            if (childArgs) {
+              results.push({
+                raw,
+                name: nameAttrMatch[1],
+                args: childArgs,
+              });
+              processedPositions.push({ start: matchStart, end: matchEnd });
+              continue;
+            }
+          }
+
           // Try to parse JSON content inside element
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
@@ -970,6 +986,43 @@ export class XmlProcessor {
     }
 
     return -1; // Not found
+  }
+
+  /**
+   * Parse child elements from tool call body content.
+   * Supports both CDATA-wrapped values and plain text values.
+   *
+   * Example:
+   *   <file_path>src/foo.ts</file_path>
+   *   <old_text><![CDATA[const x = "hello";]]></old_text>
+   */
+  private static parseChildElements(content: string): Record<string, string> | null {
+    const args: Record<string, string> = {};
+    let foundAny = false;
+
+    // CDATA elements: <name><![CDATA[value]]></name>
+    const cdataPattern = /<(\w+)>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/\1>/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = cdataPattern.exec(content)) !== null) {
+      foundAny = true;
+      let value = match[2];
+      // Strip one leading and one trailing newline (common LLM formatting)
+      if (value.startsWith('\n')) { value = value.substring(1); }
+      if (value.endsWith('\n')) { value = value.substring(0, value.length - 1); }
+      args[match[1]] = value;
+    }
+
+    // Plain text elements: <name>value</name> (no nested tags)
+    const plainPattern = /<(\w+)>([^<]*)<\/\1>/g;
+    while ((match = plainPattern.exec(content)) !== null) {
+      if (!(match[1] in args)) {
+        foundAny = true;
+        args[match[1]] = match[2].trim();
+      }
+    }
+
+    return foundAny ? args : null;
   }
 
   /**

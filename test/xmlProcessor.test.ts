@@ -1396,4 +1396,136 @@ Step 3: Test`;
       expect(oldText.indexOf("\n raise")).toBeGreaterThan(-1);
     });
   });
+
+  describe("CDATA child element format", () => {
+    it("should parse edit_file with CDATA old_text and new_text", () => {
+      const text =
+        '<tool_call name="edit_file">\n' +
+        "<file_path>src/utils/foo.ts</file_path>\n" +
+        "<old_text><![CDATA[\n" +
+        'const x = "hello";\n' +
+        "const y = 'world';\n" +
+        "]]></old_text>\n" +
+        "<new_text><![CDATA[\n" +
+        'const x = "goodbye";\n' +
+        "]]></new_text>\n" +
+        "</tool_call>";
+      const result = XmlProcessor.extractToolCalls(text);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("edit_file");
+      expect(result[0].args.file_path).toBe("src/utils/foo.ts");
+      expect(result[0].args.old_text).toBe(
+        'const x = "hello";\nconst y = \'world\';'
+      );
+      expect(result[0].args.new_text).toBe('const x = "goodbye";');
+    });
+
+    it("should parse create_file with CDATA content", () => {
+      const text =
+        '<tool_call name="create_file">\n' +
+        "<file_path>src/new.ts</file_path>\n" +
+        "<content><![CDATA[\n" +
+        "export function hello() {\n" +
+        '  return "world";\n' +
+        "}\n" +
+        "]]></content>\n" +
+        "</tool_call>";
+      const result = XmlProcessor.extractToolCalls(text);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("create_file");
+      expect(result[0].args.file_path).toBe("src/new.ts");
+      expect(result[0].args.content).toBe(
+        'export function hello() {\n  return "world";\n}'
+      );
+    });
+
+    it("should handle CDATA with special characters that would break JSON encoding", () => {
+      const text =
+        '<tool_call name="edit_file">\n' +
+        "<file_path>src/test.ts</file_path>\n" +
+        "<old_text><![CDATA[\n" +
+        'const regex = /[<>&"\']/g;\n' +
+        "const obj = { a: 1, b: \"two\" };\n" +
+        "]]></old_text>\n" +
+        "<new_text><![CDATA[\n" +
+        "const regex = /[<>&]/g;\n" +
+        "]]></new_text>\n" +
+        "</tool_call>";
+      const result = XmlProcessor.extractToolCalls(text);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].args.old_text).toContain("<>&");
+      expect(result[0].args.old_text).toContain('"two"');
+    });
+
+    it("should handle CDATA without leading/trailing newlines", () => {
+      const text =
+        '<tool_call name="replace_file">\n' +
+        "<file_path>src/foo.ts</file_path>\n" +
+        "<content><![CDATA[single line content]]></content>\n" +
+        "</tool_call>";
+      const result = XmlProcessor.extractToolCalls(text);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].args.content).toBe("single line content");
+    });
+
+    it("should coexist with self-closing attribute format in same text", () => {
+      const text =
+        '<tool_call name="read_file" args=\'{ "file_path": "src/foo.ts" }\' />\n' +
+        '<tool_call name="edit_file">\n' +
+        "<file_path>src/foo.ts</file_path>\n" +
+        "<old_text><![CDATA[old]]></old_text>\n" +
+        "<new_text><![CDATA[new]]></new_text>\n" +
+        "</tool_call>";
+      const result = XmlProcessor.extractToolCalls(text);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("read_file");
+      expect(result[1].name).toBe("edit_file");
+      expect(result[1].args.old_text).toBe("old");
+      expect(result[1].args.new_text).toBe("new");
+    });
+
+    it("should parse read_file with plain text child element", () => {
+      const text =
+        '<tool_call name="read_file">\n' +
+        "  <file_path>path/to/file.ts</file_path>\n" +
+        "</tool_call>";
+      const result = XmlProcessor.extractToolCalls(text);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("read_file");
+      expect(result[0].args.file_path).toBe("path/to/file.ts");
+    });
+
+    it("should handle multiline code with braces and quotes in CDATA", () => {
+      const code =
+        "function process(items: string[]) {\n" +
+        '  const result: Record<string, number> = {};\n' +
+        "  for (const item of items) {\n" +
+        "    result[item] = (result[item] || 0) + 1;\n" +
+        "  }\n" +
+        '  console.log("done", JSON.stringify(result));\n' +
+        "  return result;\n" +
+        "}";
+      const text =
+        '<tool_call name="edit_file">\n' +
+        "<file_path>src/process.ts</file_path>\n" +
+        "<old_text><![CDATA[\n" +
+        code +
+        "\n]]></old_text>\n" +
+        "<new_text><![CDATA[\n" +
+        code.replace("done", "finished") +
+        "\n]]></new_text>\n" +
+        "</tool_call>";
+      const result = XmlProcessor.extractToolCalls(text);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].args.old_text).toBe(code);
+      expect(result[0].args.new_text).toBe(code.replace("done", "finished"));
+    });
+  });
 });

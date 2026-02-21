@@ -59,19 +59,32 @@ export class NativeToolsManager {
     return NativeToolsManager.instance;
   }
 
-  private workspaceRoot: string | undefined;
+  /**
+   * Update the workspace root provider on the singleton (or any instance).
+   * Use this to wire in NimisStateTracker.getWorkspaceRoot() after initialization.
+   */
+  setWorkspaceRootProvider(provider: () => string | undefined): void {
+    this._workspaceRootProvider = provider;
+    this.editFileHandler = new EditFileHandler(provider);
+  }
+
+  private _workspaceRootProvider: () => string | undefined;
   private editFileHandler: EditFileHandler;
 
-  constructor(workspaceRoot?: string) {
-    if (workspaceRoot) {
-      this.workspaceRoot = workspaceRoot;
+  private get workspaceRoot(): string | undefined {
+    return this._workspaceRootProvider();
+  }
+
+  constructor(workspaceRoot?: string | (() => string | undefined)) {
+    if (typeof workspaceRoot === "function") {
+      this._workspaceRootProvider = workspaceRoot;
+    } else if (workspaceRoot) {
+      this._workspaceRootProvider = () => workspaceRoot;
     } else {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        this.workspaceRoot = workspaceFolders[0].uri.fsPath;
-      }
+      this._workspaceRootProvider = () =>
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     }
-    this.editFileHandler = new EditFileHandler(this.workspaceRoot);
+    this.editFileHandler = new EditFileHandler(this._workspaceRootProvider);
   }
 
   private shouldExcludeFolder(
@@ -123,32 +136,37 @@ export class NativeToolsManager {
           required: ["file_path", "content"],
         },
       },
-      {
-        name: "edit_file",
+     {
+        name: "edit_lines",
         description:
-          "Edit a specific part of a file by replacing an exact text snippet with new text. " +
-          "IMPORTANT: Always include at least 3 lines of context (the line to change plus 1-2 lines before and after). " +
-          "The old_text must match EXACTLY including whitespace. Use read_file first to copy the exact text.",
-
+          "Edit a file by replacing a range of lines (identified by line numbers) with new text. " +
+          "Use read_file first to see the file with line numbers. " +
+          "line_start and line_end are 1-indexed and inclusive. " +
+          "If line_end is omitted, only the single line at line_start is replaced.",
         inputSchema: {
           type: "object",
           properties: {
             file_path: {
               type: "string",
-              description: "Absolute path to the file to edit. ",
+              description: "Absolute path to the file to edit.",
             },
-            old_text: {
-              type: "string",
+            line_start: {
+              type: "integer",
               description:
-                "EXACT text snippet to be replaced. Include at least 3 lines of context. Must match the file content exactly (including whitespace).",
+                "The 1-indexed line number where the replacement begins.",
+            },
+            line_end: {
+              type: "integer",
+              description:
+                "The 1-indexed line number where the replacement ends (inclusive). Defaults to line_start if omitted (single-line edit).",
             },
             new_text: {
               type: "string",
               description:
-                "The replacement text that will substitute `old_text`. Preserve the same indentation level.",
+                "The replacement text. Can be multiple lines. Preserves indentation as provided.",
             },
           },
-          required: ["file_path", "old_text", "new_text"],
+          required: ["file_path", "line_start", "new_text"],
         },
       },
       {
@@ -307,6 +325,15 @@ export class NativeToolsManager {
             arguments_.old_text,
             arguments_.new_text
           );
+        case "edit_lines":
+          return await this.editLines(
+            arguments_.file_path,
+            parseInt(arguments_.line_start, 10),
+            arguments_.line_end != null
+              ? parseInt(arguments_.line_end, 10)
+              : undefined,
+            arguments_.new_text
+          );
         case "list_files":
           return await this.listFiles(
             arguments_.directory_path,
@@ -371,23 +398,12 @@ export class NativeToolsManager {
     filePath: string,
     useCurrentEditor: boolean = false
   ): string {
-    // If absolute path, normalize it
     if (path.isAbsolute(filePath)) {
       return path.resolve(filePath);
     }
 
-    // Get workspace root - check dynamically if not set in constructor
-    let workspaceRoot = this.workspaceRoot;
-    if (!workspaceRoot) {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        workspaceRoot = workspaceFolders[0].uri.fsPath;
-        // Update instance variable for future calls
-        this.workspaceRoot = workspaceRoot;
-      }
-    }
+    const wsRoot = this.workspaceRoot;
 
-    // Handle "." as current directory - use current editor's directory if available
     if (filePath === "." || filePath === "./") {
       if (useCurrentEditor) {
         const editor = vscode.window.activeTextEditor;
@@ -395,35 +411,29 @@ export class NativeToolsManager {
           return path.dirname(editor.document.fileName);
         }
       }
-      // Fall back to workspace root or editor directory
-      if (workspaceRoot) {
-        return workspaceRoot;
+      if (wsRoot) {
+        return wsRoot;
       }
-      // Try to use active editor's directory as fallback
       const editor = vscode.window.activeTextEditor;
       if (editor && editor.document && !editor.document.isUntitled) {
         return path.dirname(editor.document.fileName);
       }
-      // Last resort: use process.cwd() but log a warning
       console.warn(
         `[NativeTools] No workspace root found, using process.cwd(): ${process.cwd()}`
       );
       return process.cwd();
     }
 
-    // Otherwise, resolve relative to workspace root
-    if (workspaceRoot) {
-      return path.resolve(workspaceRoot, filePath);
+    if (wsRoot) {
+      return path.resolve(wsRoot, filePath);
     }
 
-    // Try to use active editor's directory as fallback
     const editor = vscode.window.activeTextEditor;
     if (editor && editor.document && !editor.document.isUntitled) {
       const editorDir = path.dirname(editor.document.fileName);
       return path.resolve(editorDir, filePath);
     }
 
-    // Last resort: use process.cwd() but log a warning
     console.warn(
       `[NativeTools] No workspace root found, resolving "${filePath}" relative to process.cwd(): ${process.cwd()}`
     );
@@ -440,23 +450,13 @@ export class NativeToolsManager {
 
   private resolveDirectoryPathRaw(directoryPath?: string): string {
     if (!directoryPath) {
-      // If no path specified, try to use current editor's directory as a smart default
       const editor = vscode.window.activeTextEditor;
       if (editor && editor.document && !editor.document.isUntitled) {
         return path.dirname(editor.document.fileName);
       }
-      // Get workspace root - check dynamically if not set in constructor
-      let workspaceRoot = this.workspaceRoot;
-      if (!workspaceRoot) {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders && workspaceFolders.length > 0) {
-          workspaceRoot = workspaceFolders[0].uri.fsPath;
-          this.workspaceRoot = workspaceRoot;
-        }
-      }
-      // Fall back to workspace root or process.cwd() with warning
-      if (workspaceRoot) {
-        return workspaceRoot;
+      const wsRoot = this.workspaceRoot;
+      if (wsRoot) {
+        return wsRoot;
       }
       console.warn(
         `[NativeTools] No workspace root found, using process.cwd(): ${process.cwd()}`
@@ -1311,5 +1311,19 @@ export class NativeToolsManager {
     newText: string
   ): Promise<NativeToolResult> {
     return await this.editFileHandler.editFile(filePath, oldText, newText);
+  }
+
+  private async editLines(
+    filePath: string,
+    lineStart: number,
+    lineEnd: number | undefined,
+    newText: string
+  ): Promise<NativeToolResult> {
+    return await this.editFileHandler.editLines(
+      filePath,
+      lineStart,
+      lineEnd,
+      newText
+    );
   }
 }
