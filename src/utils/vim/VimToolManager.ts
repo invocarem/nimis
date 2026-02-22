@@ -248,13 +248,12 @@ export class VimToolManager {
     }
   }
 
-// src/utils/vim/VimToolManager.ts
-
 private async vimEdit(
   commands: string[],
   filePath?: string,
   createBackup: boolean = true
 ): Promise<VimToolResult> {
+
   try {
     if (filePath) {
       const ctx: CommandContext = {
@@ -302,7 +301,9 @@ private async vimEdit(
     let currentOutput = '';
     let commandCount = 0;
 
-    for (const cmd of commands) {
+    for (let i = 0; i < commands.length; i++) {
+      const cmd = commands[i];
+      
       if (cmd === '\n' || cmd === '\r') {
         // Handle newline as Enter key in insert mode
         const result = await this.stateMachine.processKey('\n');
@@ -327,8 +328,29 @@ private async vimEdit(
         commandCount++;
       }
 
-      // After processing the command, if we're in command-line mode and this looks like an Ex command, press Enter
+      // CRITICAL FIX: After processing a command in insert mode, add a newline
+      // to separate it from the next command (unless it's the last command).
+      // Skip for bare mode-switch commands (i, a, I, A, o, O) - they don't insert
+      // content; the next command is the first line to type.
       const state = this.stateMachine.getState();
+      const isBareModeSwitch = /^[iaIAoO]$/.test(cmd);
+      if (
+        state.mode === 'insert' &&
+        i < commands.length - 1 &&
+        !isBareModeSwitch
+      ) {
+        const nextCmd = commands[i + 1];
+        // Don't add newline before escape or colon commands
+        if (nextCmd !== '\x1b' && !nextCmd.startsWith(':')) {
+          const result = await this.stateMachine.processKey('\n');
+          if (result.output) {
+            currentOutput += result.output;
+          }
+          commandCount++;
+        }
+      }
+
+      // After processing the command, if we're in command-line mode and this looks like an Ex command, press Enter
       if (state.mode === 'command-line' && cmd.startsWith(':')) {
         const result = await this.stateMachine.processKey('\n');
         if (result.output) {

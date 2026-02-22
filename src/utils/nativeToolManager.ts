@@ -101,7 +101,7 @@ export class NativeToolsManager {
   }
 
   getAvailableTools(): NativeTool[] {
-    return [
+    const allTools: NativeTool[] = [
       {
         name: "edit_file",
         description:
@@ -325,6 +325,7 @@ export class NativeToolsManager {
         },
       },
      ];
+    return allTools.slice(-1);
   }
 
   async callTool(

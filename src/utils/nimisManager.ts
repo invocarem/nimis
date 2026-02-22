@@ -16,30 +16,100 @@ import type { Rule } from "../rulesManager";
 import type { RulesManager } from "../rulesManager";
 
 export class NimisManager {
-  static toolCallHelp(
+
+static toolCallHelp(
     nativeToolManager?: NativeToolsManager,
     vimToolManager?: VimToolManager,
     mcpManager?: MCPManager
   ): string {
     return (
-      "### How to use **tool_call**\n" +
-      'format a: <tool_call name="TOOL_NAME" args=\'{ ... }\' />\n\n' +
-      'format b: <tool_call name="TOOL_NAME"><arg1>...</arg1><arg2>...</arg2></tool_call>\n\n' +
-      "Notes:\n" +
-      "- format a: Use the attributes `name` and `args` exactly.\n" +
-      "- format a: The `args` attribute should contain a valid JSON object as a string.\n" +
-      '- format a: Use single quotes around the args value if it contains double quotes: args=\'{ "key": "value" }\'\n' +
-      "- format a: When calling a tool, output only the `<tool_call>` tag (no extra explanation in the same assistant message).\n" +
-      "- format a: Ensure the JSON object in `args` is properly formatted so it can be parsed by the tool extractor.\n\n" +
-      "- format b: For create_file, edit_file, and replace_file, you MUST use CDATA format** (avoids escaping issues with code):\n" +
-      '<tool_call name="create_file">\n' +
-      "<file_path>path/to/file.ts</file_path>\n" +
-      "<content><![CDATA[\nfile content here\n]]></content>\n" +
+      "### How to use **tool_call**\n\n" +
+      "## Two XML formats for tool calls\n\n" +
+      
+      "**FORMAT A: Simple attribute format** (for tools with simple string/number arguments)\n" +
+      '<tool_call name="TOOL_NAME" args=\'{ "arg1": "value1", "arg2": 123 }\' />\n\n' +
+      
+      "**FORMAT B: Child element format with CDATA** (MANDATORY for tools with code/content)\n" +
+      '<tool_call name="TOOL_NAME">\n' +
+      "  <arg1>simple_value</arg1>\n" +
+      "  <content><![CDATA[\n" +
+      "    Multi-line code or content\n" +
+      "    with \"quotes\" and <brackets>\n" +
+      "  ]]></content>\n" +
       "</tool_call>\n\n" +
-      "CDATA rules:\n" +
-      "- Wrap code/text parameters (old_text, new_text, content) in <![CDATA[...]]>\n" +
-      "- Simple parameters like file_path, line_start, line_end use plain child elements (no CDATA needed)\n" +
-      "- Content inside CDATA is preserved exactly — no escaping needed for quotes, brackets, etc.\n\n" +
+      
+      "## FORMAT SELECTION RULES\n\n" +
+      
+      "**USE FORMAT B (CDATA) FOR THESE TOOLS:**\n" +
+      "✅ **create_file** - Use <content> with CDATA\n" +
+      "✅ **edit_file** - Use <old_text> and <new_text> with CDATA\n" +
+      "✅ **replace_file** - Use <content> with CDATA\n" +
+      "✅ **vim_edit** - Use <commands> with CDATA (each command on its own line)\n" +
+      "✅ Any tool that accepts multi-line text, code, or content with special characters\n\n" +
+      
+      "**USE FORMAT A (ATTRIBUTE) FOR:**\n" +
+      "✅ Tools with simple string/number arguments (e.g., read_file, exec_terminal)\n" +
+      "✅ When arguments are short and contain no quotes or special characters\n\n" +
+      
+      "## VIM_EDIT SPECIFIC REQUIREMENTS\n\n" +
+      
+      "**ALWAYS use FORMAT B with CDATA for vim_edit:**\n" +
+      '<tool_call name="vim_edit">\n' +
+      "  <file_path>hello.py</file_path>\n" +
+      "  <commands><![CDATA[\n" +
+      ":e hello.py\n" +
+      "i\n" +
+      "#!/usr/bin/env python3\n" +
+      "def main():\n" +
+      "    print(\"Hello, World!\")\n" +
+      "if __name__ == \"__main__\":\n" +
+      "    main()\n" +
+      "\\x1b\n" +
+      ":w\n" +
+      "]]></commands>\n" +
+      "</tool_call>\n\n" +
+      
+      "**Why CDATA is required for vim_edit:**\n" +
+      "- Each command must be a separate array element\n" +
+      "- Commands contain quotes, newlines, and special characters\n" +
+      "- The escape sequence \\x1b must be preserved exactly\n" +
+      "- Indentation in code must be maintained\n\n" +
+      
+      "## COMMON PITFALLS TO AVOID\n\n" +
+      
+      "❌ **DON'T use format A for vim_edit:**\n" +
+      '<tool_call name="vim_edit" args=\'{ "file_path": "hello.py", "commands": [":e hello.py", "i", "code"] }\' />\n' +
+      "   → This WILL corrupt multi-line content and escape sequences!\n\n" +
+      
+      "❌ **DON'T put commands in a single string:**\n" +
+      "<commands>i\\nline1\\nline2</commands>\n" +
+      "   → Each command must be on its own line in CDATA\n\n" +
+      
+      "✅ **DO use CDATA with one command per line:**\n" +
+      "<commands><![CDATA[\n" +
+      "i\n" +
+      "line1\n" +
+      "line2\n" +
+      "\\x1b\n" +
+      ":w\n" +
+      "]]></commands>\n\n" +
+      
+      "## QUICK REFERENCE TABLE\n\n" +
+      "| Tool Name | Required Format | Child Elements |\n" +
+      "|-----------|----------------|----------------|\n" +
+      "| create_file | FORMAT B (CDATA) | file_path, content |\n" +
+      "| edit_file | FORMAT B (CDATA) | file_path, old_text, new_text |\n" +
+      "| replace_file | FORMAT B (CDATA) | file_path, content |\n" +
+      "| **vim_edit** | **FORMAT B (CDATA)** | **file_path (optional), commands** |\n" +
+      "| read_file | FORMAT A or B | file_path |\n" +
+      "| exec_terminal | FORMAT A or B | command |\n\n" +
+      
+      "## CDATA RULES SUMMARY\n\n" +
+      "- Use `<![CDATA[` and `]]>` to wrap content\n" +
+      "- One command per line inside CDATA for vim_edit\n" +
+      "- Simple string arguments (file_path) use plain child elements, not CDATA\n" +
+      "- Content inside CDATA is preserved exactly — no escaping needed\n\n" +
+      
       NimisManager.buildToolDocs(nativeToolManager, vimToolManager, mcpManager)
     );
   }
@@ -51,7 +121,7 @@ export class NimisManager {
   ): string {
     const manager = nativeToolManager || NativeToolsManager.getInstance();
     const nativeTools = manager.getAvailableTools();
-   nativeTools.splice(0, nativeTools.length);
+   nativeTools.splice(-1);
     let doc = "**Available native tools:**\n";
     doc += nativeTools
       .map((tool) => {
