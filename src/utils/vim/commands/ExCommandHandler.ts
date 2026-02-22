@@ -3,7 +3,6 @@ import * as path from "path";
 import type { VimBuffer, CommandContext } from "../types";
 import { parseRange } from "../utils/RangeParser";
 import {
-  substitute,
   substituteWithPattern,
   deleteLines,
   yankLines,
@@ -41,14 +40,19 @@ export class ExCommandHandler {
       if (match) {
         const [_, mark, rest] = match;
         const line = buffer.marks.get(mark);
-        if (line === undefined) {
+        if (line !== undefined) {
+          buffer.currentLine = line;
+          if (rest) {
+            return this.execute(rest, buffer);
+          }
+          return `Jumped to mark '${mark}`;
+        }
+        // Mark not set — try register interpretation as fallback
+        try {
+          return await this.execute(`"${mark}${rest}`, buffer);
+        } catch {
           throw new Error(`Mark '${mark} not set`);
         }
-        buffer.currentLine = line;
-        if (rest) {
-          return this.execute(rest, buffer);
-        }
-        return `Jumped to mark '${mark}`;
       }
     }
 
@@ -70,7 +74,12 @@ export class ExCommandHandler {
 
     // %s/ substitution
     if (cmd.startsWith('%s/')) {
-      return substitute({ start: 0, end: buffer.content.length - 1 }, cmd.substring(2), buffer);
+      const subMatch = cmd.substring(3).match(/^([^/]+)\/([^/]*)\/([gci]*)$/);
+      if (!subMatch) {
+        throw new Error('Invalid substitute format. Use :%s/pattern/replacement/flags');
+      }
+      const [_, pattern, replacement, flags] = subMatch;
+      return substituteWithPattern({ start: 0, end: buffer.content.length - 1 }, pattern, replacement, flags, buffer);
     }
 
     // Range-based substitution (e.g. 10,20s/old/new/g)
@@ -165,7 +174,12 @@ export class ExCommandHandler {
 
     // Handle substitution after range extraction (e.g. /pattern/s/old/new/g)
     if (rest.startsWith('s/')) {
-      return substitute(range || { start: buffer.currentLine, end: buffer.currentLine }, rest.substring(1), buffer);
+      const subParts = rest.substring(2).match(/^([^/]+)\/([^/]*)\/([gci]*)$/);
+      if (!subParts) {
+        throw new Error('Invalid substitute format. Use :s/pattern/replacement/flags');
+      }
+      const [_, sp, sr, sf] = subParts;
+      return substituteWithPattern(range || { start: buffer.currentLine, end: buffer.currentLine }, sp, sr, sf, buffer);
     }
 
     // Handle g/pattern/cmd and v/pattern/cmd without space separator
@@ -259,10 +273,13 @@ export class ExCommandHandler {
 
       case 'p':
       case 'pu':
-        return putLines(false, buffer.lastRegister || undefined, buffer);
+        return putLines(false, args || buffer.lastRegister || undefined, buffer);
+
+      case 'pu!':
+        return putLines(true, args || buffer.lastRegister || undefined, buffer);
 
       case 'P':
-        return putLines(true, buffer.lastRegister || undefined, buffer);
+        return putLines(true, args || buffer.lastRegister || undefined, buffer);
 
       case 'g':
         return await globalCommand(args, false, buffer);

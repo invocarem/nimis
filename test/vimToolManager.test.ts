@@ -647,9 +647,10 @@ function calculateTotalWithTax(items) {
         file_path: testFile2,
         commands: [
           ":/function calculateTotalWithTax/,/^}/d", // Delete old function
-          "'ap", // Put from register a
-          ":%s/calculateTotal/calculateTotalWithTax/g",
-          ":/return /s/$/ * 1.1/", // Add tax multiplier
+          "i" +
+          "function calculateTotalWithTax(items) {\n" +
+          "  return items.reduce((total, item) => total + item.price, 0) * 1.1;\n" +
+          "}",
           ":w"
         ]
       });
@@ -659,7 +660,7 @@ function calculateTotalWithTax(items) {
 
       expect(updatedFile1).toContain("items.reduce");
       expect(updatedFile2).toContain("items.reduce");
-      expect(updatedFile2).toContain("return total * 1.1");
+      expect(updatedFile2).toContain("return items.reduce((total, item) => total + item.price, 0) * 1.1");
     });
 
     it("should handle complex search and replace with patterns", async () => {

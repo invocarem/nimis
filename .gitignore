@@ -6,3 +6,5 @@ coverage/
 *.vsix
 .DS_Store
 .nimis/
+test.txt
+nonexistent.py
