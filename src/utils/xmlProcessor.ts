@@ -988,37 +988,69 @@ export class XmlProcessor {
     return -1; // Not found
   }
 
+  private static readonly ARRAY_FIELDS = new Set(["commands"]);
+
   /**
    * Parse child elements from tool call body content.
    * Supports both CDATA-wrapped values and plain text values.
+   * Fields listed in ARRAY_FIELDS are returned as string[] (split by newlines
+   * for single CDATA, or one entry per CDATA block when multiple are present).
    *
    * Example:
    *   <file_path>src/foo.ts</file_path>
    *   <old_text><![CDATA[const x = "hello";]]></old_text>
+   *   <commands><![CDATA[
+   *   :e file.ts
+   *   :%s/old/new/g
+   *   :w
+   *   ]]></commands>
    */
-  private static parseChildElements(content: string): Record<string, string> | null {
-    const args: Record<string, string> = {};
+  private static parseChildElements(content: string): Record<string, any> | null {
+    const args: Record<string, any> = {};
     let foundAny = false;
 
-    // CDATA elements: <name><![CDATA[value]]></name>
-    const cdataPattern = /<(\w+)>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/\1>/g;
-    let match: RegExpExecArray | null;
+    // First pass: handle elements that may contain one or more CDATA blocks.
+    // Match the full <name>...CDATA...</name> block, then extract CDATA sections within.
+    const elementPattern = /<(\w+)>([\s\S]*?)<\/\1>/g;
+    let elMatch: RegExpExecArray | null;
 
-    while ((match = cdataPattern.exec(content)) !== null) {
-      foundAny = true;
-      let value = match[2];
-      // Strip one leading and one trailing newline (common LLM formatting)
-      if (value.startsWith('\n')) { value = value.substring(1); }
-      if (value.endsWith('\n')) { value = value.substring(0, value.length - 1); }
-      args[match[1]] = value;
-    }
+    while ((elMatch = elementPattern.exec(content)) !== null) {
+      const name = elMatch[1];
+      const inner = elMatch[2];
 
-    // Plain text elements: <name>value</name> (no nested tags)
-    const plainPattern = /<(\w+)>([^<]*)<\/\1>/g;
-    while ((match = plainPattern.exec(content)) !== null) {
-      if (!(match[1] in args)) {
+      const cdataValues: string[] = [];
+      const cdataInnerPattern = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
+      let cdataMatch: RegExpExecArray | null;
+
+      while ((cdataMatch = cdataInnerPattern.exec(inner)) !== null) {
+        let value = cdataMatch[1];
+        if (value.startsWith('\n')) { value = value.substring(1); }
+        if (value.endsWith('\n')) { value = value.substring(0, value.length - 1); }
+        cdataValues.push(value);
+      }
+
+      if (cdataValues.length > 0) {
         foundAny = true;
-        args[match[1]] = match[2].trim();
+        if (this.ARRAY_FIELDS.has(name)) {
+          if (cdataValues.length === 1) {
+            args[name] = cdataValues[0].split('\n').filter(line => line.trim() !== '');
+          } else {
+            args[name] = cdataValues.map(v => v.trim()).filter(v => v !== '');
+          }
+        } else {
+          args[name] = cdataValues.join('');
+        }
+      } else {
+        // Plain text (no CDATA inside)
+        const plainValue = inner.trim();
+        if (plainValue && !(name in args)) {
+          foundAny = true;
+          if (this.ARRAY_FIELDS.has(name)) {
+            args[name] = plainValue.split('\n').filter(line => line.trim() !== '');
+          } else {
+            args[name] = plainValue;
+          }
+        }
       }
     }
 

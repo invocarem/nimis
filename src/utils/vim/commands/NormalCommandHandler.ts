@@ -149,15 +149,39 @@ export class NormalCommandHandler {
       return `Appended: ${text}`;
     }
 
-    // Enter insert mode (no text)
+    // Enter insert mode (no text) - FIXED: Now inserts a new line
     if (remainingCmd === 'i') {
-      return 'Entering insert mode at cursor position';
+      // Split the current line at cursor position
+      const currentLine = buffer.content[buffer.currentLine];
+      const beforeCursor = currentLine.substring(0, this.cursorColumn);
+      const afterCursor = currentLine.substring(this.cursorColumn);
+      
+      // Replace current line with before cursor part
+      buffer.content[buffer.currentLine] = beforeCursor;
+      
+      // Insert new line with after cursor part
+      buffer.content.splice(buffer.currentLine + 1, 0, afterCursor);
+      
+      // Move to the new line
+      buffer.currentLine++;
+      this.cursorColumn = 0;
+      buffer.modified = true;
+      
+      return 'Inserted new line';
     }
 
-    // Enter append mode (no text)
+    // Enter append mode (no text) - FIXED: Now inserts a new line after cursor
     if (remainingCmd === 'a') {
-      this.cursorColumn++; // Move cursor one position right for append
-      return 'Entering append mode after cursor';
+      // Move cursor to end of line and insert new line
+      this.cursorColumn = buffer.content[buffer.currentLine].length;
+      
+      // Insert new empty line below
+      buffer.content.splice(buffer.currentLine + 1, 0, '');
+      buffer.currentLine++;
+      this.cursorColumn = 0;
+      buffer.modified = true;
+      
+      return 'Appended new line';
     }
 
     // Open new line below and enter insert mode

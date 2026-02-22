@@ -128,7 +128,7 @@ export class NimisManager {
 
   private static loadVimTemplates(): string | null {
     try {
-      const templatesPath = path.join(__dirname, "templates", "vim_templates.xml");
+      const templatesPath = path.join(__dirname, "utils", "templates", "vim_templates.xml");
       return fs.readFileSync(templatesPath, "utf-8");
     } catch (error: any) {
       console.warn(`[NimisManager] Failed to load vim_templates.xml: ${error.message}`);

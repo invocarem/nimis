@@ -57,6 +57,7 @@ export class VimToolManager {
     this.normalHandler = new NormalCommandHandler();
   }
 
+
   getAvailableTools(): VimTool[] {
     return [
       {
@@ -66,6 +67,11 @@ export class VimToolManager {
           "- All file operations are done through Vim commands\n" +
           "- Maintains buffer state across commands\n" +
           "- Supports registers, marks, and ranges\n\n" +
+          "IMPORTANT: COMMAND FORMAT RULES\n" +
+          "- Each command must be a separate string in the 'commands' array\n" +
+          "- Do NOT combine multiple commands in one string\n" +
+          "- Do NOT use :create (it doesn't exist - use i or o to insert content)\n" +
+          "- Always include :w at the end to save changes\n\n" +
           "Basic Commands:\n" +
           "  :e <file>     - Edit file (opens/creates in buffer)\n" +
           "  :w            - Write current buffer to disk\n" +
@@ -86,6 +92,22 @@ export class VimToolManager {
           "  :g/pattern/cmd                - Global command\n" +
           "  :v/pattern/cmd                - Inverse global\n" +
           "  :[range]norm <cmd>            - Execute normal commands\n\n" +
+          "Normal Mode Commands (no colon):\n" +
+          "  i{text}       - Insert text at cursor\n" +
+          "  a{text}       - Append text after cursor\n" +
+          "  o             - Open new line below and enter insert mode\n" +
+          "  O             - Open new line above and enter insert mode\n" +
+          "  dd            - Delete current line\n" +
+          "  3dd           - Delete 3 lines\n" +
+          "  yy            - Yank current line\n" +
+          "  p             - Put after cursor\n" +
+          "  P             - Put before cursor\n" +
+          "  j/k           - Move down/up\n" +
+          "  gg/G          - Go to top/bottom\n" +
+          "  0/$           - Go to start/end of line\n" +
+          "  ma            - Set mark a at current line\n" +
+          "  'a            - Jump to mark a\n" +
+          "  \"ayy          - Yank line to register a\n\n" +
           "File Operations:\n" +
           "  :r <file>      - Read file into current buffer\n" +
           "  :saveas <file> - Save buffer to new file\n" +
@@ -108,31 +130,48 @@ export class VimToolManager {
           "  10            - Line 10\n" +
           "  10,20         - Lines 10-20\n" +
           "  .,+5          - Current through next 5 lines\n\n" +
-          "Examples:\n" +
-          "  # Create and edit a new file\n" +
-          "  :e src/app.ts\n" +
-          "  i// New file\n" +
-          "  :w\n\n" +
-          "  # Replace all occurrences\n" +
-          "  :%s/oldFunction/newFunction/g\n\n" +
-          "  # Delete all console.log lines\n" +
-          "  :g/^\\s*console\\.log/d\n\n" +
-          "  # Copy a function to another file\n" +
-          "  :/function foo/,/^}/y a\n" +
-          "  :e other.ts\n" +
-          "  'ap\n\n" +
-          "  # Search for files and edit\n" +
-          "  :!find *.ts\n" +
-          "  :e foundfile.ts\n\n" +
-          "  # Create directory and file\n" +
-          "  :!mkdir -p src/components\n" +
-          "  :e src/components/Button.tsx",
+          "EXAMPLES - CORRECT USAGE:\n\n" +
+          "✅ Create new file with content:\n" +
+          "  commands: [\n" +
+          "    \"i#!/usr/bin/env python3\",\n" +
+          "    \"i\",\n" +
+          "    \"idef main():\",\n" +
+          "    \"i    print('Hello')\",\n" +
+          "    \":w\"\n" +
+          "  ]\n\n" +
+          "✅ Search and replace:\n" +
+          "  commands: [\n" +
+          "    \":%s/oldFunction/newFunction/g\",\n" +
+          "    \":w\"\n" +
+          "  ]\n\n" +
+          "✅ Delete lines matching pattern:\n" +
+          "  commands: [\n" +
+          "    \":g/^\\s*console\\.log/d\",\n" +
+          "    \":w\"\n" +
+          "  ]\n\n" +
+          "✅ Copy between files:\n" +
+          "  commands: [\n" +
+          "    \":/function foo/,/^}/y a\",\n" +
+          "    \":e other.ts\",\n" +
+          "    \"'ap\",\n" +
+          "    \":w\"\n" +
+          "  ]\n\n" +
+          "❌ INCORRECT - DON'T DO THIS:\n" +
+          "  commands: [\n" +
+          "    \":create newfile.py\"  # WRONG - :create doesn't exist\n" +
+          "  ]\n\n" +
+          "  commands: [\n" +
+          "    \":e file.py :w :q\"  # WRONG - multiple commands in one string\n" +
+          "  ]\n\n" +
+          "  commands: [\n" +
+          "    \"iLine 1\\niLine 2\\niLine 3\"  # WRONG - each line needs its own 'i'\n" +
+          "  ]",
         inputSchema: {
           type: "object",
           properties: {
             commands: {
               type: "array",
-              description: "Array of Vim commands to execute in sequence. Commands maintain buffer state.",
+              description: "Array of Vim commands to execute in sequence. IMPORTANT: Each command must be a separate string. Commands maintain buffer state across calls.",
               items: { type: "string" }
             },
             file_path: {
@@ -173,12 +212,17 @@ export class VimToolManager {
 
     try {
       switch (toolName) {
-        case "vim_edit":
+        case "vim_edit": {
+          let cmds = arguments_.commands || [];
+          if (typeof cmds === "string") {
+            cmds = cmds.split('\n').filter((line: string) => line.trim() !== '');
+          }
           return await this.vimEdit(
-            arguments_.commands || [],
+            cmds,
             arguments_.file_path,
             arguments_.create_backup !== false
           );
+        }
         case "vim_buffer_list":
           return listBuffers(this.buffers, this.currentBuffer);
         case "vim_show_registers":
