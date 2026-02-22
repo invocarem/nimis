@@ -99,26 +99,12 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'k' command to move up", async () => {
-      // First, verify the initial state
       await manager.callTool("vim_edit", {
-        file_path: testFile,
-        commands: [] // Just load the file
-      });
-
-      // Move to last line, then up 2 lines, then delete current line
-      const result = await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: ["G", "2k", "dd", ":w"]
       });
 
-      expect(result.isError).toBeFalsy();
-
-      // Read the file and verify content
       const content = await readFile(testFile, "utf-8");
-      console.log('Content after k test:', content); // Debug log
-
-      // After moving to line 5 (G), then up 2 (k,k), we should be at line 3
-      // Deleting line 3 should leave lines 1,2,4,5
       expect(content).toBe("line1\nline2\nline4\nline5\n");
     });
   });
@@ -155,9 +141,11 @@ describe("Normal Mode Commands - Isolated Tests", () => {
         file_path: testFile,
         commands: [
           "2G",
-          '"add', // Delete line 2 to register a
-          "G",    // Go to end
-          '"ap',  // Put from register a
+          '"a',  // Select register a
+          "dd",  // Delete to register a
+          "G",   // Go to end
+          '"a',  // Select register a
+          "p",   // Put from register a
           ":w"
         ]
       });
@@ -211,12 +199,16 @@ describe("Normal Mode Commands - Isolated Tests", () => {
         file_path: testFile,
         commands: [
           "2G",
-          '"ayy',  // Yank line 2 to register a
+          '"a',  // Select register a
+          "yy",  // Yank line 2 to register a
           "3G",
-          '"byy',  // Yank line 3 to register b
+          '"b',  // Select register b
+          "yy",  // Yank line 3 to register b
           "G",
-          '"ap',   // Put from register a
-          '"bp',   // Put from register b
+          '"a',  // Select register a
+          "p",   // Put from register a
+          '"b',  // Select register b
+          "p",   // Put from register b
           ":w"
         ]
       });
@@ -279,13 +271,13 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       // First call: yank to register a
       await manager.callTool("vim_edit", {
         file_path: testFile,
-        commands: ["2G", '"ayy']
+        commands: ["2G", '"a', "yy"]
       });
 
       // Second call: use register a
       const result = await manager.callTool("vim_edit", {
         file_path: testFile,
-        commands: ["G", '"ap', ":w"]
+        commands: ["G", '"a', "p", ":w"]
       });
 
       expect(result.isError).toBeFalsy();

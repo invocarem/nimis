@@ -3,8 +3,16 @@ import type { VimBuffer } from "../types";
 import { deleteLines, yankLines, putLines } from "../operations/TextOperations";
 
 export class NormalCommandHandler {
-  // Track cursor column position (0-based)
-  private cursorColumn: number = 0;
+  cursorColumn: number = 0;
+
+  // Add getter and setter methods
+  getCursorColumn(): number {
+    return this.cursorColumn;
+  }
+
+  setCursorColumn(column: number): void {
+    this.cursorColumn = column;
+  }
 
   execute(cmd: string, buffer: VimBuffer): string {
     if (!cmd) {
@@ -121,6 +129,9 @@ export class NormalCommandHandler {
       return this.execute(remainingCmd.slice(1), buffer);
     }
 
+    // Note: The following insert mode commands are kept for backward compatibility
+    // but in the state machine approach, they should be handled by the VimStateMachine
+    
     // Insert text at cursor position: i{text}
     if (remainingCmd.startsWith('i') && remainingCmd.length > 1) {
       const text = remainingCmd.substring(1);
@@ -144,59 +155,42 @@ export class NormalCommandHandler {
       
       buffer.content[buffer.currentLine] = currentLine + text;
       
-      this.cursorColumn = buffer.content[buffer.currentLine].length - 1;
+      this.cursorColumn = buffer.content[buffer.currentLine].length;
       buffer.modified = true;
       return `Appended: ${text}`;
     }
 
-    // Enter insert mode (no text) - FIXED: Now inserts a new line
+    // Enter insert mode (no text)
     if (remainingCmd === 'i') {
-      // Split the current line at cursor position
-      const currentLine = buffer.content[buffer.currentLine];
-      const beforeCursor = currentLine.substring(0, this.cursorColumn);
-      const afterCursor = currentLine.substring(this.cursorColumn);
-      
-      // Replace current line with before cursor part
-      buffer.content[buffer.currentLine] = beforeCursor;
-      
-      // Insert new line with after cursor part
-      buffer.content.splice(buffer.currentLine + 1, 0, afterCursor);
-      
-      // Move to the new line
-      buffer.currentLine++;
-      this.cursorColumn = 0;
-      buffer.modified = true;
-      
-      return 'Inserted new line';
+      // Just enter insert mode - actual line splitting handled by state machine
+      return 'Entered insert mode';
     }
 
-    // Enter append mode (no text) - FIXED: Now inserts a new line after cursor
+    // Enter append mode (no text)
     if (remainingCmd === 'a') {
-      // Move cursor to end of line and insert new line
-      this.cursorColumn = buffer.content[buffer.currentLine].length;
-      
-      // Insert new empty line below
-      buffer.content.splice(buffer.currentLine + 1, 0, '');
-      buffer.currentLine++;
-      this.cursorColumn = 0;
-      buffer.modified = true;
-      
-      return 'Appended new line';
+      // Move cursor right one position if not at end of line
+      const currentLine = buffer.content[buffer.currentLine];
+      if (this.cursorColumn < currentLine.length) {
+        this.cursorColumn++;
+      }
+      return 'Entered insert mode (append)';
     }
 
     // Open new line below and enter insert mode
     if (remainingCmd === 'o') {
-      buffer.content.splice(buffer.currentLine + 1, 0, '');
+      const indent = this.getIndentation(buffer.content[buffer.currentLine]);
+      buffer.content.splice(buffer.currentLine + 1, 0, indent);
       buffer.currentLine++;
-      this.cursorColumn = 0;
+      this.cursorColumn = indent.length;
       buffer.modified = true;
       return 'Opened new line below';
     }
 
     // Open new line above and enter insert mode
     if (remainingCmd === 'O') {
-      buffer.content.splice(buffer.currentLine, 0, '');
-      this.cursorColumn = 0;
+      const indent = this.getIndentation(buffer.content[buffer.currentLine]);
+      buffer.content.splice(buffer.currentLine, 0, indent);
+      this.cursorColumn = indent.length;
       buffer.modified = true;
       return 'Opened new line above';
     }
@@ -208,7 +202,11 @@ export class NormalCommandHandler {
           register,
           buffer
         );
-        this.cursorColumn = 0; // Reset cursor after deletion
+        // Adjust cursor if we deleted lines above it
+        if (buffer.currentLine >= buffer.content.length) {
+          buffer.currentLine = Math.max(0, buffer.content.length - 1);
+        }
+        this.cursorColumn = Math.min(this.cursorColumn, buffer.content[buffer.currentLine]?.length || 0);
         return `Deleted ${count} line(s)`;
 
       case 'yy':
@@ -224,14 +222,16 @@ export class NormalCommandHandler {
         for (let i = 0; i < count; i++) {
           putLines(false, register, buffer);
         }
-        this.cursorColumn = 0; // Reset cursor after put
+        // Move cursor to last inserted line
+        this.cursorColumn = 0;
         return `Put from register ${register || '"'}`;
 
       case 'P':
         for (let i = 0; i < count; i++) {
           putLines(true, register, buffer);
         }
-        this.cursorColumn = 0; // Reset cursor after put
+        // Move cursor to last inserted line
+        this.cursorColumn = 0;
         return `Put from register ${register || '"'}`;
 
       case 'dw':
@@ -252,12 +252,14 @@ export class NormalCommandHandler {
 
       case 'j':
         buffer.currentLine = Math.min(buffer.content.length - 1, buffer.currentLine + count);
-        this.cursorColumn = 0; // Reset cursor when moving lines
+        // Preserve column position but clamp to line length
+        this.cursorColumn = Math.min(this.cursorColumn, buffer.content[buffer.currentLine].length);
         return `Moved down ${count} line(s)`;
 
       case 'k':
         buffer.currentLine = Math.max(0, buffer.currentLine - count);
-        this.cursorColumn = 0; // Reset cursor when moving lines
+        // Preserve column position but clamp to line length
+        this.cursorColumn = Math.min(this.cursorColumn, buffer.content[buffer.currentLine].length);
         return `Moved up ${count} line(s)`;
 
       case 'gg':
@@ -267,17 +269,23 @@ export class NormalCommandHandler {
 
       case 'G':
         buffer.currentLine = buffer.content.length - 1;
-        this.cursorColumn = buffer.content[buffer.currentLine].length;
+        this.cursorColumn = 0;
         return 'Moved to bottom';
 
       case '0':
-      case '^':
         this.cursorColumn = 0;
-        return `Moved to beginning of line`;
+        return 'Moved to beginning of line';
+
+      case '^':
+        // Move to first non-blank character
+        const line = buffer.content[buffer.currentLine];
+        const firstNonBlank = line.search(/\S/);
+        this.cursorColumn = firstNonBlank >= 0 ? firstNonBlank : 0;
+        return 'Moved to first non-blank character';
 
       case '$':
         this.cursorColumn = buffer.content[buffer.currentLine].length;
-        return `Moved to end of line`;
+        return 'Moved to end of line';
 
       case 'l':
         this.cursorColumn = Math.min(
@@ -290,8 +298,78 @@ export class NormalCommandHandler {
         this.cursorColumn = Math.max(0, this.cursorColumn - count);
         return `Moved left ${count} character(s)`;
 
+      case 'w': {
+        // Move to next word
+        let line = buffer.currentLine;
+        let col = this.cursorColumn;
+        
+        for (let i = 0; i < count; i++) {
+          const currentLineText = buffer.content[line];
+          const afterCursor = currentLineText.substring(col);
+          const wordMatch = afterCursor.match(/\s*\S+\s*/);
+          
+          if (wordMatch) {
+            col += wordMatch[0].length;
+          } else if (line < buffer.content.length - 1) {
+            line++;
+            col = 0;
+          }
+        }
+        
+        buffer.currentLine = line;
+        this.cursorColumn = col;
+        return `Moved forward ${count} word(s)`;
+      }
+
+      case 'b': {
+        // Move to previous word
+        let line = buffer.currentLine;
+        let col = this.cursorColumn;
+        
+        for (let i = 0; i < count; i++) {
+          const currentLineText = buffer.content[line];
+          const beforeCursor = currentLineText.substring(0, col);
+          const wordMatch = beforeCursor.match(/\S+\s*$/);
+          
+          if (wordMatch) {
+            col -= wordMatch[0].length;
+          } else if (line > 0) {
+            line--;
+            col = buffer.content[line].length;
+          }
+        }
+        
+        buffer.currentLine = line;
+        this.cursorColumn = col;
+        return `Moved back ${count} word(s)`;
+      }
+
+      case 'x': {
+        // Delete character under cursor
+        const line = buffer.content[buffer.currentLine];
+        if (this.cursorColumn < line.length) {
+          buffer.content[buffer.currentLine] = 
+            line.substring(0, this.cursorColumn) + 
+            line.substring(this.cursorColumn + 1);
+          buffer.modified = true;
+          return 'Deleted character';
+        }
+        return 'No character to delete';
+      }
+
+      case 'r': {
+        // Replace character under cursor (needs another character)
+        // This is handled by the state machine with a pending state
+        return 'Ready to replace';
+      }
+
       default:
         throw new Error(`Unsupported normal mode command: ${remainingCmd}`);
     }
+  }
+
+  private getIndentation(line: string): string {
+    const match = line.match(/^\s*/);
+    return match ? match[0] : '';
   }
 }

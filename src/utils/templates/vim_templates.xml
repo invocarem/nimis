@@ -1,51 +1,59 @@
 <!-- Create and edit a file -->
-<!-- i command: turn to insert mode at current cursor position -->
-<!-- o command: open a new line below the current line -->
+<!-- \x1b: Escape to return to normal mode -->
 <tool_call name="vim_edit">
   <file_path>src/components/Button.tsx</file_path>
   <commands><![CDATA[
-iimport React from 'react';
+i
+import React from 'react';
+
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+}
+
+export const Button: React.FC<ButtonProps> = ({ label, onClick }) => {
+  return <button onClick={onClick}>{label}</button>;
+};
+
+\x1b
+:w
+]]></commands>
+</tool_call>
+<!-- Insert text at specific location -->
+<tool_call name="vim_edit">
+  <file_path>src/config.ts</file_path>
+  <commands><![CDATA[
+:/^export const config/
 o
-ointerface ButtonProps {
-o  label: string;
-o  onClick: () => void;
-o}
+  // Add new configuration option
+  newFeature: true,
+\x1b
+:w
+]]></commands>
+</tool_call>
+
+<!-- Replace text in insert mode -->
+<tool_call name="vim_edit">
+  <file_path>src/constants.ts</file_path>
+  <commands><![CDATA[
+:/^const API_URL/
+i
+const API_URL = 'https://api.newdomain.com/v2';
+\x1b
+:w
+]]></commands>
+</tool_call>
+
+<!-- Insert multiple lines with indentation -->
+<tool_call name="vim_edit">
+  <file_path>src/styles.css</file_path>
+  <commands><![CDATA[
+:/^\s*\.container\s*{/
 o
-oexport const Button: React.FC<ButtonProps> = ({ label, onClick }) => {
-o  return <button onClick={onClick}>{label}</button>;
-o};
-:w
-]]></commands>
-</tool_call>
-
-<!-- Search and replace in multiple files -->
-<tool_call name="vim_edit">
-  <file_path>src/utils.ts</file_path>
-  <commands><![CDATA[
-:%s/legacyApi/newApi/g
-:w
-:bn
-:%s/legacyApi/newApi/g
-:wq
-]]></commands>
-</tool_call>
-
-<!-- Copy a function to another file -->
-<tool_call name="vim_edit">
-  <file_path>src/old.ts</file_path>
-  <commands><![CDATA[
-:/function calculate/,/^}/y a
-:e src/new.ts
-'ap
-:w
-]]></commands>
-</tool_call>
-
-<!-- Delete all console.log statements -->
-<tool_call name="vim_edit">
-  <file_path>src/app.ts</file_path>
-  <commands><![CDATA[
-:g/^\s*console\.log/d
+  display: flex;
+  justify-content: center;
+  align-items: center;
+\x1b
 :w
 ]]></commands>
 </tool_call>

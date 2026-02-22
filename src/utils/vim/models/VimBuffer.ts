@@ -1,4 +1,4 @@
-// src/models/VimBuffer.ts
+// src/utils/vim/models/VimBuffer.ts
 import * as fs from "fs";
 import { promisify } from "util";
 import type { VimBuffer } from "../types";

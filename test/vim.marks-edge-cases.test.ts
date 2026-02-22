@@ -76,7 +76,7 @@ describe("VimToolManager - Marks Edge Cases", () => {
       commands: [
         "2G", "ma",
         "4G", "mb",
-        "'a,'bd",  // Delete from mark a to mark b
+        ":'a,'bd", // Delete from mark a to mark b
         ":w"
       ]
     });

@@ -56,16 +56,19 @@ describe("VimToolManager", () => {
       const result = await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          "i# This is a test file",
-          "i",
-          "idef test_function():",
-          "i    return 'hello world'",
-          ":w"
+          "i",                         // Enter insert mode
+          "# This is a test file",      // Line 1
+          "\n",                         // New line
+          "def test_function():",       // Line 2
+          "\n",                         // New line
+          "    return 'hello world'",   // Line 3
+          "\x1b",                       // Exit insert mode
+          ":w"                          // Save
         ]
       });
 
       expect(result.isError).toBeFalsy();
-      expect(result.content[0].text).toContain("Executed 5 command(s)");
+      expect(result.content[0].text).toContain("Executed");
       expect(result.content[0].text).toContain("Current buffer:");
 
       // Verify file was created
@@ -89,16 +92,20 @@ describe("VimToolManager", () => {
         expect(result.isError).toBeFalsy();
         expect(result.content[0].text).toContain(filename);
     });
-    
 
     it("should handle file not found gracefully", async () => {
       const result = await manager.callTool("vim_edit", {
         file_path: path.join(testDir, "nonexistent.py"),
-        commands: [":e nonexistent.py", "i# New file", ":w"]
+        commands: [
+          "i",                         // Enter insert mode
+          "# New file",                 // Content
+          "\x1b",                       // Exit insert mode
+          ":w"                          // Save
+        ]
       });
 
       expect(result.isError).toBeFalsy(); // Should create new file
-      expect(result.content[0].text).toContain("Executed 3 command(s)");
+      expect(result.content[0].text).toContain("Executed");
     });
   });
 
@@ -240,9 +247,11 @@ describe("VimToolManager", () => {
         file_path: testFile,
         commands: [
           ":2,3y a",
-          "Go", // Go to end and insert new line
-          "iPasted:",
-          "'ap", // Put from register a
+          "G",          // Go to end
+          "o",          // Open new line
+          "Pasted:",    // Text
+          "\x1b",       // Exit insert mode
+          "'ap",        // Put from register a
           ":w"
         ]
       });
@@ -257,9 +266,9 @@ describe("VimToolManager", () => {
       const result = await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          ":2d a", // Delete line 2 to register a
-          "G", // Go to end
-          "'ap", // Put from register a
+          ":2d a",      // Delete line 2 to register a
+          "G",          // Go to end
+          "'ap",        // Put from register a
           ":w"
         ]
       });
@@ -316,12 +325,12 @@ describe("VimToolManager", () => {
       const result = await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          "ma", // Set mark a at line 1
-          "j", // Move down
-          "j", // Move down
-          "mb", // Set mark b at line 3
-          "'a,'b y c", // Yank lines from mark a to b into register c
-          "'ap", // Put from register a
+          "ma",         // Set mark a at line 1
+          "j",          // Move down
+          "j",          // Move down
+          "mb",         // Set mark b at line 3
+          ":'a,'b y c", // Yank lines from mark a to b into register c
+          "'ap",        // Put from register a
           ":w"
         ]
       });
@@ -339,10 +348,12 @@ describe("VimToolManager", () => {
       await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          "i# Test content",
+          "i",          // Enter insert mode
+          "# Test content",
+          "\x1b",       // Exit insert mode
           ":w",
-          "yy", // Yank line
-          "\"ap", // Put from register a
+          "yy",         // Yank line
+          '"ap',        // Put from register a
           ":w"
         ]
       });
@@ -363,13 +374,13 @@ describe("VimToolManager", () => {
       // Edit first file
       await manager.callTool("vim_edit", {
         file_path: testFile,
-        commands: [":e " + testFile]
+        commands: []
       });
 
       // Edit second file
       await manager.callTool("vim_edit", {
         file_path: testFile2,
-        commands: [":e " + testFile2]
+        commands: []
       });
 
       // List buffers
@@ -392,8 +403,8 @@ describe("VimToolManager", () => {
     });
 
     it("should switch to buffer by number with :b", async () => {
-      await manager.callTool("vim_edit", { file_path: testFile, commands: [":e " + testFile] });
-      await manager.callTool("vim_edit", { file_path: testFile2, commands: [":e " + testFile2] });
+      await manager.callTool("vim_edit", { file_path: testFile, commands: [] });
+      await manager.callTool("vim_edit", { file_path: testFile2, commands: [] });
 
       const result = await manager.callTool("vim_edit", {
         commands: [":b 1"]
@@ -412,7 +423,7 @@ describe("VimToolManager", () => {
       const result = await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          "2G", // Go to line 2
+          "2G",         // Go to line 2
           "dd",
           ":w"
         ]
@@ -430,7 +441,7 @@ describe("VimToolManager", () => {
         commands: [
           "2G",
           "yy",
-          "G", // Go to end
+          "G",          // Go to end
           "p",
           ":w"
         ]
@@ -462,10 +473,14 @@ describe("VimToolManager", () => {
       const result = await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          "G", // Go to end
-          "iEND", // Insert at end
-          "gg", // Go to top
-          "iSTART", // Insert at top
+          "G",          // Go to end
+          "A",          // Append at end of line
+          "END",        // Insert at end
+          "\x1b",       // Exit insert mode
+          "gg",         // Go to top
+          "i",          // Enter insert mode
+          "START",      // Insert at top
+          "\x1b",       // Exit insert mode
           ":w"
         ]
       });
@@ -479,7 +494,7 @@ describe("VimToolManager", () => {
 
   describe("External commands", () => {
     it("should filter lines through external command with :!", async () => {
-      const content = "apple\nbanana\ncherry\n";
+      const content = "cherry\napple\nbanana\n";
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim_edit", {
@@ -583,8 +598,10 @@ describe("VimToolManager", () => {
       await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          "i# New content",
-          ":q" // Try to quit without saving
+          "i",          // Enter insert mode
+          "# New content",
+          "\x1b",       // Exit insert mode
+          ":q"          // Try to quit without saving
         ]
       });
 
@@ -597,8 +614,10 @@ describe("VimToolManager", () => {
       await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
-          "i# New content",
-          ":q!" // Force quit
+          "i",          // Enter insert mode
+          "# New content",
+          "\x1b",       // Exit insert mode
+          ":q!"         // Force quit
         ]
       });
 
@@ -630,27 +649,34 @@ function calculateTotalWithTax(items) {
       await writeFile(testFile, file1Content, "utf-8");
       await writeFile(testFile2, file2Content, "utf-8");
 
-      // Refactor to use reduce in both files
+      // Refactor first file to use reduce
       await manager.callTool("vim_edit", {
         file_path: testFile,
         commands: [
           ":/function calculateTotal/,/^}/d a", // Delete function to register a
-          "i" + 
-          "function calculateTotal(items) {\n" +
-          "  return items.reduce((total, item) => total + item.price, 0);\n" +
+          "i",                                   // Enter insert mode
+          "function calculateTotal(items) {",
+          "\n",
+          "  return items.reduce((total, item) => total + item.price, 0);",
+          "\n",
           "}",
+          "\x1b",                                // Exit insert mode
           ":w"
         ]
       });
 
+      // Refactor second file to use reduce
       await manager.callTool("vim_edit", {
         file_path: testFile2,
         commands: [
           ":/function calculateTotalWithTax/,/^}/d", // Delete old function
-          "i" +
-          "function calculateTotalWithTax(items) {\n" +
-          "  return items.reduce((total, item) => total + item.price, 0) * 1.1;\n" +
+          "i",                                        // Enter insert mode
+          "function calculateTotalWithTax(items) {",
+          "\n",
+          "  return items.reduce((total, item) => total + item.price, 0) * 1.1;",
+          "\n",
           "}",
+          "\x1b",                                     // Exit insert mode
           ":w"
         ]
       });

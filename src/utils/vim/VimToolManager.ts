@@ -1,3 +1,4 @@
+// src/utils/vim/VimToolManager.ts
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
@@ -8,6 +9,8 @@ import { NormalCommandHandler } from "./commands/NormalCommandHandler";
 import { isExCommand, stripColonPrefix } from "./commands/CommandParser";
 import { editFile, writeBuffer } from "./operations/FileOperations";
 import { listBuffers, showRegisters, showMarks } from "./operations/BufferOperations";
+import { VimStateMachine } from "./commands/VimStateMachine";
+import { createVimState } from "./models/VimMode";
 
 const readFile = fs.promises.readFile;
 const writeFileAsync = fs.promises.writeFile;
@@ -15,6 +18,7 @@ const writeFileAsync = fs.promises.writeFile;
 export class VimToolManager {
   private static instance: VimToolManager | undefined;
 
+  private stateMachine: VimStateMachine;
   private buffers: Map<string, VimBuffer> = new Map();
   private currentBuffer: VimBuffer | null = null;
   private sharedRegisters: Map<string, any> | null = null;
@@ -49,14 +53,19 @@ export class VimToolManager {
     const ctx: CommandContext = {
       buffers: this.buffers,
       getCurrentBuffer: () => this.currentBuffer,
-      setCurrentBuffer: (buf) => { this.currentBuffer = buf; },
+      setCurrentBuffer: (buf) => {
+        this.currentBuffer = buf;
+        if (buf) {
+          this.stateMachine.setBuffer(buf);
+        }
+      },
       resolvePath: (fp) => this.pathResolver.resolve(fp),
     };
 
     this.exHandler = new ExCommandHandler(ctx);
     this.normalHandler = new NormalCommandHandler();
+    this.stateMachine = new VimStateMachine(ctx, createVimState());
   }
-
 
   getAvailableTools(): VimTool[] {
     return [
@@ -69,9 +78,9 @@ export class VimToolManager {
           "- Supports registers, marks, and ranges\n\n" +
           "IMPORTANT: COMMAND FORMAT RULES\n" +
           "- Each command must be a separate string in the 'commands' array\n" +
-          "- Do NOT combine multiple commands in one string\n" +
-          "- Do NOT use :create (it doesn't exist - use i or o to insert content)\n" +
-          "- Always include :w at the end to save changes\n\n" +
+          "- Use 'i' to enter insert mode, then type your text in separate commands\n" +
+          "- Use '\\x1b' (Escape) to return to normal mode\n" +
+          "- Always include ':w' at the end to save changes\n\n" +
           "Basic Commands:\n" +
           "  :e <file>     - Edit file (opens/creates in buffer)\n" +
           "  :w            - Write current buffer to disk\n" +
@@ -93,8 +102,10 @@ export class VimToolManager {
           "  :v/pattern/cmd                - Inverse global\n" +
           "  :[range]norm <cmd>            - Execute normal commands\n\n" +
           "Normal Mode Commands (no colon):\n" +
-          "  i{text}       - Insert text at cursor\n" +
-          "  a{text}       - Append text after cursor\n" +
+          "  i             - Enter insert mode\n" +
+          "  a             - Enter insert mode after cursor\n" +
+          "  A             - Enter insert mode at end of line\n" +
+          "  I             - Enter insert mode at beginning of line\n" +
           "  o             - Open new line below and enter insert mode\n" +
           "  O             - Open new line above and enter insert mode\n" +
           "  dd            - Delete current line\n" +
@@ -133,11 +144,14 @@ export class VimToolManager {
           "EXAMPLES - CORRECT USAGE:\n\n" +
           "✅ Create new file with content:\n" +
           "  commands: [\n" +
-          "    \"i#!/usr/bin/env python3\",\n" +
-          "    \"i\",\n" +
-          "    \"idef main():\",\n" +
-          "    \"i    print('Hello')\",\n" +
-          "    \":w\"\n" +
+          "    \"i\",                     # Enter insert mode\n" +
+          "    \"#!/usr/bin/env python3\",  # Type first line\n" +
+          "    \"\\n\",                    # New line\n" +
+          "    \"def main():\",            # Type function definition\n" +
+          "    \"\\n\",                    # New line\n" +
+          "    \"    print('Hello')\",     # Type indented line\n" +
+          "    \"\\x1b\",                   # Escape to normal mode\n" +
+          "    \":w\"                      # Save\n" +
           "  ]\n\n" +
           "✅ Search and replace:\n" +
           "  commands: [\n" +
@@ -149,29 +163,16 @@ export class VimToolManager {
           "    \":g/^\\s*console\\.log/d\",\n" +
           "    \":w\"\n" +
           "  ]\n\n" +
-          "✅ Copy between files:\n" +
-          "  commands: [\n" +
-          "    \":/function foo/,/^}/y a\",\n" +
-          "    \":e other.ts\",\n" +
-          "    \"'ap\",\n" +
-          "    \":w\"\n" +
-          "  ]\n\n" +
           "❌ INCORRECT - DON'T DO THIS:\n" +
           "  commands: [\n" +
-          "    \":create newfile.py\"  # WRONG - :create doesn't exist\n" +
-          "  ]\n\n" +
-          "  commands: [\n" +
-          "    \":e file.py :w :q\"  # WRONG - multiple commands in one string\n" +
-          "  ]\n\n" +
-          "  commands: [\n" +
-          "    \"iLine 1\\niLine 2\\niLine 3\"  # WRONG - each line needs its own 'i'\n" +
+          "    \"i#!/usr/bin/env python3\"  # WRONG - i should be separate from text\n" +
           "  ]",
         inputSchema: {
           type: "object",
           properties: {
             commands: {
               type: "array",
-              description: "Array of Vim commands to execute in sequence. IMPORTANT: Each command must be a separate string. Commands maintain buffer state across calls.",
+              description: "Array of Vim commands to execute in sequence. Use 'i' to enter insert mode, then text as separate commands, and '\\x1b' to exit insert mode.",
               items: { type: "string" }
             },
             file_path: {
@@ -217,6 +218,10 @@ export class VimToolManager {
           if (typeof cmds === "string") {
             cmds = cmds.split('\n').filter((line: string) => line.trim() !== '');
           }
+          // Normalize literal \x1b (e.g. from XML/CDATA or LLM output) to actual ESC character
+          cmds = (cmds as string[]).map((c: string) =>
+            typeof c === "string" ? c.replace(/\\x1b/g, "\x1b") : c
+          );
           return await this.vimEdit(
             cmds,
             arguments_.file_path,
@@ -243,96 +248,152 @@ export class VimToolManager {
     }
   }
 
-  private async vimEdit(
-    commands: string[],
-    filePath?: string,
-    createBackup: boolean = true
-  ): Promise<VimToolResult> {
-    try {
-      if (filePath) {
-        const ctx: CommandContext = {
-          buffers: this.buffers,
-          getCurrentBuffer: () => this.currentBuffer,
-          setCurrentBuffer: (buf) => { this.currentBuffer = buf; },
-          resolvePath: (fp) => this.pathResolver.resolve(fp),
-        };
-        await editFile(filePath, ctx);
-      } else if (!this.currentBuffer) {
-        return {
-          content: [{
-            type: "text",
-            text: "No file specified and no active buffer. Use :e <file> to edit a file."
-          }],
-          isError: true
-        };
-      }
+// src/utils/vim/VimToolManager.ts
 
-      const buffer = this.currentBuffer!;
-
-      // Share registers across buffers so yanked/deleted text is available globally
-      if (!this.sharedRegisters) {
-        this.sharedRegisters = buffer.registers;
-      } else if (buffer.registers !== this.sharedRegisters) {
-        const filePath_ = buffer.path;
-        buffer.registers = this.sharedRegisters;
-        buffer.registers.set('%', { type: 'linewise', content: [filePath_] });
-      }
-
-      let backupPath: string | undefined;
-      if (createBackup && buffer.modified && fs.existsSync(buffer.path)) {
-        backupPath = buffer.path + '.bak';
-        const currentContent = buffer.content.join(buffer.lineEnding);
-        await writeFileAsync(backupPath, currentContent, 'utf-8');
-      }
-
-      const results: string[] = [];
-      for (const cmd of commands) {
-        const result = await this.executeCommand(cmd.trim(), buffer);
-        results.push(result);
-        if (!this.currentBuffer) {
-          break;
-        }
-      }
-
-      if (this.currentBuffer && this.currentBuffer.modified) {
-        await writeBuffer(this.currentBuffer);
-      }
-
-      if (backupPath) {
-        try { await fs.promises.unlink(backupPath); } catch { /* ignore */ }
-      }
-
+private async vimEdit(
+  commands: string[],
+  filePath?: string,
+  createBackup: boolean = true
+): Promise<VimToolResult> {
+  try {
+    if (filePath) {
+      const ctx: CommandContext = {
+        buffers: this.buffers,
+        getCurrentBuffer: () => this.currentBuffer,
+        setCurrentBuffer: (buf) => {
+          this.currentBuffer = buf;
+          if (buf) {
+            this.stateMachine.setBuffer(buf);
+          }
+        },
+        resolvePath: (fp) => this.pathResolver.resolve(fp),
+      };
+      await editFile(filePath, ctx);
+    } else if (!this.currentBuffer) {
       return {
         content: [{
           type: "text",
-          text: `Executed ${commands.length} command(s):\n${results.join('\n')}\n\n` +
-            `Current buffer: ${path.basename(this.currentBuffer?.path || '')} ` +
-            `[${this.currentBuffer?.modified ? '+' : ''}]`
-        }]
-      };
-    } catch (error: any) {
-      if (createBackup && this.currentBuffer) {
-        try {
-          const backupPath = this.currentBuffer.path + '.bak';
-          if (fs.existsSync(backupPath)) {
-            const backup = await readFile(backupPath, 'utf-8');
-            await writeFileAsync(this.currentBuffer.path, backup, 'utf-8');
-          }
-        } catch { /* ignore */ }
-      }
-
-      return {
-        content: [{ type: "text", text: `Error: ${error.message}` }],
+          text: "No file specified and no active buffer. Use :e <file> to edit a file."
+        }],
         isError: true
       };
     }
+
+    const buffer = this.currentBuffer!;
+    this.stateMachine.setBuffer(buffer);
+
+    // Share registers across buffers
+    if (!this.sharedRegisters) {
+      this.sharedRegisters = buffer.registers;
+    } else if (buffer.registers !== this.sharedRegisters) {
+      const filePath_ = buffer.path;
+      buffer.registers = this.sharedRegisters;
+      buffer.registers.set('%', { type: 'linewise', content: [filePath_] });
+    }
+
+    let backupPath: string | undefined;
+    if (createBackup && fs.existsSync(buffer.path)) {
+      backupPath = buffer.path + '.bak';
+      const onDiskContent = await readFile(buffer.path, 'utf-8');
+      await writeFileAsync(backupPath, onDiskContent, 'utf-8');
+    }
+
+    const results: string[] = [];
+    let currentOutput = '';
+    let commandCount = 0;
+
+    for (const cmd of commands) {
+      if (cmd === '\n' || cmd === '\r') {
+        // Handle newline as Enter key in insert mode
+        const result = await this.stateMachine.processKey('\n');
+        if (result.output) {
+          currentOutput += result.output;
+        }
+        commandCount++;
+        continue;
+      }
+
+      // Process each character in the command
+      for (const char of cmd) {
+        const result = await this.stateMachine.processKey(char);
+        if (result.output) {
+          // Don't add extra newlines for mode indicators
+          if (result.output.includes('-- INSERT --') || result.output.includes('-- NORMAL --')) {
+            currentOutput += result.output + '\n';
+          } else if (result.output !== '\n') {
+            currentOutput += result.output;
+          }
+        }
+        commandCount++;
+      }
+
+      // After processing the command, if we're in command-line mode and this looks like an Ex command, press Enter
+      const state = this.stateMachine.getState();
+      if (state.mode === 'command-line' && cmd.startsWith(':')) {
+        const result = await this.stateMachine.processKey('\n');
+        if (result.output) {
+          currentOutput += result.output + '\n';
+        }
+        commandCount++;
+
+        if (result.output && result.output.startsWith('Error:')) {
+          throw new Error(result.output.replace(/^Error:\s*Error:\s*/, ''));
+        }
+      }
+
+      if (!this.currentBuffer) {
+        break;
+      }
+    }
+
+    // Ensure we're in normal mode before saving
+    const finalState = this.stateMachine.getState();
+    if (finalState.mode === 'insert') {
+      await this.stateMachine.processKey('\x1b');
+      currentOutput += '\n-- NORMAL --\n';
+      commandCount++;
+    } else if (finalState.mode === 'command-line') {
+      // Cancel command-line mode if we're stuck
+      await this.stateMachine.processKey('\x1b');
+      commandCount++;
+    }
+
+    if (backupPath) {
+      try { await fs.promises.unlink(backupPath); } catch { /* ignore */ }
+    }
+
+    const state = this.stateMachine.getState();
+    return {
+      content: [{
+        type: "text",
+        text: `Executed ${commandCount} command(s):\n${currentOutput}\n\n` +
+          `Current buffer: ${path.basename(this.currentBuffer?.path || '')} ` +
+          `[${this.currentBuffer?.modified ? '+' : ''}] ` +
+          `Mode: ${state.mode}`
+      }]
+    };
+  } catch (error: any) {
+    if (createBackup && this.currentBuffer) {
+      try {
+        const backupPath = this.currentBuffer.path + '.bak';
+        if (fs.existsSync(backupPath)) {
+          const backup = await readFile(backupPath, 'utf-8');
+          await writeFileAsync(this.currentBuffer.path, backup, 'utf-8');
+        }
+      } catch { /* ignore */ }
+    }
+
+    return {
+      content: [{ type: "text", text: `Error: ${error.message}` }],
+      isError: true
+    };
   }
+}
 
   private async executeCommand(cmd: string, buffer: VimBuffer): Promise<string> {
     if (isExCommand(cmd)) {
       return this.exHandler.execute(stripColonPrefix(cmd), buffer);
     }
-    // Range commands starting with mark references (e.g. 'a,'by c) are ex commands
     if (/^'[a-z],/.test(cmd)) {
       return this.exHandler.execute(cmd, buffer);
     }
