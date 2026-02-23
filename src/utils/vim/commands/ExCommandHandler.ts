@@ -208,14 +208,23 @@ export class ExCommandHandler {
       }
     }
 
-    // Single search pattern range: /pattern/command
+    // Single search pattern range: /pattern/command or standalone /pattern/ (jump to line)
     if (!range) {
-      const singlePatternMatch = cmd.match(/^(\/[^/]+\/)(.+)$/);
+      const singlePatternMatch = cmd.match(/^(\/[^/]+\/)(.*)$/);
       if (singlePatternMatch) {
         try {
           range = parseRange(singlePatternMatch[1], buffer);
           rest = singlePatternMatch[2].trim();
-        } catch (e) {
+          // Standalone /pattern/ with no command: jump to line (Vim behavior)
+          if (rest === '') {
+            buffer.currentLine = range.start;
+            return `Jumped to line ${range.start + 1}`;
+          }
+        } catch (e: any) {
+          // Pattern not found: do nothing (no-op), don't fall through to generic range parsing
+          if (e?.message?.includes?.('Pattern not found')) {
+            return '';
+          }
           rest = cmd;
         }
       }
