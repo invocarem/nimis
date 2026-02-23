@@ -1,4 +1,5 @@
 // src/commands/ExCommandHandler.ts
+import * as fs from "fs";
 import * as path from "path";
 import type { VimBuffer, CommandContext } from "../types";
 import { parseRange } from "../utils/RangeParser";
@@ -25,6 +26,7 @@ import {
   switchToBuffer,
 } from "../operations/BufferOperations";
 import { formatRegisters } from "../models/VimRegister";
+import { listDirectory } from "../operations/DirectoryOperations";
 
 /** Parse s/pattern/replacement/flags with support for \delim escaping (e.g. \/ for literal /) */
 function parseSubstituteArgs(
@@ -56,32 +58,40 @@ function parseSubstituteArgs(
   if (i > rest.length) return null;
   const replacement = readUntilDelim();
   // Unescape replacement: \/ -> /
-  const replacementUnescaped = replacement.replace(new RegExp(`\\\\${delim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"), delim);
+  const replacementUnescaped = replacement.replace(
+    new RegExp(`\\\\${delim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"),
+    delim
+  );
   const flags = rest.slice(i).trim();
   return { pattern, replacement: replacementUnescaped, flags };
 }
 
-
 export class ExCommandHandler {
-  constructor(private ctx: CommandContext) { }
+  constructor(
+    private ctx: CommandContext,
+    private onWorkingDirChange?: (dir: string) => void
+  ) {}
 
-  private printLines(range: { start: number; end: number }, buffer: VimBuffer, options?: { numbered?: boolean }): string {
+  private printLines(
+    range: { start: number; end: number },
+    buffer: VimBuffer,
+    options?: { numbered?: boolean }
+  ): string {
     const start = Math.max(0, Math.min(range.start, buffer.content.length - 1));
     const end = Math.max(start, Math.min(range.end, buffer.content.length - 1));
 
     const lines = buffer.content.slice(start, end + 1);
 
     if (options?.numbered) {
-      return lines.map((line, i) => `${start + i + 1}\t${line}`).join('\n');
+      return lines.map((line, i) => `${start + i + 1}\t${line}`).join("\n");
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
-
 
   async execute(cmd: string, buffer: VimBuffer): Promise<string> {
     if (!cmd) {
-      return '';
+      return "";
     }
 
     // Mark references (e.g. 'ap), but not mark ranges like 'a,'bd
@@ -111,14 +121,14 @@ export class ExCommandHandler {
       const match = cmd.match(/^"([a-z0-9"])(.*)$/);
       if (match) {
         const [_, reg, rest] = match;
-        if (rest === 'p' || rest === 'P') {
-          return putLines(rest === 'P', reg, buffer);
+        if (rest === "p" || rest === "P") {
+          return putLines(rest === "P", reg, buffer);
         }
         buffer.lastRegister = reg;
         if (rest) {
           return this.execute(rest, buffer);
         }
-        return '';
+        return "";
       }
     }
 
@@ -136,7 +146,9 @@ export class ExCommandHandler {
           buffer
         );
       }
-      throw new Error("Invalid substitute format. Use :%s/pattern/replacement/flags");
+      throw new Error(
+        "Invalid substitute format. Use :%s/pattern/replacement/flags"
+      );
     }
 
     // Range-based substitution (e.g. 10,20s/old/new/g)
@@ -147,7 +159,13 @@ export class ExCommandHandler {
       if (parsed) {
         try {
           const range = parseRange(rangeStr, buffer);
-          return substituteWithPattern(range, parsed.pattern, parsed.replacement, parsed.flags, buffer);
+          return substituteWithPattern(
+            range,
+            parsed.pattern,
+            parsed.replacement,
+            parsed.flags,
+            buffer
+          );
         } catch (e) {
           throw new Error(`Invalid range: ${rangeStr}`);
         }
@@ -185,25 +203,34 @@ export class ExCommandHandler {
 
         let startLine = -1;
         for (let i = buffer.currentLine; i < buffer.content.length; i++) {
-          if (regex1.test(buffer.content[i])) { startLine = i; break; }
+          if (regex1.test(buffer.content[i])) {
+            startLine = i;
+            break;
+          }
         }
         if (startLine === -1) {
           for (let i = 0; i < buffer.currentLine; i++) {
-            if (regex1.test(buffer.content[i])) { startLine = i; break; }
+            if (regex1.test(buffer.content[i])) {
+              startLine = i;
+              break;
+            }
           }
         }
         if (startLine === -1) throw new Error(`Pattern not found: ${pat1Str}`);
 
         let endLine = -1;
         for (let i = startLine; i < buffer.content.length; i++) {
-          if (regex2.test(buffer.content[i])) { endLine = i; break; }
+          if (regex2.test(buffer.content[i])) {
+            endLine = i;
+            break;
+          }
         }
         if (endLine === -1) throw new Error(`Pattern not found: ${pat2Str}`);
 
         range = { start: startLine, end: endLine };
         rest = restOfCmd.trim();
       } catch (e: any) {
-        if (e.message?.includes('Pattern not found')) throw e;
+        if (e.message?.includes("Pattern not found")) throw e;
         rest = cmd;
       }
     }
@@ -216,14 +243,14 @@ export class ExCommandHandler {
           range = parseRange(singlePatternMatch[1], buffer);
           rest = singlePatternMatch[2].trim();
           // Standalone /pattern/ with no command: jump to line (Vim behavior)
-          if (rest === '') {
+          if (rest === "") {
             buffer.currentLine = range.start;
             return `Jumped to line ${range.start + 1}`;
           }
         } catch (e: any) {
           // Pattern not found: do nothing (no-op), don't fall through to generic range parsing
-          if (e?.message?.includes?.('Pattern not found')) {
-            return '';
+          if (e?.message?.includes?.("Pattern not found")) {
+            return "";
           }
           rest = cmd;
         }
@@ -268,120 +295,226 @@ export class ExCommandHandler {
     const globalMatch = rest.match(/^(g|v)(\/[^/]+\/.*)$/);
     if (globalMatch) {
       const [_, gv, gargs] = globalMatch;
-      return await globalCommand(gargs, gv === 'v', buffer);
+      return await globalCommand(gargs, gv === "v", buffer);
     }
 
     // Handle external command (! prefix) before splitting on whitespace,
     // since the shell command after ! may not have a space separator (e.g. %!sort)
-    if (rest.startsWith('!')) {
-      return await externalCommand(range, rest.substring(1).trim() || undefined, buffer);
+    if (rest.startsWith("!")) {
+      return await externalCommand(
+        range,
+        rest.substring(1).trim() || undefined,
+        buffer
+      );
     }
 
     const cmdParts = rest.split(/\s+/);
     const cmdName = cmdParts[0];
-    const args = cmdParts.slice(1).join(' ');
+    const args = cmdParts.slice(1).join(" ");
 
     switch (cmdName) {
-      case 'e':
-        if (!args) throw new Error(':e requires a filename');
+      case "cd":
+      case "chdir": // Alias for cd
+        // Handle empty args (cd without args goes to home)
+        if (!args || args.trim() === "") {
+          const homedir = require("os").homedir();
+
+          // Notify the manager about the change
+          if (this.onWorkingDirChange) {
+            this.onWorkingDirChange(homedir);
+          }
+
+          return `Changed directory to ${homedir}`;
+        }
+
+        // Parse the path (handle quoted paths with spaces)
+        let targetPath = args.trim();
+
+        // Remove quotes if present
+        if (
+          (targetPath.startsWith('"') && targetPath.endsWith('"')) ||
+          (targetPath.startsWith("'") && targetPath.endsWith("'"))
+        ) {
+          targetPath = targetPath.substring(1, targetPath.length - 1);
+        } else {
+          // If multiple args, take only the first one (Vim behavior)
+          const spaceIndex = targetPath.indexOf(" ");
+          if (spaceIndex > 0) {
+            targetPath = targetPath.substring(0, spaceIndex);
+          }
+        }
+        try {
+          // Resolve the path relative to current working directory
+          const resolvedPath = this.ctx.resolvePath(targetPath);
+
+          // Check if the path exists and is a directory
+          const fs = require("fs");
+          if (!fs.existsSync(resolvedPath)) {
+            throw new Error(`Directory not found: ${args.split(" ")[0]}`);
+          }
+
+          const stats = fs.statSync(resolvedPath);
+          if (!stats.isDirectory()) {
+            throw new Error(`Directory not found: ${args.split(" ")[0]}`);
+          }
+
+          // Notify the manager about the change
+          if (this.onWorkingDirChange) {
+            this.onWorkingDirChange(resolvedPath);
+          }
+
+          return `Changed directory to ${resolvedPath}`;
+        } catch (error: any) {
+          if (error.message.includes("Directory not found")) {
+            throw error;
+          }
+          throw new Error(`Failed to change directory: ${error.message}`);
+        }
+
+      case "pwd":
+        if (this.ctx.workingDir) {
+          return this.ctx.workingDir;
+        }
+        // Fallback to current process directory
+        return process.cwd();
+      case "e":
+        if (!args) throw new Error(":e requires a filename");
+
+        // Handle directory listing
+        if (args === "." || args === "./" || args === ".\\") {
+          const currentDir = this.ctx.workingDir || process.cwd();
+          return await listDirectory(currentDir, this.ctx);
+        }
+
+        // Check if it's a directory path
+        const resolvedPath = this.ctx.resolvePath(args);
+        try {
+          const stats = await fs.promises.stat(resolvedPath);
+          if (stats.isDirectory()) {
+            return await listDirectory(resolvedPath, this.ctx);
+          }
+        } catch (e) {
+          // File doesn't exist - proceed with normal edit
+        }
+
+        if (!args) throw new Error(":e requires a filename");
         await editFile(args, this.ctx);
         return `Editing ${path.basename(args)}`;
 
-      case 'w':
+      case "w":
         await writeBuffer(buffer);
         return `"${path.basename(buffer.path)}" ${buffer.content.length}L written`;
 
-      case 'q':
-        if (buffer.modified) throw new Error('No write since last change (use :q! to force quit)');
+      case "q":
+        if (buffer.modified)
+          throw new Error("No write since last change (use :q! to force quit)");
         this.ctx.buffers.delete(buffer.path);
         this.ctx.setCurrentBuffer(getNextBuffer(this.ctx.buffers, null));
         return `Closed ${path.basename(buffer.path)}`;
 
-      case 'wq':
+      case "wq":
         await writeBuffer(buffer);
         this.ctx.buffers.delete(buffer.path);
         this.ctx.setCurrentBuffer(getNextBuffer(this.ctx.buffers, null));
         return `"${path.basename(buffer.path)}" written and closed`;
 
-      case 'q!':
+      case "q!":
         this.ctx.buffers.delete(buffer.path);
         this.ctx.setCurrentBuffer(getNextBuffer(this.ctx.buffers, null));
         return `Closed ${path.basename(buffer.path)} (changes discarded)`;
 
-      case 'bn':
-      case 'bnext': {
-        const next = getNextBuffer(this.ctx.buffers, this.ctx.getCurrentBuffer());
+      case "bn":
+      case "bnext": {
+        const next = getNextBuffer(
+          this.ctx.buffers,
+          this.ctx.getCurrentBuffer()
+        );
         this.ctx.setCurrentBuffer(next);
-        return `Editing ${path.basename(next?.path || '')}`;
+        return `Editing ${path.basename(next?.path || "")}`;
       }
 
-      case 'bp':
-      case 'bprevious': {
-        const prev = getPreviousBuffer(this.ctx.buffers, this.ctx.getCurrentBuffer());
+      case "bp":
+      case "bprevious": {
+        const prev = getPreviousBuffer(
+          this.ctx.buffers,
+          this.ctx.getCurrentBuffer()
+        );
         this.ctx.setCurrentBuffer(prev);
-        return `Editing ${path.basename(prev?.path || '')}`;
+        return `Editing ${path.basename(prev?.path || "")}`;
       }
 
-      case 'ls':
-      case 'buffers':
+      case "ls":
+      case "buffers":
         return formatBufferList(this.ctx.buffers, this.ctx.getCurrentBuffer());
 
-      case 'b':
-        if (!args) throw new Error(':b requires buffer number or name');
+      case "b":
+        if (!args) throw new Error(":b requires buffer number or name");
         this.ctx.setCurrentBuffer(await switchToBuffer(args, this.ctx.buffers));
-        return `Editing ${path.basename(this.ctx.getCurrentBuffer()?.path || '')}`;
+        return `Editing ${path.basename(this.ctx.getCurrentBuffer()?.path || "")}`;
 
-      case 'r':
-        if (!args) throw new Error(':r requires a filename');
+      case "r":
+        if (!args) throw new Error(":r requires a filename");
         return await readFileIntoBuffer(args, buffer);
 
-      case 'saveas':
-        if (!args) throw new Error(':saveas requires a filename');
+      case "saveas":
+        if (!args) throw new Error(":saveas requires a filename");
         return await saveAs(args, buffer, this.ctx.buffers);
 
-      case 'reg':
-      case 'registers':
+      case "reg":
+      case "registers":
         return formatRegisters(buffer);
 
-      case 'ma':
-      case 'mark':
+      case "ma":
+      case "mark":
         return setMark(args, buffer);
 
-      case 'd':
-        return deleteLines(range || { start: buffer.currentLine, end: buffer.currentLine }, args || undefined, buffer);
+      case "d":
+        return deleteLines(
+          range || { start: buffer.currentLine, end: buffer.currentLine },
+          args || undefined,
+          buffer
+        );
 
-      case 'y':
-        return yankLines(range || { start: buffer.currentLine, end: buffer.currentLine }, args || undefined, buffer);
+      case "y":
+        return yankLines(
+          range || { start: buffer.currentLine, end: buffer.currentLine },
+          args || undefined,
+          buffer
+        );
 
-      case 'print':
-        const showNumbers = args === '#' || args === 'number';
+      case "print":
+        const showNumbers = args === "#" || args === "number";
         return this.printLines(
           range || { start: buffer.currentLine, end: buffer.currentLine },
           buffer,
           { numbered: showNumbers }
         );
 
-      case 'p':
-      case 'pu':
-        return putLines(false, args || buffer.lastRegister || undefined, buffer);
+      case "p":
+      case "pu":
+        return putLines(
+          false,
+          args || buffer.lastRegister || undefined,
+          buffer
+        );
 
-      case 'pu!':
+      case "pu!":
         return putLines(true, args || buffer.lastRegister || undefined, buffer);
 
-      case 'P':
+      case "P":
         return putLines(true, args || buffer.lastRegister || undefined, buffer);
 
-      case 'g':
+      case "g":
         return await globalCommand(args, false, buffer);
 
-      case 'v':
+      case "v":
         return await globalCommand(args, true, buffer);
 
-      case 'norm':
-      case 'normal':
+      case "norm":
+      case "normal":
         return normalExCommand(range, args, buffer);
 
-      case '!':
+      case "!":
         return await externalCommand(range, args, buffer);
 
       default:

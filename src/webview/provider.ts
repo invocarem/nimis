@@ -435,6 +435,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 type: "requestFeedback",
                 message: `Tool call limit (${TOOL_CALL_LIMIT_PER_TURN}) reached this turn. Add feedback below to guide the assistant.`,
               });
+              this._sendMessageToWebview({ type: "toolCallLimitReached" });
               continueLoop = false;
               hasError = true;
               break;
@@ -683,6 +684,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         <div class="button-group">
             <button id="send-button">Send</button>
             <button id="stop-button" class="stop-button secondary-button" style="display: none;">Stop</button>
+            <button id="continue-button" class="continue-button secondary-button">Continue</button>
             <button id="clear-button" class="secondary-button">Clear Chat</button>
         </div>
     </div>

@@ -14,11 +14,12 @@ export class VimStateMachine {
 
   constructor(
     private ctx: CommandContext,
-    initialState?: VimState
+    initialState?: VimState,
+    onWorkingDirChange?: (newDir: string) => void  // Add callback parameter
   ) {
     this.state = initialState || createVimState();
     this.normalHandler = new NormalCommandHandler();
-    this.exHandler = new ExCommandHandler(ctx);
+    this.exHandler = new ExCommandHandler(ctx, onWorkingDirChange);
     
     // Sync initial cursor position
     if (this.state.buffer) {

@@ -1,8 +1,51 @@
+<!-- vim_templates.xml -->
 <!-- Read file content (use :%print to get full file in result) -->
 <tool_call name="vim_edit">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :%print
+]]></commands>
+</tool_call>
+
+<!-- Show current working directory -->
+<tool_call name="vim_edit">
+  <commands><![CDATA[
+:pwd
+]]></commands>
+</tool_call>
+
+<!-- Change to a different directory -->
+<tool_call name="vim_edit">
+  <commands><![CDATA[
+:cd src/components
+:pwd
+:e Button.tsx
+i
+import React from 'react';
+
+export const Button = () => {
+  return <button>Click me</button>;
+};
+
+\x1b
+:w
+]]></commands>
+</tool_call>
+
+<!-- Navigate to parent directory -->
+<tool_call name="vim_edit">
+  <file_path>src/components/Button.tsx</file_path>
+  <commands><![CDATA[
+:cd ..
+:pwd
+:e pages/Home.tsx
+i
+export const Home = () => {
+  return <div>Home Page</div>;
+};
+
+\x1b
+:w
 ]]></commands>
 </tool_call>
 
@@ -27,6 +70,7 @@ export const Button: React.FC<ButtonProps> = ({ label, onClick }) => {
 :w
 ]]></commands>
 </tool_call>
+
 <!-- Insert text at specific location -->
 <tool_call name="vim_edit">
   <file_path>src/config.ts</file_path>
@@ -61,6 +105,27 @@ o
   display: flex;
   justify-content: center;
   align-items: center;
+\x1b
+:w
+]]></commands>
+</tool_call>
+
+<!-- Create nested directory structure -->
+<tool_call name="vim_edit">
+  <commands><![CDATA[
+:!mkdir -p src/utils/helpers
+:cd src/utils/helpers
+:pwd
+:e stringHelpers.ts
+i
+export const capitalize = (str: string): string => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+export const truncate = (str: string, length: number): string => {
+  return str.length > length ? str.substring(0, length) + '...' : str;
+};
+
 \x1b
 :w
 ]]></commands>

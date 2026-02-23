@@ -22,6 +22,7 @@ export class VimToolManager {
   private buffers: Map<string, VimBuffer> = new Map();
   private currentBuffer: VimBuffer | null = null;
   private sharedRegisters: Map<string, any> | null = null;
+  private workingDir: string | undefined;
 
   private pathResolver: PathResolver;
   private exHandler: ExCommandHandler;
@@ -38,17 +39,26 @@ export class VimToolManager {
     this.pathResolver.setWorkspaceRootProvider(provider);
   }
 
+  setWorkingDir(dir: string): void {
+    this.workingDir = dir;
+  }
+
+  
+
   constructor(workspaceRoot?: string | (() => string | undefined)) {
     let provider: () => string | undefined;
     if (typeof workspaceRoot === "function") {
       provider = workspaceRoot;
+      this.workingDir = workspaceRoot();
     } else if (workspaceRoot) {
       provider = () => workspaceRoot;
+      this.workingDir = workspaceRoot;
     } else {
       provider = () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      this.workingDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     }
-
-    this.pathResolver = new PathResolver(provider);
+    const workingDirProvider = () => this.workingDir;
+    this.pathResolver = new PathResolver(provider, workingDirProvider);
 
     const ctx: CommandContext = {
       buffers: this.buffers,
@@ -60,9 +70,10 @@ export class VimToolManager {
         }
       },
       resolvePath: (fp) => this.pathResolver.resolve(fp),
+      get workingDir() { return this.workingDir; },
     };
 
-    this.exHandler = new ExCommandHandler(ctx);
+    this.exHandler = new ExCommandHandler(ctx, (dir: string) => this.setWorkingDir(dir));
     this.normalHandler = new NormalCommandHandler();
     this.stateMachine = new VimStateMachine(ctx, createVimState());
   }
@@ -103,6 +114,9 @@ export class VimToolManager {
           "  :g/pattern/cmd                - Global command\n" +
           "  :v/pattern/cmd                - Inverse global\n" +
           "  :[range]norm <cmd>            - Execute normal commands\n\n" +
+          "Directory Commands:\n" +
+          "  :pwd          - Print current working directory\n" +
+          "  :cd <dir>     - Change to specified directory\n" +
           "Normal Mode Commands (no colon):\n" +
           "  i             - Enter insert mode\n" +
           "  a             - Enter insert mode after cursor\n" +

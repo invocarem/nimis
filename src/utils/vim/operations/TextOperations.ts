@@ -280,6 +280,16 @@ export async function globalCommand(
       }
     }
 
+    // Handle print/p first - collect output without modifying buffer
+    const trimmedCmd = command.trim();
+    if (trimmedCmd === 'print' || trimmedCmd === 'p') {
+      const printedLines = matchingLines.map((i) => buffer.content[i]);
+      const output = printedLines.join('\n');
+      return output
+        ? `${output}\nExecuted command on ${matchingLines.length} matching line(s)`
+        : `Executed command on 0 matching line(s)`;
+    }
+
     // Execute command on matching lines (from bottom to top to preserve line numbers)
     let executedCount = 0;
     for (let i = matchingLines.length - 1; i >= 0; i--) {
@@ -288,7 +298,6 @@ export async function globalCommand(
       buffer.currentLine = lineNum;
 
       // Handle different commands
-      const trimmedCmd = command.trim();
       if (trimmedCmd === 'd') {
         deleteLines({ start: lineNum, end: lineNum }, undefined, buffer);
         executedCount++;

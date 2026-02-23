@@ -8,4 +8,5 @@ coverage/
 .nimis/
 test.txt
 nonexistent.py
+temp_edit_test/
 *.bak

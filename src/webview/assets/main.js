@@ -23,6 +23,7 @@ const chatContainer = document.getElementById("chat-container");
 const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
 const stopButton = document.getElementById("stop-button");
+const continueButton = document.getElementById("continue-button");
 const clearButton = document.getElementById("clear-button");
 const statusIndicator = document.getElementById("status-indicator");
 
@@ -30,18 +31,21 @@ const statusIndicator = document.getElementById("status-indicator");
 let currentAssistantMessage = null;
 let isGenerating = false;
 let isCancelling = false;
+let toolLimitReached = false;
 
 /**
- * Send a message to the extension
+ * Send a message to the extension (optionally with a specific text)
  */
-function sendMessage() {
-  const message = messageInput.value.trim();
+function sendMessage(overrideMessage) {
+  const message = overrideMessage ?? messageInput.value.trim();
   if (message && !isGenerating) {
     vscode.postMessage({
       type: "sendMessage",
       message: message,
     });
-    messageInput.value = "";
+    if (!overrideMessage) {
+      messageInput.value = "";
+    }
     isGenerating = true;
     sendButton.disabled = true;
     // Stop button will be shown when assistantMessageStart is received
@@ -139,9 +143,13 @@ function addInsertButton(messageDiv) {
 /**
  * Event Listeners
  */
-sendButton.addEventListener("click", sendMessage);
+sendButton.addEventListener("click", () => sendMessage());
 
 stopButton.addEventListener("click", cancelOperation);
+
+continueButton.addEventListener("click", () => {
+  sendMessage("Yes, please continue.");
+});
 
 messageInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -152,6 +160,7 @@ messageInput.addEventListener("keydown", (e) => {
 
 clearButton.addEventListener("click", () => {
   chatContainer.innerHTML = "";
+  toolLimitReached = false;
   vscode.postMessage({ type: "clearChat" });
 });
 
@@ -194,6 +203,7 @@ window.addEventListener("message", (event) => {
       isGenerating = false;
       sendButton.disabled = false;
       stopButton.style.display = "none";
+      toolLimitReached = false;
       isCancelling = false;
       break;
 
@@ -202,6 +212,7 @@ window.addEventListener("message", (event) => {
       isGenerating = false;
       sendButton.disabled = false;
       stopButton.style.display = "none";
+      toolLimitReached = false;
       isCancelling = false;
       break;
 
@@ -220,6 +231,7 @@ window.addEventListener("message", (event) => {
       isGenerating = false;
       sendButton.disabled = false;
       stopButton.style.display = "none";
+      toolLimitReached = false;
       stopButton.disabled = false;
       stopButton.textContent = "Stop";
       isCancelling = false;
@@ -235,6 +247,10 @@ window.addEventListener("message", (event) => {
 
     case "requestFeedback":
       addMessage(message.message, "system");
+      break;
+
+    case "toolCallLimitReached":
+      toolLimitReached = true;
       break;
 
     case "connectionStatus":

@@ -49,4 +49,5 @@ export interface CommandContext {
   getCurrentBuffer(): VimBuffer | null;
   setCurrentBuffer(buffer: VimBuffer | null): void;
   resolvePath(filePath: string): string;
+  readonly workingDir?: string;  // Add this for cd/pwd support
 }
