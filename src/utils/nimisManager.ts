@@ -208,6 +208,8 @@ static toolCallHelp(
         "## Priniples \n\n" +
         "You restate User's problem in your own words to show understanding. \n\n" +
         "You execute a tool or apply a rule when it is directly related to User's request. \n\n" +
+        "You use vim_edit tool to access to a file. \n\n" +
+        "When code was modified, you must read it back to make sure the change is correct. \n\n" +
         "When the user affirms a proposed action (e.g., \"yes\", \"please\", \"go ahead\", \"apply it\"), you MUST use the appropriate tool to perform it. Do NOT claim the action is done without executing a tool and receiving the tool result. \n\n" +
         NimisManager.toolCallHelp(nativeToolManager, vimToolManager, mcpManager) +
         "\n\n" +

@@ -1,5 +1,16 @@
 import type { VimBuffer, Range } from "../types";
 import { shiftDeleteRegisters } from "../models/VimRegister";
+
+/** Convert Vim replacement escapes to JavaScript replace() format */
+function escapeReplacementForJs(replacement: string): string {
+  return replacement
+    .replace(/\\\$/g, "$$")       // \$ -> $$ (literal $)
+    .replace(/\\\./g, ".")        // \. -> . (literal .)
+    .replace(/\\&/g, "$&")        // \& -> $& (whole match)
+    .replace(/\\0/g, "$&")        // \0 -> $& (whole match)
+    .replace(/\\([1-9]\\d{0,1})(?![0-9])/g, (_, n) => "$" + n);  // \1-\99 -> $1-$99 (backreferences)
+}
+
 export function substituteWithPattern(
   range: Range,
   pattern: string,
@@ -8,24 +19,25 @@ export function substituteWithPattern(
   buffer: VimBuffer
 ): string {
   try {
-    // Build regex with proper flags
-    let regexFlags = 'g'; // Default to global for all matches
-    if (flags.includes('i')) {
-      regexFlags += 'i';
+    if (!pattern) {
+      throw new Error("Empty pattern");
     }
-    
+    // Use 'g' only when explicitly requested (Vim: s/foo/bar/ = first only, s/foo/bar/g = all)
+    let regexFlags = flags.includes("g") ? "g" : "";
+    if (flags.includes("i")) {
+      regexFlags += "i";
+    }
     const regex = new RegExp(pattern, regexFlags);
+    const jsReplacement = escapeReplacementForJs(replacement);
     let replaceCount = 0;
 
     for (let i = range.start; i <= range.end; i++) {
       const line = buffer.content[i];
-      // Use regex with both g and i flags as appropriate
-      const newLine = line.replace(regex, replacement);
+      const newLine = line.replace(regex, jsReplacement);
       if (newLine !== line) {
         buffer.content[i] = newLine;
-        // Count matches
-        const matches = line.match(new RegExp(pattern, flags.includes('i') ? 'gi' : 'g'));
-        replaceCount += matches ? matches.length : 0;
+        const matches = line.match(new RegExp(pattern, flags.includes("g") ? (flags.includes("i") ? "gi" : "g") : (flags.includes("i") ? "i" : "")));
+        replaceCount += flags.includes("g") ? (matches ? matches.length : 0) : 1;
       }
     }
 

@@ -83,6 +83,8 @@ export class VimToolManager {
           "- Always include ':w' at the end to save changes\n\n" +
           "Basic Commands:\n" +
           "  :e <file>     - Edit file (opens/creates in buffer)\n" +
+          "  :[range]print  - Print lines (output returned in result). Use :%print to read full file.\n" +
+          "  :[range]print # - Print with line numbers\n" +
           "  :w            - Write current buffer to disk\n" +
           "  :q            - Close current buffer (fails if modified)\n" +
           "  :wq           - Write and close\n" +
@@ -163,6 +165,9 @@ export class VimToolManager {
           "    \":g/^\\s*console\\.log/d\",\n" +
           "    \":w\"\n" +
           "  ]\n\n" +
+          "✅ Read file content (use instead of read_file):\n" +
+          "  file_path: \"path/to/file\", commands: [\":%print\"]\n" +
+          "  Or: commands: [\":e path/to/file\", \":%print\"]\n\n" +
           "❌ INCORRECT - DON'T DO THIS:\n" +
           "  commands: [\n" +
           "    \"i#!/usr/bin/env python3\"  # WRONG - i should be separate from text\n" +

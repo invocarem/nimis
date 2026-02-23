@@ -8,7 +8,8 @@ const readFileAsync = promisify(fs.readFile);
 export function createBuffer(
   filePath: string,
   content: string[],
-  lineEnding: '\n' | '\r\n' = '\n'
+  lineEnding: '\n' | '\r\n' = '\n',
+  trailingNewline: boolean = true
 ): VimBuffer {
   const buffer: VimBuffer = {
     path: filePath,
@@ -18,6 +19,7 @@ export function createBuffer(
     marks: new Map(),
     registers: new Map(),
     lineEnding,
+    trailingNewline,
     lastRegister: undefined,
     lastSearch: undefined,
   };
@@ -48,6 +50,8 @@ export async function loadBufferFromFile(filePath: string): Promise<VimBuffer> {
   let content: string[];
   let lineEnding: '\n' | '\r\n' = '\n';
 
+  let trailingNewline = true;
+
   try {
     const fileContent = await readFileAsync(filePath, 'utf-8');
     content = fileContent.split(/\r?\n/);
@@ -55,6 +59,7 @@ export async function loadBufferFromFile(filePath: string): Promise<VimBuffer> {
       content.pop();
     }
     lineEnding = fileContent.includes('\r\n') ? '\r\n' : '\n';
+    trailingNewline = fileContent.endsWith('\n') || fileContent.endsWith('\r\n');
   } catch (error: any) {
     if (error.code === 'ENOENT') {
       content = [''];
@@ -63,5 +68,5 @@ export async function loadBufferFromFile(filePath: string): Promise<VimBuffer> {
     }
   }
 
-  return createBuffer(filePath, content, lineEnding);
+  return createBuffer(filePath, content, lineEnding, trailingNewline);
 }

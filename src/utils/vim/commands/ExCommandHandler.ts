@@ -26,8 +26,58 @@ import {
 } from "../operations/BufferOperations";
 import { formatRegisters } from "../models/VimRegister";
 
+/** Parse s/pattern/replacement/flags with support for \delim escaping (e.g. \/ for literal /) */
+function parseSubstituteArgs(
+  rest: string,
+  delim: string
+): { pattern: string; replacement: string; flags: string } | null {
+  let i = 0;
+  const readUntilDelim = (): string => {
+    let s = "";
+    while (i < rest.length) {
+      if (rest[i] === "\\" && i + 1 < rest.length) {
+        const next = rest[i + 1];
+        if (next === delim) {
+          s += delim; // Escaped delimiter -> literal
+          i += 2;
+          continue;
+        }
+      }
+      if (rest[i] === delim) {
+        i++;
+        return s;
+      }
+      s += rest[i++];
+    }
+    return s;
+  };
+
+  const pattern = readUntilDelim();
+  if (i > rest.length) return null;
+  const replacement = readUntilDelim();
+  // Unescape replacement: \/ -> /
+  const replacementUnescaped = replacement.replace(new RegExp(`\\\\${delim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"), delim);
+  const flags = rest.slice(i).trim();
+  return { pattern, replacement: replacementUnescaped, flags };
+}
+
+
 export class ExCommandHandler {
-  constructor(private ctx: CommandContext) {}
+  constructor(private ctx: CommandContext) { }
+
+  private printLines(range: { start: number; end: number }, buffer: VimBuffer, options?: { numbered?: boolean }): string {
+    const start = Math.max(0, Math.min(range.start, buffer.content.length - 1));
+    const end = Math.max(start, Math.min(range.end, buffer.content.length - 1));
+
+    const lines = buffer.content.slice(start, end + 1);
+
+    if (options?.numbered) {
+      return lines.map((line, i) => `${start + i + 1}\t${line}`).join('\n');
+    }
+
+    return lines.join('\n');
+  }
+
 
   async execute(cmd: string, buffer: VimBuffer): Promise<string> {
     if (!cmd) {
@@ -72,36 +122,53 @@ export class ExCommandHandler {
       }
     }
 
-    // %s/ substitution
-    if (cmd.startsWith('%s/')) {
-      const subMatch = cmd.substring(3).match(/^([^/]+)\/([^/]*)\/([gci]*)$/);
-      if (!subMatch) {
-        throw new Error('Invalid substitute format. Use :%s/pattern/replacement/flags');
+    // %s/ substitution (supports escaped delimiters, e.g. %s/\/usr\/local/\/opt/g)
+    const percentSubMatch = cmd.match(/^%s([^a-zA-Z0-9\s])(.*)$/s);
+    if (percentSubMatch) {
+      const [_, delim, rest] = percentSubMatch;
+      const parsed = parseSubstituteArgs(rest, delim);
+      if (parsed) {
+        return substituteWithPattern(
+          { start: 0, end: buffer.content.length - 1 },
+          parsed.pattern,
+          parsed.replacement,
+          parsed.flags,
+          buffer
+        );
       }
-      const [_, pattern, replacement, flags] = subMatch;
-      return substituteWithPattern({ start: 0, end: buffer.content.length - 1 }, pattern, replacement, flags, buffer);
+      throw new Error("Invalid substitute format. Use :%s/pattern/replacement/flags");
     }
 
     // Range-based substitution (e.g. 10,20s/old/new/g)
-    const rangeSubMatch = cmd.match(/^(\d+,\d+)s\/([^/]+)\/([^/]*)\/([gci]*)$/);
+    const rangeSubMatch = cmd.match(/^(\d+,\d+)s([^a-zA-Z0-9\s])(.*)$/s);
     if (rangeSubMatch) {
-      const [_, rangeStr, pattern, replacement, flags] = rangeSubMatch;
-      try {
-        const range = parseRange(rangeStr, buffer);
-        return substituteWithPattern(range, pattern, replacement, flags, buffer);
-      } catch (e) {
-        throw new Error(`Invalid range: ${rangeStr}`);
+      const [_, rangeStr, delim, rest] = rangeSubMatch;
+      const parsed = parseSubstituteArgs(rest, delim);
+      if (parsed) {
+        try {
+          const range = parseRange(rangeStr, buffer);
+          return substituteWithPattern(range, parsed.pattern, parsed.replacement, parsed.flags, buffer);
+        } catch (e) {
+          throw new Error(`Invalid range: ${rangeStr}`);
+        }
       }
     }
 
     // Simple substitution on current line (e.g. s/old/new/g)
-    const simpleSubMatch = cmd.match(/^s\/([^/]+)\/([^/]*)\/([gci]*)$/);
+    // Delimiter must be non-alphanumeric to avoid matching "saveas", "set", etc.
+    const simpleSubMatch = cmd.match(/^s([^a-zA-Z0-9\s])(.*)$/s);
     if (simpleSubMatch) {
-      const [_, pattern, replacement, flags] = simpleSubMatch;
-      return substituteWithPattern(
-        { start: buffer.currentLine, end: buffer.currentLine },
-        pattern, replacement, flags, buffer
-      );
+      const [_, delim, rest] = simpleSubMatch;
+      const parsed = parseSubstituteArgs(rest, delim);
+      if (parsed) {
+        return substituteWithPattern(
+          { start: buffer.currentLine, end: buffer.currentLine },
+          parsed.pattern,
+          parsed.replacement,
+          parsed.flags,
+          buffer
+        );
+      }
     }
 
     // Try to parse a range prefix
@@ -173,13 +240,19 @@ export class ExCommandHandler {
     }
 
     // Handle substitution after range extraction (e.g. /pattern/s/old/new/g)
-    if (rest.startsWith('s/')) {
-      const subParts = rest.substring(2).match(/^([^/]+)\/([^/]*)\/([gci]*)$/);
-      if (!subParts) {
-        throw new Error('Invalid substitute format. Use :s/pattern/replacement/flags');
+    const rangeSubCmdMatch = rest.match(/^s([^a-zA-Z0-9\s])(.*)$/s);
+    if (rangeSubCmdMatch) {
+      const [_, delim, subRest] = rangeSubCmdMatch;
+      const parsed = parseSubstituteArgs(subRest, delim);
+      if (parsed) {
+        return substituteWithPattern(
+          range || { start: buffer.currentLine, end: buffer.currentLine },
+          parsed.pattern,
+          parsed.replacement,
+          parsed.flags,
+          buffer
+        );
       }
-      const [_, sp, sr, sf] = subParts;
-      return substituteWithPattern(range || { start: buffer.currentLine, end: buffer.currentLine }, sp, sr, sf, buffer);
     }
 
     // Handle g/pattern/cmd and v/pattern/cmd without space separator
@@ -270,6 +343,14 @@ export class ExCommandHandler {
 
       case 'y':
         return yankLines(range || { start: buffer.currentLine, end: buffer.currentLine }, args || undefined, buffer);
+
+      case 'print':
+        const showNumbers = args === '#' || args === 'number';
+        return this.printLines(
+          range || { start: buffer.currentLine, end: buffer.currentLine },
+          buffer,
+          { numbered: showNumbers }
+        );
 
       case 'p':
       case 'pu':

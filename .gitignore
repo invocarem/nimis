@@ -8,3 +8,4 @@ coverage/
 .nimis/
 test.txt
 nonexistent.py
+*.bak

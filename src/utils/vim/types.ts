@@ -31,6 +31,8 @@ export interface VimBuffer {
   registers: Map<string, VimRegister>;
   lastSearch?: RegExp;
   lineEnding: '\n' | '\r\n';
+  /** Whether the file had a trailing newline when loaded. New buffers default to true. */
+  trailingNewline?: boolean;
   lastRegister?: string;
 }
 

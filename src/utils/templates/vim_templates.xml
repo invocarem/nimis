@@ -1,3 +1,11 @@
+<!-- Read file content (use :%print to get full file in result) -->
+<tool_call name="vim_edit">
+  <file_path>src/index.ts</file_path>
+  <commands><![CDATA[
+:%print
+]]></commands>
+</tool_call>
+
 <!-- Create and edit a file -->
 <!-- \x1b: Escape to return to normal mode -->
 <tool_call name="vim_edit">

@@ -33,7 +33,7 @@ export async function writeBuffer(buffer: VimBuffer): Promise<void> {
   const content = buffer.content.join(buffer.lineEnding);
   if (content === '') {
     await writeFileAsync(buffer.path, '', 'utf-8');
-  } else if (buffer.lineEnding) {
+  } else if (buffer.lineEnding && buffer.trailingNewline !== false) {
     await writeFileAsync(buffer.path, content + buffer.lineEnding, 'utf-8');
   } else {
     await writeFileAsync(buffer.path, content, 'utf-8');
@@ -77,7 +77,7 @@ export async function saveAs(
   const fullContent =
     content === ''
       ? ''
-      : buffer.lineEnding
+      : buffer.lineEnding && buffer.trailingNewline !== false
         ? content + buffer.lineEnding
         : content;
   await writeFileAsync(fullPath, fullContent, 'utf-8');

@@ -83,18 +83,17 @@ print(x)`;
     expect(lines[4]).toBe('if __name__ == "__main__":');
     expect(lines[5]).toBe('    greet("World")');
     
-    // Should have exactly 6 lines (plus empty string after final newline)
-    expect(lines.length).toBe(7);
-    expect(lines[6]).toBe(""); // Final newline
+    // Original file had no trailing newline, so we preserve that format
+    expect(lines.length).toBe(6);
     
-    // Verify the exact content string
+    // Verify the exact content string (no trailing newline - preserves original file format)
     expect(content).toBe(
       "#!/usr/bin/env python3\n" +
       "def greet(name):\n" +
       '    """Print a friendly greeting to the given name."""\n' +
       '    print(f"Hello, {name}!")\n' +
       'if __name__ == "__main__":\n' +
-      '    greet("World")\n'
+      '    greet("World")'
     );
   });
 
