@@ -116,9 +116,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
         "2G",        // Go to line 2
         "i",         // Enter insert mode
         "FIRST",     // First line to insert
-        "\n",        // New line
         "SECOND",    // Second line
-        "\n",        // New line
         "THIRD",     // Third line
         "\x1b",      // Escape
         ":w"         // Save

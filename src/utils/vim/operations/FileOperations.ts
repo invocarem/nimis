@@ -31,7 +31,9 @@ export async function writeBuffer(buffer: VimBuffer): Promise<void> {
   await mkdirAsync(dir, { recursive: true });
 
   const content = buffer.content.join(buffer.lineEnding);
-  if (buffer.content.length > 0 && buffer.lineEnding) {
+  if (content === '') {
+    await writeFileAsync(buffer.path, '', 'utf-8');
+  } else if (buffer.lineEnding) {
     await writeFileAsync(buffer.path, content + buffer.lineEnding, 'utf-8');
   } else {
     await writeFileAsync(buffer.path, content, 'utf-8');
@@ -72,9 +74,12 @@ export async function saveAs(
 
   await mkdirAsync(path.dirname(fullPath), { recursive: true });
   const content = buffer.content.join(buffer.lineEnding);
-  const fullContent = buffer.content.length > 0 && buffer.lineEnding
-    ? content + buffer.lineEnding
-    : content;
+  const fullContent =
+    content === ''
+      ? ''
+      : buffer.lineEnding
+        ? content + buffer.lineEnding
+        : content;
   await writeFileAsync(fullPath, fullContent, 'utf-8');
 
   buffers.delete(buffer.path);

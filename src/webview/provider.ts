@@ -305,7 +305,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               fullResponse += chunk;
               const parsed = ResponseParser.parse(fullResponse);
 
-              // Diagnostic logging: Check if edit_file tool call appears in streaming response
+              // Diagnostic logging: Check if edit_file or vim_edit tool call appears in streaming response
               if (parsed.tool_calls) {
                 for (const toolCall of parsed.tool_calls) {
                   if (
@@ -315,6 +315,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                     console.log(
                       "[Provider] [STREAMING] edit_file detected in chunk, old_text length:",
                       toolCall.arguments.old_text.length
+                    );
+                  }
+                  if (toolCall.name === "vim_edit") {
+                    console.log(
+                      "[Provider] [STREAMING] vim_edit detected in chunk:",
+                      JSON.stringify(toolCall.arguments)
                     );
                   }
                 }
@@ -386,6 +392,31 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 "[Provider]   Extracted new_text (JSON):",
                 JSON.stringify(toolCall.arguments.new_text)
               );
+            }
+            if (toolCall.name === "vim_edit") {
+              console.log("[Provider] vim_edit tool call detected:");
+              console.log(
+                "[Provider]   Raw fullResponse length:",
+                fullResponse.length
+              );
+              console.log(
+                "[Provider]   Extracted vim_edit arguments:",
+                JSON.stringify(toolCall.arguments, null, 2)
+              );
+              const rawToolCall = fullResponse.match(
+                /<tool_call\s+name=["']vim_edit["'][^>]*>[\s\S]*?<\/tool_call>/
+              );
+              if (rawToolCall) {
+                console.log(
+                  "[Provider]   Raw vim_edit XML (first 500 chars):",
+                  rawToolCall[0].substring(0, 500)
+                );
+              } else {
+                console.log(
+                  "[Provider]   Raw fullResponse (first 500 chars):",
+                  fullResponse.substring(0, 500)
+                );
+              }
             }
           }
           let allToolResults: string[] = [];

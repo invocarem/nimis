@@ -1032,10 +1032,11 @@ export class XmlProcessor {
       if (cdataValues.length > 0) {
         foundAny = true;
         if (this.ARRAY_FIELDS.has(name)) {
+          // Preserve blank lines - they create blank lines in vim_edit output
           if (cdataValues.length === 1) {
-            args[name] = cdataValues[0].split('\n').filter(line => line.trim() !== '');
+            args[name] = cdataValues[0].split('\n');
           } else {
-            args[name] = cdataValues.map(v => v.trim()).filter(v => v !== '');
+            args[name] = cdataValues.flatMap(v => v.split('\n'));
           }
         } else {
           args[name] = cdataValues.join('');
@@ -1046,7 +1047,7 @@ export class XmlProcessor {
         if (plainValue && !(name in args)) {
           foundAny = true;
           if (this.ARRAY_FIELDS.has(name)) {
-            args[name] = plainValue.split('\n').filter(line => line.trim() !== '');
+            args[name] = plainValue.split('\n');
           } else {
             args[name] = plainValue;
           }

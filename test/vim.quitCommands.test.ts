@@ -57,6 +57,7 @@ describe("VimToolManager - Quit Commands", () => {
       file_path: testFile,
       commands: [
         "i# New content",
+        "\x1b",
         ":q!"
       ]
     });
@@ -74,6 +75,7 @@ describe("VimToolManager - Quit Commands", () => {
       file_path: testFile,
       commands: [
         "i# New content",
+        "\x1b",
         ":wq"
       ]
     });

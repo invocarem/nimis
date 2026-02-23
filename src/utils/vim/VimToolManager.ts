@@ -216,7 +216,7 @@ export class VimToolManager {
         case "vim_edit": {
           let cmds = arguments_.commands || [];
           if (typeof cmds === "string") {
-            cmds = cmds.split('\n').filter((line: string) => line.trim() !== '');
+            cmds = cmds.split('\n');
           }
           // Normalize literal \x1b (e.g. from XML/CDATA or LLM output) to actual ESC character
           cmds = (cmds as string[]).map((c: string) =>
@@ -340,8 +340,9 @@ private async vimEdit(
         !isBareModeSwitch
       ) {
         const nextCmd = commands[i + 1];
-        // Don't add newline before escape or colon commands
-        if (nextCmd !== '\x1b' && !nextCmd.startsWith(':')) {
+        // Don't add newline before escape, colon commands, or control keys (e.g. backspace)
+        const isControlOnly = /^[\b\x7f]+$/.test(nextCmd);
+        if (nextCmd !== '\x1b' && !nextCmd.startsWith(':') && !isControlOnly) {
           const result = await this.stateMachine.processKey('\n');
           if (result.output) {
             currentOutput += result.output;

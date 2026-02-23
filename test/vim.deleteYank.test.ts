@@ -45,7 +45,9 @@ describe("VimToolManager - Delete and Yank Operations", () => {
         ":2,3y a",
         "Go",
         "iPasted:",
+        "\x1b",
         "'ap",
+        "\x1b",
         ":w"
       ]
     });
@@ -63,6 +65,8 @@ describe("VimToolManager - Delete and Yank Operations", () => {
         ":2d a",
         "G",
         "'ap",
+        "\x1b",
+
         ":w"
       ]
     });

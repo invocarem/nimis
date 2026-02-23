@@ -47,25 +47,17 @@ describe("creating a new file from scratch", () => {
       commands: [
         "i",                         // Enter insert mode
         "#!/usr/bin/env python3",    // Line 1
-        "\n",                        // New line
-        "\n",                        // Another new line
+        "",                        // Another new line
         "# Simple greeting program", // Comment
-        "\n",                        // New line
-        "\n",                        // Another new line
+        "",                        // New line
         "def greet():",              // Function definition
-        "\n",                        // New line
         '    """Returns a greeting message"""', // Docstring
-        "\n",                        // New line
-        '    return "Hello, World!"', // Return statement
-        "\n",                        // New line
-        "\n",                        // Another new line
+        '    return "Hello, World!"', // Return statement (no blank: PEP 8)
+        "",                        // Another new line
         "def __main__():",            // Main function
-        "\n",                        // New line
         "    print(greet())",         // Print statement
-        "\n",                        // New line
-        "\n",                        // Another new line
+        "",                        // Another new line
         'if __name__ == "__main__":', // Main guard
-        "\n",                        // New line
         "    __main__()",             // Call main
         "\x1b",                       // Exit insert mode
         ":w",                         // Save
@@ -105,7 +97,7 @@ describe("commands as a newline-separated string", () => {
 
     const result = await manager.callTool("vim_edit", {
       file_path: filePath,
-      commands: "i\nHello\ni\nWorld\n\x1b\n:w",
+      commands: "iHello\nWorld\n\x1b\n:w",
     });
 
     expect(result.isError).toBeFalsy();
@@ -232,6 +224,7 @@ describe("multi-buffer workflow", () => {
       commands: [
         "G",              // Go to end of file
         '"ap',            // Put from register a
+        "\x1b",           // Exit insert mode
         ":w",             // Save
       ],
     });

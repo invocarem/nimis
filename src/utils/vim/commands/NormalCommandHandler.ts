@@ -196,6 +196,17 @@ export class NormalCommandHandler {
     }
 
     switch (remainingCmd) {
+      case 'dG':
+        // Delete from current line to end of file
+        if (buffer.content.length > 0) {
+          const start = buffer.currentLine;
+          const end = buffer.content.length - 1;
+          deleteLines({ start, end }, register, buffer);
+          this.cursorColumn = 0;
+          return `Deleted to end of file`;
+        }
+        return 'No lines to delete';
+
       case 'dd':
         deleteLines(
           { start: buffer.currentLine, end: Math.min(buffer.content.length - 1, buffer.currentLine + count - 1) },

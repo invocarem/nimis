@@ -24,11 +24,9 @@ static toolCallHelp(
   ): string {
     return (
       "### How to use **tool_call**\n\n" +
-      "## Two XML formats for tool calls\n\n" +
-      
-      "**FORMAT A: Simple attribute format** (for tools with simple string/number arguments)\n" +
-      '<tool_call name="TOOL_NAME" args=\'{ "arg1": "value1", "arg2": 123 }\' />\n\n' +
-      
+      "**EXACT TAGS REQUIRED** — Use only `<tool_call>` and `</tool_call>`. Other tags are invalid and will not be executed:\n" +
+      "❌ `</message_edit>` — wrong (tool will be ignored)\n" +
+      "✅ `</tool_call>` — correct closing tag\n\n" +
       "**FORMAT B: Child element format with CDATA** (MANDATORY for tools with code/content)\n" +
       '<tool_call name="TOOL_NAME">\n' +
       "  <arg1>simple_value</arg1>\n" +
@@ -41,16 +39,9 @@ static toolCallHelp(
       "## FORMAT SELECTION RULES\n\n" +
       
       "**USE FORMAT B (CDATA) FOR THESE TOOLS:**\n" +
-      "✅ **create_file** - Use <content> with CDATA\n" +
-      "✅ **edit_file** - Use <old_text> and <new_text> with CDATA\n" +
-      "✅ **replace_file** - Use <content> with CDATA\n" +
-      "✅ **vim_edit** - Use <commands> with CDATA (each command on its own line)\n" +
+     "✅ **vim_edit** - Use <commands> with CDATA (each command on its own line)\n" +
       "✅ Any tool that accepts multi-line text, code, or content with special characters\n\n" +
-      
-      "**USE FORMAT A (ATTRIBUTE) FOR:**\n" +
-      "✅ Tools with simple string/number arguments (e.g., read_file, exec_terminal)\n" +
-      "✅ When arguments are short and contain no quotes or special characters\n\n" +
-      
+     
       "## VIM_EDIT SPECIFIC REQUIREMENTS\n\n" +
       
       "**ALWAYS use FORMAT B with CDATA for vim_edit:**\n" +
@@ -217,6 +208,7 @@ static toolCallHelp(
         "## Priniples \n\n" +
         "You restate User's problem in your own words to show understanding. \n\n" +
         "You execute a tool or apply a rule when it is directly related to User's request. \n\n" +
+        "When the user affirms a proposed action (e.g., \"yes\", \"please\", \"go ahead\", \"apply it\"), you MUST use the appropriate tool to perform it. Do NOT claim the action is done without executing a tool and receiving the tool result. \n\n" +
         NimisManager.toolCallHelp(nativeToolManager, vimToolManager, mcpManager) +
         "\n\n" +
         "## Guide on **rule** \n\n" +

@@ -213,6 +213,11 @@ export function deleteLines(
 
   const deletedCount = range.end - range.start + 1;
   buffer.content.splice(range.start, deletedCount);
+
+  // Vim convention: buffer must have at least one line (empty line if nothing else)
+  if (buffer.content.length === 0) {
+    buffer.content.push('');
+  }
   buffer.modified = true;
 
   // Adjust marks
