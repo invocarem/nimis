@@ -3,6 +3,7 @@
 <tool_call name="vim_edit">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
+:e src/index.ts
 :%print
 ]]></commands>
 </tool_call>

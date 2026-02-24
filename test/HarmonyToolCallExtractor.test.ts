@@ -28,4 +28,25 @@ describe("HarmonyToolCallExtractor", () => {
     const response = 'to=tool_call code<|message|>{"arguments": {"x": 1}}\n';
     expect(extractHarmonyToolCall(response)).toBeNull();
   });
+
+  it("extracts Harmony variant format: commentary to=vim_edit json{...}", () => {
+    const response = `commentary to=vim_edit json{
+"file_path": "calc.py",
+"commands": ":%print"
+}`;
+    const result = extractHarmonyToolCall(response);
+    expect(result).toEqual({
+      name: "vim_edit",
+      arguments: { file_path: "calc.py", commands: ":%print" },
+    });
+  });
+
+  it("extracts to=<tool> json format without commentary prefix", () => {
+    const response = 'to=vim_edit json{"file_path": "x.ts", "commands": ":w"}';
+    const result = extractHarmonyToolCall(response);
+    expect(result).toEqual({
+      name: "vim_edit",
+      arguments: { file_path: "x.ts", commands: ":w" },
+    });
+  });
 });

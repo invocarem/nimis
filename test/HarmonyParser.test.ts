@@ -113,6 +113,22 @@ describe("HarmonyParser", () => {
       expect(result.tool_calls?.[1].name).toBe("tool2");
     });
 
+    it("should extract vim_edit from Harmony variant format (commentary to=vim_edit json{...})", () => {
+      const input = `commentary to=vim_edit json{
+"file_path": "calc.py",
+"commands": ":%print"
+}`;
+      const result: ParsedResponse = HarmonyParser.parse(input);
+
+      expect(result.tool_calls).toBeDefined();
+      expect(result.tool_calls?.length).toBe(1);
+      expect(result.tool_calls?.[0].name).toBe("vim_edit");
+      expect(result.tool_calls?.[0].arguments).toEqual({
+        file_path: "calc.py",
+        commands: ":%print",
+      });
+    });
+
     it("should extract create_file from llama-server content-only format (parsed message)", () => {
       // Simulates the content field from llama-server parsed message:
       // Content-only format with optional prefix + tool call
