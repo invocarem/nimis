@@ -15,13 +15,15 @@ describe("VimToolManager - :e (edit) command", () => {
   let testFile1: string;
   let testFile2: string;
   let testFile3: string;
-  let subDir: string; // Add subDir here
+  let helloPy: string;
+  let subDir: string;
 
   beforeEach(async () => {
     testDir = path.join(__dirname, "temp_edit_test");
     testFile1 = path.join(testDir, "file1.txt");
     testFile2 = path.join(testDir, "file2.txt");
     testFile3 = path.join(testDir, "file3.txt");
+    helloPy = path.join(testDir, "hello.py");
     subDir = path.join(testDir, "subdir");
 
     if (!fs.existsSync(testDir)) {
@@ -37,7 +39,7 @@ describe("VimToolManager - :e (edit) command", () => {
 
   afterEach(async () => {
     try {
-      const files = [testFile1, testFile2, testFile3];
+      const files = [testFile1, testFile2, testFile3, helloPy];
       for (const file of files) {
         if (fs.existsSync(file)) {
           await unlink(file);
@@ -52,6 +54,19 @@ describe("VimToolManager - :e (edit) command", () => {
   });
 
   describe("Basic :e functionality", () => {
+    it("should open and print file with :e only (no file_path in tool call)", async () => {
+      const content = "def greet():\n    print('hello')\n";
+      await writeFile(helloPy, content, "utf-8");
+
+      const result = await manager.callTool("vim_edit", {
+        commands: [":e hello.py", ":%print"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("def greet():");
+      expect(result.content[0].text).toContain("print('hello')");
+    });
+
     it("should open an existing file with :e", async () => {
       // Create a file first
       const content = "Hello World\nThis is a test file.\n";

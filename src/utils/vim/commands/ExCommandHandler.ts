@@ -66,6 +66,45 @@ function parseSubstituteArgs(
   return { pattern, replacement: replacementUnescaped, flags };
 }
 
+const FIND_MAX_ENTRIES = 2000;
+
+/** Search for a file under dir; returns first match where relative path equals or ends with target (path.sep-normalized). */
+async function findFileInPath(
+  dir: string,
+  target: string
+): Promise<string | null> {
+  const targetBasename = path.basename(target);
+  const stack: string[] = [path.resolve(dir)];
+  const seen = new Set<string>();
+  let entriesVisited = 0;
+  while (stack.length > 0 && entriesVisited < FIND_MAX_ENTRIES) {
+    const current = stack.pop()!;
+    const canonical = path.resolve(current);
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+    try {
+      const entries = await fs.promises.readdir(current, {
+        withFileTypes: true,
+      });
+      for (const e of entries) {
+        entriesVisited++;
+        const full = path.join(current, e.name);
+        if (e.isFile()) {
+          const rel = path.relative(dir, full);
+          if (rel === target || rel.endsWith(path.sep + target)) return full;
+          if (target === e.name || targetBasename === e.name) return full;
+        } else if (e.isDirectory() && !e.name.startsWith(".")) {
+          const resolved = path.resolve(full);
+          if (!seen.has(resolved)) stack.push(resolved);
+        }
+      }
+    } catch {
+      // ignore readdir errors
+    }
+  }
+  return null;
+}
+
 export class ExCommandHandler {
   constructor(
     private ctx: CommandContext,
@@ -400,6 +439,32 @@ export class ExCommandHandler {
         if (!args) throw new Error(":e requires a filename");
         await editFile(args, this.ctx);
         return `Editing ${path.basename(args)}`;
+
+      case "find":
+      case "fin": {
+        if (!args || !args.trim()) throw new Error(":find requires a filename");
+        const findArg = args.trim();
+        // First try resolving as-is (like :e)
+        try {
+          const resolved = this.ctx.resolvePath(findArg);
+          const stats = await fs.promises.stat(resolved);
+          if (stats.isFile()) {
+            await editFile(findArg, this.ctx);
+            return `Editing ${path.basename(findArg)}`;
+          }
+        } catch {
+          // Not found or not a file — search in path
+        }
+        // Search under working dir (path-like: current dir and **)
+        const baseDir = this.ctx.workingDir || path.dirname(buffer.path) || process.cwd();
+        const normalizedArg = findArg.replace(/\//g, path.sep);
+        const found = await findFileInPath(baseDir, normalizedArg);
+        if (found) {
+          await editFile(found, this.ctx);
+          return `Editing ${path.basename(found)}`;
+        }
+        throw new Error(`Can't find file "${findArg}" in path`);
+      }
 
       case "w":
         await writeBuffer(buffer);

@@ -105,7 +105,7 @@ export class VimToolManager {
           "  :ls           - List all buffers\n" +
           "  :b <num>      - Switch to buffer number\n\n" +
           "Editing Commands:\n" +
-          "  :[range]s/pattern/repl/[g] - Substitute\n" +
+          "  :[range]s/pattern/repl/[flags] - Substitute (see below)\n" +
           "  :[range]d [reg]             - Delete lines into register\n" +
           "  :[range]y [reg]             - Yank lines into register\n" +
           "  :[reg]p                      - Put after current line\n" +
@@ -157,6 +157,13 @@ export class VimToolManager {
           "  10            - Line 10\n" +
           "  10,20         - Lines 10-20\n" +
           "  .,+5          - Current through next 5 lines\n\n" +
+          "Substitute (:s) - IMPORTANT:\n" +
+          "  The pattern is a regular expression (like Vim). To match literal characters that are\n" +
+          "  special in regex, escape them: \\( \\) for parentheses, \\. for dot, \\* for asterisk.\n" +
+          "  Example - match literal 'def greet():' then replace:\n" +
+          "    :%s/def greet\\(\\):/def greet(name=\"World\"):/\n" +
+          "  Use a different delimiter if pattern/replacement contain '/': :%s#/usr/local#/opt#g\n" +
+          "  Flags: g = replace all on each line (default: first only), i = case-insensitive.\n\n" +
           "EXAMPLES - CORRECT USAGE:\n\n" +
           "✅ Create new file with content:\n" +
           "  commands: [\n" +
@@ -172,6 +179,11 @@ export class VimToolManager {
           "✅ Search and replace:\n" +
           "  commands: [\n" +
           "    \":%s/oldFunction/newFunction/g\",\n" +
+          "    \":w\"\n" +
+          "  ]\n\n" +
+          "✅ Substitute with literal parentheses (escape \\( \\) in pattern):\n" +
+          "  commands: [\n" +
+          "    \":%s/def greet\\\\\\(\\\\\\):/def greet(name=\\\"World\\\"):/\",\n" +
           "    \":w\"\n" +
           "  ]\n\n" +
           "✅ Delete lines matching pattern:\n" +
@@ -274,20 +286,31 @@ private async vimEdit(
 ): Promise<VimToolResult> {
 
   try {
+    const ctx: CommandContext = {
+      buffers: this.buffers,
+      getCurrentBuffer: () => this.currentBuffer,
+      setCurrentBuffer: (buf) => {
+        this.currentBuffer = buf;
+        if (buf) {
+          this.stateMachine.setBuffer(buf);
+        }
+      },
+      resolvePath: (fp) => this.pathResolver.resolve(fp),
+    };
+
     if (filePath) {
-      const ctx: CommandContext = {
-        buffers: this.buffers,
-        getCurrentBuffer: () => this.currentBuffer,
-        setCurrentBuffer: (buf) => {
-          this.currentBuffer = buf;
-          if (buf) {
-            this.stateMachine.setBuffer(buf);
-          }
-        },
-        resolvePath: (fp) => this.pathResolver.resolve(fp),
-      };
       await editFile(filePath, ctx);
-    } else if (!this.currentBuffer) {
+    } else if (!this.currentBuffer && commands.length > 0) {
+      // No file_path: allow starting with :e <file> as first command
+      const firstCmd = typeof commands[0] === "string" ? commands[0].trim() : "";
+      const eMatch = firstCmd.match(/^:e\s+(.+)$/s);
+      if (eMatch) {
+        const filename = eMatch[1].trim();
+        await editFile(filename, ctx);
+      }
+    }
+
+    if (!this.currentBuffer) {
       return {
         content: [{
           type: "text",

@@ -685,6 +685,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             <button id="send-button">Send</button>
             <button id="stop-button" class="stop-button secondary-button" style="display: none;">Stop</button>
             <button id="continue-button" class="continue-button secondary-button">Continue</button>
+            <button id="reject-button" class="reject-button secondary-button">Decline</button>
             <button id="clear-button" class="secondary-button">Clear Chat</button>
         </div>
     </div>
