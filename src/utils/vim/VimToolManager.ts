@@ -2,6 +2,8 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
+import { promisify } from "util";
+import { exec } from "child_process";
 import type { VimTool, VimToolResult, VimBuffer, CommandContext } from "./types";
 import { PathResolver } from "./utils/PathResolver";
 import { ExCommandHandler } from "./commands/ExCommandHandler";
@@ -60,22 +62,24 @@ export class VimToolManager {
     const workingDirProvider = () => this.workingDir;
     this.pathResolver = new PathResolver(provider, workingDirProvider);
 
+    const self = this;
     const ctx: CommandContext = {
       buffers: this.buffers,
-      getCurrentBuffer: () => this.currentBuffer,
+      getCurrentBuffer: () => self.currentBuffer,
       setCurrentBuffer: (buf) => {
-        this.currentBuffer = buf;
+        self.currentBuffer = buf;
         if (buf) {
-          this.stateMachine.setBuffer(buf);
+          self.stateMachine.setBuffer(buf);
         }
       },
-      resolvePath: (fp) => this.pathResolver.resolve(fp),
-      get workingDir() { return this.workingDir; },
+      resolvePath: (fp) => self.pathResolver.resolve(fp),
+      get workingDir() { return self.workingDir; },
     };
 
-    this.exHandler = new ExCommandHandler(ctx, (dir: string) => this.setWorkingDir(dir));
+    const onWorkingDirChange = (dir: string) => self.setWorkingDir(dir);
+    this.exHandler = new ExCommandHandler(ctx, onWorkingDirChange);
     this.normalHandler = new NormalCommandHandler();
-    this.stateMachine = new VimStateMachine(ctx, createVimState());
+    this.stateMachine = new VimStateMachine(ctx, createVimState(), onWorkingDirChange);
   }
 
   getAvailableTools(): VimTool[] {
@@ -279,6 +283,78 @@ export class VimToolManager {
     }
   }
 
+  /** Run only :pwd, :cd, :! commands without opening a buffer or using the state machine. */
+  private async runDirectoryCommandsOnly(commands: string[]): Promise<VimToolResult | null> {
+    let wd = this.workingDir || this.pathResolver.workspaceRoot || process.cwd();
+    if (!wd) {
+      return {
+        content: [{ type: "text", text: "Cannot run :pwd/:cd/:! without a working directory." }],
+        isError: true
+      };
+    }
+    const outputs: string[] = [];
+    const execAsync = promisify(exec);
+
+    for (const raw of commands) {
+      const c = String(raw).trim();
+      if (/^:pwd\s*$/.test(c)) {
+        outputs.push(wd);
+        continue;
+      }
+      const cdMatch = c.match(/^:cd\s+(.+)$/s);
+      if (cdMatch) {
+        let targetPath = cdMatch[1].trim();
+        if (!targetPath) {
+          const homedir = require("os").homedir();
+          this.setWorkingDir(homedir);
+          wd = homedir;
+          outputs.push(`Changed directory to ${homedir}`);
+          continue;
+        }
+        if ((targetPath.startsWith('"') && targetPath.endsWith('"')) || (targetPath.startsWith("'") && targetPath.endsWith("'"))) {
+          targetPath = targetPath.slice(1, -1);
+        } else {
+          const sp = targetPath.indexOf(" ");
+          if (sp > 0) targetPath = targetPath.slice(0, sp);
+        }
+        const resolved = this.pathResolver.resolve(targetPath);
+        if (!fs.existsSync(resolved)) {
+          return { content: [{ type: "text", text: `Directory not found: ${targetPath}` }], isError: true };
+        }
+        if (!fs.statSync(resolved).isDirectory()) {
+          return { content: [{ type: "text", text: `Not a directory: ${targetPath}` }], isError: true };
+        }
+        this.setWorkingDir(resolved);
+        wd = resolved;
+        outputs.push(`Changed directory to ${resolved}`);
+        continue;
+      }
+      const bangMatch = c.match(/^:!\s*(.+)$/s);
+      if (bangMatch) {
+        const shellCmd = bangMatch[1].trim();
+        if (!shellCmd) {
+          return { content: [{ type: "text", text: ":! requires a shell command" }], isError: true };
+        }
+        try {
+          const { stdout, stderr } = await execAsync(shellCmd, { cwd: wd });
+          const out = [stdout, stderr].filter(Boolean).join("\n").trimEnd();
+          if (out) outputs.push(out);
+        } catch (err: any) {
+          return {
+            content: [{ type: "text", text: `Shell command failed: ${err.message || String(err)}` }],
+            isError: true
+          };
+        }
+        continue;
+      }
+      outputs.push(`Unknown directory command: ${c}`);
+    }
+
+    return {
+      content: [{ type: "text", text: outputs.join("\n") }]
+    };
+  }
+
 private async vimEdit(
   commands: string[],
   filePath?: string,
@@ -298,15 +374,20 @@ private async vimEdit(
       resolvePath: (fp) => this.pathResolver.resolve(fp),
     };
 
+    let scratchPath: string | undefined;
+
     if (filePath) {
       await editFile(filePath, ctx);
     } else if (!this.currentBuffer && commands.length > 0) {
-      // No file_path: allow starting with :e <file> as first command
       const firstCmd = typeof commands[0] === "string" ? commands[0].trim() : "";
       const eMatch = firstCmd.match(/^:e\s+(.+)$/s);
       if (eMatch) {
         const filename = eMatch[1].trim();
         await editFile(filename, ctx);
+      } else if (commands.every((c) => /^:\s*(pwd|cd\s|!)/.test(String(c).trim()))) {
+        // Directory/shell-only: run without a buffer (no state machine)
+        const result = await this.runDirectoryCommandsOnly(commands);
+        if (result) return result;
       }
     }
 
@@ -314,7 +395,7 @@ private async vimEdit(
       return {
         content: [{
           type: "text",
-          text: "No file specified and no active buffer. Use :e <file> to edit a file."
+          text: "No file specified and no active buffer. Use :e <file> to edit a file or :pwd/:cd/:! for directory/shell."
         }],
         isError: true
       };

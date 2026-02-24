@@ -26,12 +26,13 @@ export function parseRange(rangeStr: string, buffer: VimBuffer): Range {
     const pattern = rangeStr.slice(1, -1);
     try {
       const regex = new RegExp(pattern);
-      for (let i = buffer.currentLine + 1; i < buffer.content.length; i++) {
+      // Search from current line first (Vim: / finds next match, including current line)
+      for (let i = buffer.currentLine; i < buffer.content.length; i++) {
         if (regex.test(buffer.content[i])) {
           return { start: i, end: i };
         }
       }
-      for (let i = 0; i <= buffer.currentLine; i++) {
+      for (let i = 0; i < buffer.currentLine; i++) {
         if (regex.test(buffer.content[i])) {
           return { start: i, end: i };
         }

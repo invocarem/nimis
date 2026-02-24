@@ -314,6 +314,12 @@ export class ExCommandHandler {
       }
     }
 
+    // Bare line number (e.g. :15) or range with no command: go to line
+    if (range && rest === "") {
+      buffer.currentLine = range.start;
+      return `Jumped to line ${range.start + 1}`;
+    }
+
     // Handle substitution after range extraction (e.g. /pattern/s/old/new/g)
     const rangeSubCmdMatch = rest.match(/^s([^a-zA-Z0-9\s])(.*)$/s);
     if (rangeSubCmdMatch) {

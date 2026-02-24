@@ -3,7 +3,9 @@ import { shiftDeleteRegisters } from "../models/VimRegister";
 
 /** Convert Vim replacement escapes to JavaScript replace() format */
 function escapeReplacementForJs(replacement: string): string {
-  return replacement
+  // Normalize \1 as single character (SOH, from "\\1" in JS string) to $1 for backreference
+  const s = replacement.replace(/\x01/g, "$1");
+  return s
     .replace(/\\\$/g, "$$")       // \$ -> $$ (literal $)
     .replace(/\\\./g, ".")        // \. -> . (literal .)
     .replace(/\\&/g, "$&")        // \& -> $& (whole match)
