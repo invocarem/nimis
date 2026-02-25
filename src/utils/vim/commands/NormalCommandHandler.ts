@@ -245,6 +245,25 @@ export class NormalCommandHandler {
         this.cursorColumn = 0;
         return `Put from register ${register || '"'}`;
 
+      case 'dD':
+      case 'D': {
+        // Delete from cursor to end of line (D = d$)
+        if (buffer.content.length > 0 && buffer.currentLine < buffer.content.length) {
+          const line = buffer.content[buffer.currentLine];
+          if (this.cursorColumn < line.length) {
+            const beforeCursor = line.substring(0, this.cursorColumn);
+            const deleted = line.substring(this.cursorColumn);
+            buffer.content[buffer.currentLine] = beforeCursor;
+            buffer.modified = true;
+            if (register && deleted) {
+              buffer.registers.set(register, { type: 'characterwise', content: [deleted] });
+            }
+            return 'Deleted to end of line';
+          }
+        }
+        return 'Already at end of line';
+      }
+
       case 'dw':
         if (buffer.content.length > 0 && buffer.currentLine < buffer.content.length) {
           const line = buffer.content[buffer.currentLine];

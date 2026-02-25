@@ -153,6 +153,21 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       const content = await readFile(testFile, "utf-8");
       expect(content).toBe("line1\nline3\nline4\nline5\nline2\n");
     });
+
+    it("should handle 'dD' to delete from cursor to end of line", async () => {
+      const dDFile = path.join(testDir, "test_dD.txt");
+      const content = "hello world\nfoo bar\n";
+      await writeFile(dDFile, content, "utf-8");
+
+      // Position cursor at column 5 (after "hello"), dD should delete " world"
+      await manager.callTool("vim_edit", {
+        file_path: dDFile,
+        commands: ["5l", "dD", ":w"]
+      });
+
+      const updated = await readFile(dDFile, "utf-8");
+      expect(updated).toBe("hello\nfoo bar\n");
+    });
   });
 
   describe("Yank and put commands", () => {
