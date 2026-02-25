@@ -1,4 +1,4 @@
-import { extractHarmonyToolCall, MCPToolCall } from "./toolCallExtractor";
+import { extractHarmonyToolCall, extractQwen3ToolCalls, MCPToolCall } from "./toolCallExtractor";
 import { XmlProcessor } from "./xmlProcessor";
 
 /**
@@ -159,6 +159,10 @@ export class HarmonyParser {
       searchStart = nextMarker;
     }
     if (toolCalls.length > 0) return toolCalls;
+
+    // Try Qwen3 format (<function=name> <parameter=name>value</parameter>)
+    const qwen3Calls = extractQwen3ToolCalls(response);
+    if (qwen3Calls.length > 0) return qwen3Calls;
 
     // Try XML format using XmlProcessor (preferred for robust JSON parsing)
     if (XmlProcessor.looksLikeXmlToolCall(response)) {

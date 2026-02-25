@@ -42,11 +42,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       workspaceRoot,
     });
     const stateTracker = this.nimisManager.getStateTracker();
-    NativeToolsManager.getInstance().setWorkspaceRootProvider(
-      () => stateTracker.getWorkspaceRoot()
+    NativeToolsManager.getInstance().setWorkspaceRootProvider(() =>
+      stateTracker.getWorkspaceRoot()
     );
-    VimToolManager.getInstance().setWorkspaceRootProvider(
-      () => stateTracker.getWorkspaceRoot()
+    VimToolManager.getInstance().setWorkspaceRootProvider(() =>
+      stateTracker.getWorkspaceRoot()
     );
   }
 
@@ -183,7 +183,9 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     const toolName = toolCall.name;
     const args = toolCall.arguments || {};
 
-    const workspaceRoot = this.nimisManager.getStateTracker().getWorkspaceRoot();
+    const workspaceRoot = this.nimisManager
+      .getStateTracker()
+      .getWorkspaceRoot();
 
     if (
       toolName === "read_file" ||
@@ -304,6 +306,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               }
               fullResponse += chunk;
               const parsed = ResponseParser.parse(fullResponse);
+              console.debug("[Provider] stream:", parsed.content);
 
               // Diagnostic logging: Check if edit_file or vim_edit tool call appears in streaming response
               if (parsed.tool_calls) {

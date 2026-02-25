@@ -263,9 +263,10 @@ function normalizeTripleQuotedStrings(jsonStr: string): string {
 
 import { extractMiniMaxToolCall } from "./MiniMaxToolCallExtractor";
 import { extractHarmonyToolCall } from "./HarmonyToolCallExtractor";
+import { extractQwen3ToolCall, extractQwen3ToolCalls } from "./Qwen3ToolCallExtractor";
 import { JsonProcessor } from "./jsonProcessor";
 // Export format-specific extractors for external use
-export { extractMiniMaxToolCall, extractHarmonyToolCall };
+export { extractMiniMaxToolCall, extractHarmonyToolCall, extractQwen3ToolCall, extractQwen3ToolCalls };
 
 export interface MCPToolCall {
   name: string;
