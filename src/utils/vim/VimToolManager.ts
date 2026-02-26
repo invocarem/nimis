@@ -85,7 +85,7 @@ export class VimToolManager {
   getAvailableTools(): VimTool[] {
     return [
       {
-        name: "vim_edit",
+        name: "vim",
         description: "Execute Vim commands to edit files. This is your primary tool for all file operations.\n\n" +
           "Core Philosophy:\n" +
           "- All file operations are done through Vim commands\n" +
@@ -248,7 +248,7 @@ export class VimToolManager {
 
     try {
       switch (toolName) {
-        case "vim_edit": {
+        case "vim": {
           let cmds = arguments_.commands || [];
           if (typeof cmds === "string") {
             cmds = cmds.split('\n');
@@ -423,6 +423,20 @@ private async vimEdit(
     const results: string[] = [];
     let currentOutput = '';
     let commandCount = 0;
+
+    // Expand :Nx (e.g. :21i) into :N + x for LLM-generated command compatibility
+    const expandedCommands: string[] = [];
+    for (const c of commands) {
+      const trimmed = typeof c === "string" ? c.trim() : String(c);
+      const match = trimmed.match(/^:(\d+)([iaIAoO])$/);
+      if (match) {
+        expandedCommands.push(":" + match[1]);
+        expandedCommands.push(match[2]);
+      } else {
+        expandedCommands.push(c);
+      }
+    }
+    commands = expandedCommands;
 
     for (let i = 0; i < commands.length; i++) {
       const cmd = commands[i];

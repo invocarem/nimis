@@ -113,8 +113,8 @@ describe("HarmonyParser", () => {
       expect(result.tool_calls?.[1].name).toBe("tool2");
     });
 
-    it("should extract vim_edit from Harmony variant format (commentary to=vim_edit json{...})", () => {
-      const input = `commentary to=vim_edit json{
+    it("should extract vim from Harmony variant format (commentary to=vim json{...})", () => {
+      const input = `commentary to=vim json{
 "file_path": "calc.py",
 "commands": ":%print"
 }`;
@@ -122,7 +122,7 @@ describe("HarmonyParser", () => {
 
       expect(result.tool_calls).toBeDefined();
       expect(result.tool_calls?.length).toBe(1);
-      expect(result.tool_calls?.[0].name).toBe("vim_edit");
+      expect(result.tool_calls?.[0].name).toBe("vim");
       expect(result.tool_calls?.[0].arguments).toEqual({
         file_path: "calc.py",
         commands: ":%print",

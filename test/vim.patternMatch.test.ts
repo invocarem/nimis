@@ -50,7 +50,7 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(testFile, content, "utf-8");
 
     // Search for the pattern and delete the line (using :g/pattern/d)
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":g/operations\\[op\\]/d",  // Delete line containing operations[op]
@@ -78,7 +78,7 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(testFile, content, "utf-8");
 
     // Search for the pattern and substitute on that line (using :g/pattern/s/old/new/)
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":g/operations\\[op\\]/s/result = /output = /",
@@ -103,7 +103,7 @@ describe("VimToolManager - Pattern Search Commands", () => {
     ].join('\n');
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":/^    if b == 0/",  // Jump to line matching pattern
@@ -128,7 +128,7 @@ describe("VimToolManager - Pattern Search Commands", () => {
     ].join('\n');
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":g/^nonexistent pattern/d",  // Pattern won't match - no-op

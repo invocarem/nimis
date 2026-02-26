@@ -41,7 +41,7 @@ describe("VimToolManager - Print Command", () => {
     await writeFile(testFile, content, "utf-8");
 
     // Load file and print it
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e test.txt",
@@ -62,7 +62,7 @@ describe("VimToolManager - Print Command", () => {
     const content = "line1\nline2\nline3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e test.txt",
@@ -83,7 +83,7 @@ describe("VimToolManager - Print Command", () => {
     const content = "line1\nline2\nline3\nline4\nline5\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e test.txt",

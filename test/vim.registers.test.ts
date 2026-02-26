@@ -47,7 +47,7 @@ describe("Register Operations", () => {
     const content = "line1\nline2\nline3\n";
     await writeFile(testFile, content, "utf-8");
 
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: ["2G", '"ayy']  // Yank line 2 to register a
     });
@@ -61,7 +61,7 @@ describe("Register Operations", () => {
     const content = "line1\nline2\nline3\n";
     await writeFile(testFile, content, "utf-8");
 
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: ["2G", '"add']  // Delete line 2 to register a
     });
@@ -75,7 +75,7 @@ describe("Register Operations", () => {
     const content = "line1\nline2\n";
     await writeFile(testFile, content, "utf-8");
 
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: ["yy"]  // Yank to unnamed register
     });
@@ -89,7 +89,7 @@ describe("Register Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     // Delete multiple lines to test numbered registers
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: ["2G", "2dd"]  // Delete lines 2-3
     });

@@ -2,9 +2,9 @@
 import { XmlProcessor } from "../src/utils/xmlProcessor";
 
 describe("XmlProcessor - Vim commands with CDATA", () => {
-  it("should parse vim_edit with three lines (apple, banana, orange)", () => {
+  it("should parse vim with three lines (apple, banana, orange)", () => {
     const text = 
-      '<tool_call name="vim_edit">\n' +
+      '<tool_call name="vim">\n' +
       '  <file_path>fruits.txt</file_path>\n' +
       '  <commands><![CDATA[\n' +
       ':e fruits.txt\n' +
@@ -20,7 +20,7 @@ describe("XmlProcessor - Vim commands with CDATA", () => {
     const result = XmlProcessor.extractToolCalls(text);
     
     expect(result).toHaveLength(1);
-    expect(result[0].name).toBe("vim_edit");
+    expect(result[0].name).toBe("vim");
     expect(result[0].args.file_path).toBe("fruits.txt");
     expect(Array.isArray(result[0].args.commands)).toBe(true);
     expect(result[0].args.commands).toEqual([
@@ -36,7 +36,7 @@ describe("XmlProcessor - Vim commands with CDATA", () => {
 
   it("should preserve the exact order of commands", () => {
     const text = 
-      '<tool_call name="vim_edit">\n' +
+      '<tool_call name="vim">\n' +
       '  <file_path>test.txt</file_path>\n' +
       '  <commands><![CDATA[\n' +
       ':e test.txt\n' +

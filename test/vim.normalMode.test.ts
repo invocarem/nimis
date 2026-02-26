@@ -45,11 +45,11 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     beforeEach(async () => {
       const content = "line1\nline2\nline3\nline4\nline5\n";
       await writeFile(testFile, content, "utf-8");
-      await manager.callTool("vim_edit", { file_path: testFile, commands: [] });
+      await manager.callTool("vim", { file_path: testFile, commands: [] });
     });
 
     it("should handle '2G' command to go to line 2", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: ["2G"]
       });
@@ -58,7 +58,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       expect(result.content[0].text).toContain("Moved to line 2");
 
       // Verify by deleting current line and checking what gets deleted
-      const deleteResult = await manager.callTool("vim_edit", {
+      const deleteResult = await manager.callTool("vim", {
         file_path: testFile,
         commands: ["dd", ":w"]
       });
@@ -69,7 +69,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'G' command to go to last line", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["G", "dd", ":w"]
       });
@@ -79,7 +79,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'gg' command to go to first line", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["G", "gg", "dd", ":w"]
       });
@@ -89,7 +89,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'j' command to move down", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["2j", "dd", ":w"]
       });
@@ -99,7 +99,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'k' command to move up", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["G", "2k", "dd", ":w"]
       });
@@ -113,11 +113,11 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     beforeEach(async () => {
       const content = "line1\nline2\nline3\nline4\nline5\n";
       await writeFile(testFile, content, "utf-8");
-      await manager.callTool("vim_edit", { file_path: testFile, commands: [] });
+      await manager.callTool("vim", { file_path: testFile, commands: [] });
     });
 
     it("should handle 'dd' to delete current line", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["3G", "dd", ":w"]
       });
@@ -127,7 +127,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle '3dd' to delete 3 lines", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["2G", "3dd", ":w"]
       });
@@ -137,7 +137,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'dd' with register", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -160,7 +160,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       await writeFile(dDFile, content, "utf-8");
 
       // Position cursor at column 5 (after "hello"), dD should delete " world"
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: dDFile,
         commands: ["5l", "dD", ":w"]
       });
@@ -174,11 +174,11 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     beforeEach(async () => {
       const content = "line1\nline2\nline3\nline4\nline5\n";
       await writeFile(testFile, content, "utf-8");
-      await manager.callTool("vim_edit", { file_path: testFile, commands: [] });
+      await manager.callTool("vim", { file_path: testFile, commands: [] });
     });
 
     it("should handle 'yy' to yank current line", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -194,7 +194,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle '2yy' to yank 2 lines", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -210,7 +210,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'yy' with named register", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -233,7 +233,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'p' to put after cursor", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -248,7 +248,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle 'P' to put before cursor", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -263,7 +263,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
 
     it("should handle multiple puts with count", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -279,18 +279,18 @@ describe("Normal Mode Commands - Isolated Tests", () => {
   });
 
   describe("Register persistence", () => {
-    it("should persist registers across multiple vim_edit calls", async () => {
+    it("should persist registers across multiple vim calls", async () => {
       const content = "line1\nline2\nline3\n";
       await writeFile(testFile, content, "utf-8");
 
       // First call: yank to register a
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["2G", '"a', "yy"]
       });
 
       // Second call: use register a
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: ["G", '"a', "p", ":w"]
       });
@@ -303,12 +303,12 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     it("should maintain unnamed register", async () => {
       await writeFile(testFile, "test\n", "utf-8");
 
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["yy"]  // Yank to unnamed register
       });
 
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["p", ":w"]
       });
@@ -323,7 +323,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       const content = "line1\nline2\nline3\nline4\nline5\n";
       await writeFile(testFile, content, "utf-8");
 
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["2Gdd", ":w"]
       });
@@ -336,7 +336,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       const content = "line1\nline2\nline3\nline4\nline5\n";
       await writeFile(testFile, content, "utf-8");
 
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: ["3G2dd", ":w"]
       });
@@ -351,7 +351,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       const content = "line1\nline2\n";
       await writeFile(testFile, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: ["G", "5dd", ":w"]
       });
@@ -365,7 +365,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       const content = "line1\n";
       await writeFile(testFile, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: ["10j", "dd", ":w"]
       });

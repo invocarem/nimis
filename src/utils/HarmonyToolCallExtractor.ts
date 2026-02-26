@@ -9,7 +9,7 @@ import { JsonProcessor } from "./jsonProcessor";
 
 const HARMONY_MARKER = "to=tool_call code<|message|>";
 
-/** Matches Harmony variant: "commentary to=vim_edit json{" or "to=vim_edit json{" */
+/** Matches Harmony variant: "commentary to=vim json{" or "to=vim json{" */
 const HARMONY_TO_JSON_REGEX = /(?:^|[\s"])to=(\w+)\s+json\s*\{/;
 
 /**
@@ -24,7 +24,7 @@ export function extractHarmonyToolCall(response: string): MCPToolCall | null {
   const standard = extractStandardFormat(response);
   if (standard) return standard;
 
-  // Fallback: Harmony variant "to=vim_edit json{...}"
+  // Fallback: Harmony variant "to=vim json{...}"
   return extractToJsonFormat(response);
 }
 

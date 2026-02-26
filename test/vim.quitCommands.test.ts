@@ -39,7 +39,7 @@ describe("VimToolManager - Quit Commands", () => {
   });
 
   it("should handle quit with unsaved changes", async () => {
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "i# New content",
@@ -53,7 +53,7 @@ describe("VimToolManager - Quit Commands", () => {
   });
 
   it("should force quit with :q!", async () => {
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "i# New content",
@@ -71,7 +71,7 @@ describe("VimToolManager - Quit Commands", () => {
   });
 
   it("should write and quit with :wq", async () => {
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "i# New content",

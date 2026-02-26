@@ -1,5 +1,5 @@
 /**
- * Validates that every vim_edit tool call in vim_templates.xml parses to the correct
+ * Validates that every vim tool call in vim_templates.xml parses to the correct
  * args shape and that the format is executable by VimToolManager.
  */
 import * as fs from "fs";
@@ -16,7 +16,7 @@ const templatesPath = path.join(
   "vim_templates.xml"
 );
 
-describe("vim_edit tool calls in vim_templates.xml", () => {
+describe("vim tool calls in vim_templates.xml", () => {
   let xmlContent: string;
 
   beforeAll(() => {
@@ -29,14 +29,14 @@ describe("vim_edit tool calls in vim_templates.xml", () => {
       expect(toolCalls.length).toBeGreaterThan(0);
     });
 
-    it("should have every tool call named vim_edit", () => {
+    it("should have every tool call named vim", () => {
       const toolCalls = XmlProcessor.extractToolCalls(xmlContent);
       for (const tc of toolCalls) {
-        expect(tc.name).toBe("vim_edit");
+        expect(tc.name).toBe("vim");
       }
     });
 
-    it("should have valid args for each vim_edit: commands array", () => {
+    it("should have valid args for each vim: commands array", () => {
       const toolCalls = XmlProcessor.extractToolCalls(xmlContent);
       for (let i = 0; i < toolCalls.length; i++) {
         const tc = toolCalls[i];
@@ -94,7 +94,7 @@ describe("vim_edit tool calls in vim_templates.xml", () => {
         file_path: testFile,
         commands: [":e index.ts", ":%print"],
       };
-      const result = await manager.callTool("vim_edit", args);
+      const result = await manager.callTool("vim", args);
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("const x = 1;");
     });
@@ -110,7 +110,7 @@ describe("vim_edit tool calls in vim_templates.xml", () => {
           ":w",
         ],
       };
-      const result = await manager.callTool("vim_edit", args);
+      const result = await manager.callTool("vim", args);
       expect(result.isError).toBeFalsy();
       const content = await fs.promises.readFile(testFile, "utf-8");
       expect(content).toContain("hello from template");
@@ -133,7 +133,7 @@ describe("vim_edit tool calls in vim_templates.xml", () => {
           c.replace(/src\/index\.ts/g, "index.ts")
         ),
       };
-      const result = await manager.callTool("vim_edit", args);
+      const result = await manager.callTool("vim", args);
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("line1");
       expect(result.content[0].text).toContain("line2");

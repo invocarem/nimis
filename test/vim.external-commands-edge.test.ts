@@ -30,7 +30,7 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     const content = "3\n1\n4\n1\n5\n9\n2\n6\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":2,5!sort -n",  // Sort lines 2-5 numerically
@@ -48,7 +48,7 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     const content = "apple\nbanana\ncherry\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":%!tr '[:lower:]' '[:upper:]'",  // Convert to uppercase
@@ -66,7 +66,7 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     const content = "error: file not found\ninfo: loading config\nwarning: deprecated\nerror: timeout\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":%!grep error",  // Keep only error lines
@@ -84,7 +84,7 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     const content = "foo bar baz\nbar foo baz\nbaz bar foo\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":%!sed 's/foo/FOO/g'",  // Replace foo with FOO

@@ -49,7 +49,7 @@ describe("VimToolManager - Line Specific Substitute", () => {
     await writeFile(testFile, content, "utf-8");
 
     // Run the substitute command on line 12
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e test.txt",
@@ -86,7 +86,7 @@ describe("VimToolManager - Line Specific Substitute", () => {
     const content = lines.join('\n');
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e test.txt",
@@ -115,7 +115,7 @@ describe("VimToolManager - Line Specific Substitute", () => {
     const content = lines.join('\n');
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e test.txt",

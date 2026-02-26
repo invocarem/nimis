@@ -45,7 +45,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -65,7 +65,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -86,7 +86,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "gg",        // Go to line 1
@@ -110,7 +110,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -132,7 +132,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -152,7 +152,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -172,7 +172,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -192,7 +192,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -212,7 +212,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2
@@ -233,7 +233,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
     const content = "function test() {\n    return null;\n}\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G",        // Go to line 2 (return statement)

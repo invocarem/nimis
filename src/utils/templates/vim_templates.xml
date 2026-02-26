@@ -6,7 +6,7 @@
 
 <!-- 1. LOCATE AND READ FILE -->
 <!-- Template: Read file content (use :%print to get full file in result) -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -15,7 +15,7 @@
 </tool_call>
 
 <!-- Read file with line numbers for reference -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -24,7 +24,7 @@
 </tool_call>
 
 <!-- Read specific line range from file -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -33,7 +33,7 @@
 </tool_call>
 
 <!-- Search for pattern and show surrounding lines -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -47,7 +47,7 @@
 
 <!-- 2. ADD CONTENT WITH INSERT -->
 <!-- Template: Insert at beginning of file -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -62,7 +62,7 @@ import { useEffect } from 'react';
 </tool_call>
 
 <!-- Template: Insert at end of file -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -76,7 +76,7 @@ export const API_BASE = 'https://api.example.com';
 </tool_call>
 
 <!-- Template: Insert after specific line number -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -92,7 +92,7 @@ const validateInput = (input: string) => {
 </tool_call>
 
 <!-- Template: Insert after pattern match -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -107,7 +107,7 @@ o  " Open line below
 </tool_call>
 
 <!-- Template: Insert multiple lines with proper indentation -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -131,7 +131,7 @@ o  " Open line below
 
 <!-- 3. CHANGE TEXT WITH MATCH AND SUBSTITUTE -->
 <!-- Template: Simple substitution on current line -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -142,7 +142,7 @@ o  " Open line below
 </tool_call>
 
 <!-- Template: Global substitution in entire file -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -153,7 +153,7 @@ o  " Open line below
 </tool_call>
 
 <!-- Template: Case-insensitive substitution -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -163,7 +163,7 @@ o  " Open line below
 </tool_call>
 
 <!-- Template: Substitution in specific line range -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -173,7 +173,7 @@ o  " Open line below
 </tool_call>
 
 <!-- Template: Substitution between marks -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -187,7 +187,7 @@ mb  " Set mark b
 </tool_call>
 
 <!-- Template: Delete lines matching pattern -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
@@ -200,7 +200,7 @@ mb  " Set mark b
 
 <!-- 4. COMPLEX EDITS (LOCATE + INSERT + SUBSTITUTE) -->
 <!-- Template: Add import, modify function, and add new function -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/utils/helpers.ts</file_path>
   <commands><![CDATA[
 :e src/utils/helpers.ts
@@ -240,7 +240,7 @@ export const debounce = (fn: Function, delay: number) => {
 <!-- ==================== CREATE NEW FILES ==================== -->
 
 <!-- Create new file with boilerplate -->
-<tool_call name="vim_edit">
+<tool_call name="vim">
   <file_path>src/components/Button.tsx</file_path>
   <commands><![CDATA[
 i

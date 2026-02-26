@@ -28,7 +28,7 @@ describe("VimToolManager - Marks Edge Cases", () => {
     const content = "line1\nline2\nline3\nline4\nline5\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G", "ma",  // Set mark a at line 2
@@ -51,13 +51,13 @@ describe("VimToolManager - Marks Edge Cases", () => {
     const content = "line1\nline2\nline3\n";
     await writeFile(testFile, content, "utf-8");
 
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: ["2G", "ma"]
     });
 
     // Do some operations that shouldn't affect the mark
-    await manager.callTool("vim_edit", {
+    await manager.callTool("vim", {
       file_path: testFile,
       commands: ["G", "iEND", ":w"]
     });
@@ -71,7 +71,7 @@ describe("VimToolManager - Marks Edge Cases", () => {
     const content = "line1\nline2\nline3\nline4\nline5\n";
     await writeFile(testFile, content, "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         "2G", "ma",

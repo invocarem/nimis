@@ -58,7 +58,7 @@ describe("VimToolManager - :e (edit) command", () => {
       const content = "def greet():\n    print('hello')\n";
       await writeFile(helloPy, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         commands: [":e hello.py", ":%print"],
       });
 
@@ -72,7 +72,7 @@ describe("VimToolManager - :e (edit) command", () => {
       const content = "Hello World\nThis is a test file.\n";
       await writeFile(testFile1, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [":e file1.txt", ":%print"],
       });
@@ -85,7 +85,7 @@ describe("VimToolManager - :e (edit) command", () => {
     it("should create a new file with :e (file doesn't exist)", async () => {
       expect(fs.existsSync(testFile2)).toBe(false);
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile2,
         commands: [
           ":e file2.txt",
@@ -111,7 +111,7 @@ describe("VimToolManager - :e (edit) command", () => {
       const content = "Content without file_path\n";
       await writeFile(testFile1, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [":e file1.txt", ":print"],
       });
@@ -127,7 +127,7 @@ describe("VimToolManager - :e (edit) command", () => {
       await writeFile(testFile1, "File 1 content\n", "utf-8");
       await writeFile(testFile2, "File 2 content\n", "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [":e file1.txt", ":print", ":e file2.txt", ":print"],
       });
@@ -145,7 +145,7 @@ describe("VimToolManager - :e (edit) command", () => {
       await writeFile(testFile2, "Second file\n", "utf-8");
       await writeFile(testFile3, "Third file\n", "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [
           ":e file1.txt",
@@ -171,7 +171,7 @@ describe("VimToolManager - :e (edit) command", () => {
       await writeFile(testFile1, "Original content\n", "utf-8");
       await writeFile(testFile2, "Another file\n", "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [
           ":e file1.txt",
@@ -204,7 +204,7 @@ describe("VimToolManager - :e (edit) command", () => {
       await writeFile(nestedFile, "Nested file content\n", "utf-8");
 
       // Use relative path from testDir
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [":e subdir/nested.txt", ":print"],
       });
@@ -216,7 +216,7 @@ describe("VimToolManager - :e (edit) command", () => {
 
   describe("Error handling with :e", () => {
     it("should handle :e without filename gracefully", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [
           ":e", // Missing filename
@@ -229,7 +229,7 @@ describe("VimToolManager - :e (edit) command", () => {
 
     it("should handle trying to edit a directory", async () => {
       // Try to edit a directory instead of a file
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testDir,
         commands: [`:e ${path.basename(testDir)}`],
       });
@@ -246,7 +246,7 @@ describe("VimToolManager - :e (edit) command", () => {
       );
       await writeFile(testFile1, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [
           ":e file1.txt",
@@ -268,7 +268,7 @@ describe("VimToolManager - :e (edit) command", () => {
       const content = "apple apple apple\n";
       await writeFile(testFile1, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [":e file1.txt", ":%s/apple/orange/g", ":print"],
       });
@@ -286,7 +286,7 @@ describe("VimToolManager - :e (edit) command", () => {
       ].join("\n");
       await writeFile(testFile1, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile1,
         commands: [":e file1.txt", ":g/TODO/print"],
       });
@@ -307,7 +307,7 @@ describe("VimToolManager - :e (edit) command", () => {
       const nestedFile = path.join(subDir, "nested.txt");
       await writeFile(nestedFile, "nested\n", "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testDir,
         commands: [":e ."],
       });

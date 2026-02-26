@@ -10,12 +10,12 @@ const writeFile = promisify(fs.writeFile);
 const unlink = promisify(fs.unlink);
 const mkdir = promisify(fs.mkdir);
 
-describe("vim_edit tool call", () => {
+describe("vim tool call", () => {
   let manager: VimToolManager;
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = path.join(__dirname, "temp_vim_edit_toolcall");
+    testDir = path.join(__dirname, "temp_vim_toolcall");
     if (!fs.existsSync(testDir)) {
       await mkdir(testDir, { recursive: true });
     }
@@ -42,7 +42,7 @@ describe("creating a new file from scratch", () => {
   it("should create hello.py with insert commands", async () => {
     const filePath = path.join(testDir, "hello.py");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: filePath,
       commands: [
         "i",                         // Enter insert mode
@@ -95,7 +95,7 @@ describe("commands as a newline-separated string", () => {
   it("should split string commands on newlines and filter blanks", async () => {
     const filePath = path.join(testDir, "from_string.txt");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: filePath,
       commands: "iHello\nWorld\n\x1b\n:w",
     });
@@ -113,7 +113,7 @@ describe("editing an existing file", () => {
     const filePath = path.join(testDir, "existing.py");
     await writeFile(filePath, 'msg = "Hello"\nprint(msg)\n', "utf-8");
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: filePath,
       commands: [':%s/Hello/Goodbye/g', ":w"],
     });
@@ -132,7 +132,7 @@ describe("editing an existing file", () => {
       "utf-8"
     );
 
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: filePath,
       commands: [":g/console\\.log/d", ":w"],
     });
@@ -147,10 +147,10 @@ describe("editing an existing file", () => {
 });
 
 describe("XML parsing round-trip", () => {
-  it("should parse vim_edit CDATA with insert commands and blank lines", async () => {
+  it("should parse vim CDATA with insert commands and blank lines", async () => {
     const filePath = path.join(testDir, "mixed.py");
 
-    const xml = `<tool_call name="vim_edit">
+    const xml = `<tool_call name="vim">
   <file_path>${filePath}</file_path>
   <commands><![CDATA[
 i
@@ -166,7 +166,7 @@ def foo():
 </tool_call>`;
 
     const toolCalls = XmlProcessor.extractToolCalls(xml);
-    const result = await manager.callTool("vim_edit", toolCalls[0].args);
+    const result = await manager.callTool("vim", toolCalls[0].args);
 
     expect(result.isError).toBeFalsy();
     const content = await readFile(filePath, "utf-8");
@@ -186,7 +186,7 @@ describe("multi-buffer workflow", () => {
     const fileB = path.join(testDir, "b.txt");
 
     // Create file A with content
-    const result1 = await manager.callTool("vim_edit", {
+    const result1 = await manager.callTool("vim", {
       file_path: fileA,
       commands: [
         "i",              // Enter insert mode
@@ -200,14 +200,14 @@ describe("multi-buffer workflow", () => {
     expect(result1.isError).toBeFalsy();
 
     // Yank the first line from file A
-    const result2 = await manager.callTool("vim_edit", {
+    const result2 = await manager.callTool("vim", {
       file_path: fileA,
       commands: ["gg", '"ayy'],
     });
     expect(result2.isError).toBeFalsy();
 
     // Create file B with content
-    const result3 = await manager.callTool("vim_edit", {
+    const result3 = await manager.callTool("vim", {
       file_path: fileB,
       commands: [
         "i",              // Enter insert mode
@@ -219,7 +219,7 @@ describe("multi-buffer workflow", () => {
     expect(result3.isError).toBeFalsy();
 
     // Put the yanked line into file B
-    const result4 = await manager.callTool("vim_edit", {
+    const result4 = await manager.callTool("vim", {
       file_path: fileB,
       commands: [
         "G",              // Go to end of file

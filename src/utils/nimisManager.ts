@@ -39,13 +39,13 @@ static toolCallHelp(
       "## FORMAT SELECTION RULES\n\n" +
       
       "**USE FORMAT B (CDATA) FOR THESE TOOLS:**\n" +
-     "✅ **vim_edit** - Use <commands> with CDATA (each command on its own line)\n" +
+     "✅ **vim** - Use <commands> with CDATA (each command on its own line)\n" +
       "✅ Any tool that accepts multi-line text, code, or content with special characters\n\n" +
      
       "## VIM_EDIT SPECIFIC REQUIREMENTS\n\n" +
       
-      "**ALWAYS use FORMAT B with CDATA for vim_edit:**\n" +
-      '<tool_call name="vim_edit">\n' +
+      "**ALWAYS use FORMAT B with CDATA for vim:**\n" +
+      '<tool_call name="vim">\n' +
       "  <file_path>hello.py</file_path>\n" +
       "  <commands><![CDATA[\n" +
       ":e hello.py\n" +
@@ -60,7 +60,7 @@ static toolCallHelp(
       "]]></commands>\n" +
       "</tool_call>\n\n" +
       
-      "**Why CDATA is required for vim_edit:**\n" +
+      "**Why CDATA is required for vim:**\n" +
       "- Each command must be a separate array element\n" +
       "- Commands contain quotes, newlines, and special characters\n" +
       "- The escape sequence \\x1b must be preserved exactly\n" +
@@ -68,8 +68,8 @@ static toolCallHelp(
       
       "## COMMON PITFALLS TO AVOID\n\n" +
       
-      "❌ **DON'T use format A for vim_edit:**\n" +
-      '<tool_call name="vim_edit" args=\'{ "file_path": "hello.py", "commands": [":e hello.py", "i", "code"] }\' />\n' +
+      "❌ **DON'T use format A for vim:**\n" +
+      '<tool_call name="vim" args=\'{ "file_path": "hello.py", "commands": [":e hello.py", "i", "code"] }\' />\n' +
       "   → This WILL corrupt multi-line content and escape sequences!\n\n" +
       
       "❌ **DON'T put commands in a single string:**\n" +
@@ -91,13 +91,13 @@ static toolCallHelp(
       "| create_file | FORMAT B (CDATA) | file_path, content |\n" +
       "| edit_file | FORMAT B (CDATA) | file_path, old_text, new_text |\n" +
       "| replace_file | FORMAT B (CDATA) | file_path, content |\n" +
-      "| **vim_edit** | **FORMAT B (CDATA)** | **file_path (optional), commands** |\n" +
+      "| **vim** | **FORMAT B (CDATA)** | **file_path (optional), commands** |\n" +
       "| read_file | FORMAT A or B | file_path |\n" +
       "| exec_terminal | FORMAT A or B | command |\n\n" +
       
       "## CDATA RULES SUMMARY\n\n" +
       "- Use `<![CDATA[` and `]]>` to wrap content\n" +
-      "- One command per line inside CDATA for vim_edit\n" +
+      "- One command per line inside CDATA for vim\n" +
       "- Simple string arguments (file_path) use plain child elements, not CDATA\n" +
       "- Content inside CDATA is preserved exactly — no escaping needed\n\n" +
       
@@ -208,7 +208,7 @@ static toolCallHelp(
         "## Priniples \n\n" +
         "You restate User's problem in your own words to show understanding. \n\n" +
         "You execute a tool or apply a rule when it is directly related to User's request. \n\n" +
-        "You use vim_edit tool to access to a file. \n\n" +
+        "You use vim tool to access to a file. \n\n" +
         "When code was modified, you must read it back to make sure the change is correct. \n\n" +
         "When the user affirms a proposed action (e.g., \"yes\", \"please\", \"go ahead\", \"apply it\"), you MUST use the appropriate tool to perform it. Do NOT claim the action is done without executing a tool and receiving the tool result. \n\n" +
         NimisManager.toolCallHelp(nativeToolManager, vimToolManager, mcpManager) +

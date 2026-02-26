@@ -1032,7 +1032,7 @@ export class XmlProcessor {
       if (cdataValues.length > 0) {
         foundAny = true;
         if (this.ARRAY_FIELDS.has(name)) {
-          // Preserve blank lines - they create blank lines in vim_edit output
+          // Preserve blank lines - they create blank lines in vim output
           if (cdataValues.length === 1) {
             args[name] = cdataValues[0].split('\n');
           } else {

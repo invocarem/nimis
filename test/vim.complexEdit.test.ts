@@ -50,7 +50,7 @@ print(x)`;
     await writeFile(testFile, existingContent, "utf-8");
 
     // Now run the complex edit
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e hello.py",
@@ -99,7 +99,7 @@ print(x)`;
 
   it("should work even when file doesn't exist initially", async () => {
     // File doesn't exist yet
-    const result = await manager.callTool("vim_edit", {
+    const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
         ":e hello.py",

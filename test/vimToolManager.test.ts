@@ -53,7 +53,7 @@ describe("VimToolManager", () => {
 
   describe("Basic file operations", () => {
     it("should create a new file with :e and write with :w", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "i",                         // Enter insert mode
@@ -84,7 +84,7 @@ describe("VimToolManager", () => {
 
         const filename = path.basename(testFile);
         
-        const result = await manager.callTool("vim_edit", {
+        const result = await manager.callTool("vim", {
             file_path: testFile,
             commands: []
         });
@@ -94,7 +94,7 @@ describe("VimToolManager", () => {
     });
 
     it("should handle file not found gracefully", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: path.join(testDir, "nonexistent.py"),
         commands: [
           "i",                         // Enter insert mode
@@ -116,7 +116,7 @@ describe("VimToolManager", () => {
       await writeFile(testFile, originalContent, "utf-8");
 
       // Edit using Vim substitution
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":%s/Cannot divide by zero/Division by zero is not allowed/g",
@@ -137,7 +137,7 @@ describe("VimToolManager", () => {
       const originalContent = "def divide(a, b):\n \"\"\"Return the quotient.\"\"\"\n if b == 0:\n raise ValueError(\"Cannot divide by zero\")\n return a / b\n";
       await writeFile(testFile, originalContent, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":%s/Cannot divide by zero/Division by zero is not allowed/g",
@@ -160,7 +160,7 @@ describe("VimToolManager", () => {
     });
 
     it("should substitute in entire file with :%s", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":%s/line 2/line TWO/g",
@@ -179,7 +179,7 @@ describe("VimToolManager", () => {
       const lines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
       await writeFile(testFile, lines.join('\n'), "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":10,20s/line/XLINE/g",
@@ -206,7 +206,7 @@ describe("VimToolManager", () => {
       const content = "LINE 1\nLine 2\nline 3\n";
       await writeFile(testFile, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":%s/line/XXX/gi",
@@ -228,7 +228,7 @@ describe("VimToolManager", () => {
     });
 
     it("should delete lines with :d", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":2,4d",
@@ -243,7 +243,7 @@ describe("VimToolManager", () => {
     });
 
     it("should yank and put lines", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":2,3y a",
@@ -263,7 +263,7 @@ describe("VimToolManager", () => {
     });
 
     it("should delete lines to register and put elsewhere", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":2d a",      // Delete line 2 to register a
@@ -287,7 +287,7 @@ describe("VimToolManager", () => {
     });
 
     it("should delete lines matching pattern with :g", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":g/apple/d",
@@ -302,7 +302,7 @@ describe("VimToolManager", () => {
     });
 
     it("should delete lines NOT matching pattern with :v", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":v/apple/d",
@@ -322,7 +322,7 @@ describe("VimToolManager", () => {
       const content = "line 1\nline 2\nline 3\nline 4\nline 5\n";
       await writeFile(testFile, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "ma",         // Set mark a at line 1
@@ -345,7 +345,7 @@ describe("VimToolManager", () => {
     });
 
     it("should show registers content", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "i",          // Enter insert mode
@@ -372,13 +372,13 @@ describe("VimToolManager", () => {
 
     it("should switch between buffers with :bn and :bp", async () => {
       // Edit first file
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: []
       });
 
       // Edit second file
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile2,
         commands: []
       });
@@ -390,23 +390,23 @@ describe("VimToolManager", () => {
       expect(listResult.content[0].text).toContain(path.basename(testFile2));
 
       // Switch to next buffer
-      const nextResult = await manager.callTool("vim_edit", {
+      const nextResult = await manager.callTool("vim", {
         commands: [":bn"]
       });
       expect(nextResult.content[0].text).toContain(`Editing ${path.basename(testFile)}`);
 
       // Switch to previous buffer
-      const prevResult = await manager.callTool("vim_edit", {
+      const prevResult = await manager.callTool("vim", {
         commands: [":bp"]
       });
       expect(prevResult.content[0].text).toContain(`Editing ${path.basename(testFile2)}`);
     });
 
     it("should switch to buffer by number with :b", async () => {
-      await manager.callTool("vim_edit", { file_path: testFile, commands: [] });
-      await manager.callTool("vim_edit", { file_path: testFile2, commands: [] });
+      await manager.callTool("vim", { file_path: testFile, commands: [] });
+      await manager.callTool("vim", { file_path: testFile2, commands: [] });
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         commands: [":b 1"]
       });
       expect(result.content[0].text).toContain(`Editing ${path.basename(testFile)}`);
@@ -420,7 +420,7 @@ describe("VimToolManager", () => {
     });
 
     it("should handle dd (delete line)", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",         // Go to line 2
@@ -436,7 +436,7 @@ describe("VimToolManager", () => {
     });
 
     it("should handle yy (yank line) and p (put)", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -454,7 +454,7 @@ describe("VimToolManager", () => {
     });
 
     it("should handle numeric prefixes (3dd)", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "2G",
@@ -470,7 +470,7 @@ describe("VimToolManager", () => {
     });
 
     it("should handle movement commands (j, k, gg, G)", async () => {
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "G",          // Go to end
@@ -497,7 +497,7 @@ describe("VimToolManager", () => {
       const content = "cherry\napple\nbanana\n";
       await writeFile(testFile, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":%!sort",
@@ -518,7 +518,7 @@ describe("VimToolManager", () => {
       const extraContent = "extra content\n";
       await writeFile(testFile2, extraContent, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":r " + testFile2,
@@ -538,7 +538,7 @@ describe("VimToolManager", () => {
 
       const newFile = path.join(testDir, "saved_as.txt");
       
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":saveas " + newFile
@@ -561,7 +561,7 @@ describe("VimToolManager", () => {
       await writeFile(testFile, originalContent, "utf-8");
 
       // Try to execute an invalid command that should error
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":%s/important/very important/g",
@@ -583,7 +583,7 @@ describe("VimToolManager", () => {
       const content = "test\n";
       await writeFile(testFile, content, "utf-8");
 
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":w" // Write without changes
@@ -595,7 +595,7 @@ describe("VimToolManager", () => {
     });
 
     it("should handle quit with unsaved changes", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "i",          // Enter insert mode
@@ -611,7 +611,7 @@ describe("VimToolManager", () => {
     });
 
     it("should force quit with :q!", async () => {
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           "i",          // Enter insert mode
@@ -650,7 +650,7 @@ function calculateTotalWithTax(items) {
       await writeFile(testFile2, file2Content, "utf-8");
 
       // Refactor first file to use reduce
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":/function calculateTotal/,/^}/d a", // Delete function to register a
@@ -666,7 +666,7 @@ function calculateTotalWithTax(items) {
       });
 
       // Refactor second file to use reduce
-      await manager.callTool("vim_edit", {
+      await manager.callTool("vim", {
         file_path: testFile2,
         commands: [
           ":/function calculateTotalWithTax/,/^}/d", // Delete old function
@@ -701,7 +701,7 @@ const api = {
       await writeFile(testFile, content, "utf-8");
 
       // Convert to async/await
-      const result = await manager.callTool("vim_edit", {
+      const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
           ":%s/fetch(.*)/await fetch\\1/g",
