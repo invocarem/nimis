@@ -78,96 +78,10 @@ function parseHarmonyMessage(input) {
 
 /**
  * Preprocess markdown text to fix common LLM formatting issues
+ * Code blocks are only recognized by ``` fences - no heuristic wrapping.
  */
 function preprocessMarkdown(text) {
-  let processed = text;
-
-  // Add line breaks before common section headers to help parsing
-  processed = processed.replace(/(Features:|Usage:|Output:|Would you like)/g, "\n$1");
-
-  // Fix cases where language is on its own line followed by code
-  const lines = processed.split("\n");
-  let result = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    const nextLine = lines[i + 1] || "";
-
-    // Check if this line is just a language name and next line starts with code.
-    // Skip lines that already start with ``` (existing markdown code fence).
-    if (
-      line &&
-      !line.startsWith("```") &&
-      !line.includes(" ") &&
-      !line.startsWith("#") &&
-      !line.startsWith("-") &&
-      !line.startsWith("*") &&
-      nextLine &&
-      (nextLine.includes("def ") ||
-        nextLine.includes("class ") ||
-        nextLine.includes("import ") ||
-        nextLine.includes("from ") ||
-        nextLine.includes("function ") ||
-        nextLine.match(/^\w+\s*=/) ||
-        nextLine.match(/^\w+\s*\(/))
-    ) {
-      // Found a language line followed by code, wrap it
-      let codeLines = [];
-      let j = i + 1;
-
-      // Collect code lines until we hit a clear non-code indicator
-      // (section headers, list items - avoid breaking on Python # comments)
-      while (j < lines.length) {
-        const codeLine = lines[j];
-        if (
-          codeLine.match(/^[A-Z][^:]*:/) ||
-          codeLine.startsWith("- ") ||
-          codeLine.match(/^\d+\. /) ||
-          codeLine.startsWith("With ") ||
-          codeLine.startsWith("Would ") ||
-          codeLine.startsWith("# Output")
-        ) {
-          break;
-        }
-        codeLines.push(codeLine);
-        j++;
-      }
-
-      if (codeLines.length > 0) {
-        result.push("```" + line);
-        result.push(...codeLines);
-        result.push("```");
-        i = j - 1; // Skip the code lines we just processed
-      } else {
-        result.push(lines[i]);
-      }
-    } else {
-      result.push(lines[i]);
-    }
-    i++;
-  }
-
-  processed = result.join("\n");
-
-  // Fix malformed patterns: python# hello.py -> ```python\n# hello.py
-  processed = processed.replace(
-    /(\w+)#\s*([^]*?)(This creates:|Usage:|Output:|Save this as|Would you like)/g,
-    (match, lang, code, endMarker) =>
-      "```" + lang.trim() + "\n# " + code.trim() + "\n```\n\n" + endMarker
-  );
-  processed = processed.replace(/(\w+)#(\s*)(.+)$/gm, "```$1\n# $3");
-
-  // Fix: python def greet... -> ```python\ndef greet...
-  processed = processed.replace(
-    /^(\w+)(def |class |import |from |function |\w+\s*= |\w+\s*\()/gm,
-    "```$1\n$2"
-  );
-
-  // Fix: bashpython hello.py -> ```bash\npython hello.py
-  processed = processed.replace(/^bash(\w.+)$/gm, "```bash\n$1");
-
-  return processed;
+  return text;
 }
 
 /**
@@ -201,7 +115,19 @@ function formatMarkdown(text) {
   html = html.replace(/```(\w*)\s*\n([\s\S]*?)```/g, (match, language, code) => {
     const placeholder =
       "PLACEHOLDERCODEBLOCK" + codeBlocks.length + "PLACEHOLDER";
-    codeBlocks.push({ language: language.trim(), code: code.trim() });
+    // Only trim leading/trailing newlines; preserve spaces for alignment (e.g. line numbers)
+    const trimmedCode = code.replace(/^\n+/, "").replace(/\n+$/, "");
+    codeBlocks.push({ language: language.trim(), code: trimmedCode });
+    return placeholder;
+  });
+
+  // Handle unclosed code blocks (e.g. during streaming) so their content
+  // isn't processed as markdown (headings, lists, etc.)
+  html = html.replace(/```(\w*)\s*\n([\s\S]*)$/, (match, language, code) => {
+    const placeholder =
+      "PLACEHOLDERCODEBLOCK" + codeBlocks.length + "PLACEHOLDER";
+    const trimmedCode = code.replace(/^\n+/, "");
+    codeBlocks.push({ language: language.trim(), code: trimmedCode, unclosed: true });
     return placeholder;
   });
 

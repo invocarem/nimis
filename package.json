@@ -1,7 +1,7 @@
 {
   "name": "nimis",
   "displayName": "Nimis - AI Prototyping",
-  "description": "AI prototyping assistant powered by llama.cpp / vLLM",
+  "description": "AI prototyping assistant powered by llama.cpp / vLLM / Mistral",
   "version": "0.0.25",
   "publisher": "dashtotherock",
   "repository": {
@@ -77,13 +77,20 @@
           "default": "llama",
           "enum": [
             "llama",
-            "vllm"
+            "vllm",
+            "mistral"
           ],
           "enumDescriptions": [
             "llama.cpp server (default port 8080)",
-            "vLLM server with OpenAI-compatible API (default port 8000)"
+            "vLLM server with OpenAI-compatible API (default port 8000)",
+            "Mistral AI cloud API (requires API key)"
           ],
           "description": "Type of LLM server backend to connect to"
+        },
+        "nimis.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for cloud LLM providers (e.g. Mistral)"
         },
         "nimis.serverUrl": {
           "type": "string",

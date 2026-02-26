@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ILLMClient, CompletionRequest } from "../api/llmClient";
 import { LlamaClient } from "../api/llamaClient";
 import { VLLMClient } from "../api/vllmClient";
+import { MistralClient } from "../api/mistralClient";
 import { getNonce } from "../utils/getNonce";
 import { NimisManager } from "../utils/nimisManager";
 import { toolExecutor } from "../toolExecutor";
@@ -113,7 +114,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         e.affectsConfiguration("nimis.serverUrl") ||
         e.affectsConfiguration("nimis.llamaServerUrl") ||
         e.affectsConfiguration("nimis.serverType") ||
-        e.affectsConfiguration("nimis.model")
+        e.affectsConfiguration("nimis.model") ||
+        e.affectsConfiguration("nimis.apiKey")
       ) {
         this._initializeLLMClient();
       }
@@ -123,18 +125,30 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   private _initializeLLMClient() {
     const config = vscode.workspace.getConfiguration("nimis");
     const serverType = config.get<string>("serverType", "llama");
-    const defaultUrl =
-      serverType === "vllm" ? "http://localhost:8000" : "http://localhost:8080";
-    const serverUrl =
-      config.get<string>("serverUrl") ||
-      config.get<string>("llamaServerUrl") ||
-      defaultUrl;
 
-    if (serverType === "vllm") {
-      const model = config.get<string>("model", "default");
-      this.llmClient = new VLLMClient(serverUrl, model);
+    if (serverType === "mistral") {
+      const apiKey = config.get<string>("apiKey", "");
+      const model = config.get<string>("model", "mistral-medium-2508");
+      if (!apiKey) {
+        console.warn("[Nimis] Mistral selected but nimis.apiKey is not set.");
+      }
+      this.llmClient = new MistralClient(apiKey, model);
     } else {
-      this.llmClient = new LlamaClient(serverUrl);
+      const defaultUrl =
+        serverType === "vllm"
+          ? "http://localhost:8000"
+          : "http://localhost:8080";
+      const serverUrl =
+        config.get<string>("serverUrl") ||
+        config.get<string>("llamaServerUrl") ||
+        defaultUrl;
+
+      if (serverType === "vllm") {
+        const model = config.get<string>("model", "default");
+        this.llmClient = new VLLMClient(serverUrl, model);
+      } else {
+        this.llmClient = new LlamaClient(serverUrl);
+      }
     }
   }
 

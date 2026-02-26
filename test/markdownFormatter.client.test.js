@@ -87,16 +87,17 @@ describe("Client-side Markdown Formatting", () => {
       expect(output).toContain("This is my reasoning");
     });
 
-    it("should fix malformed code blocks with language on separate line", () => {
+    it("should format code blocks only when fenced with ```", () => {
       const input = `# 📁 hello.py
-python
+
+\`\`\`python
 def greet(name="Maria"): 
     """Greet someone by name."""
     return f"Hello, {name}!"
 
-Example usage
-if __name__ == "__main": 
-    print(greet())`;
+if __name__ == "__main__": 
+    print(greet())
+\`\`\``;
       const output = formatMarkdown(input);
 
       expect(output).toContain('<div class="code-block-container">');

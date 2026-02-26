@@ -1,5 +1,5 @@
 // test/vim.deleteYank.test.ts
-import { VimToolManager } from "../src/utils/vim";
+import { VimToolManager } from "../../src/utils/vim";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
@@ -24,7 +24,7 @@ describe("VimToolManager - Delete and Yank Operations", () => {
 
     manager = new VimToolManager(testDir);
     
-    const content = "line 1\nline 2\nline 3\nline 4\nline 5\n";
+    const content = "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\n";
     await writeFile(testFile, content, "utf-8");
   });
 
@@ -58,6 +58,18 @@ describe("VimToolManager - Delete and Yank Operations", () => {
     expect(content).toContain("Pasted:\nline 2\nline 3");
   });
 
+  it("should delete multiple lines with range :3,7d", async () => {
+    const result = await manager.callTool("vim", {
+      file_path: testFile,
+      commands: [":3,7d", ":w"]
+    });
+
+    expect(result.isError).toBeFalsy();
+
+    const content = await readFile(testFile, "utf-8");
+    expect(content).toBe("line 1\nline 2\nline 8\n");
+  });
+
   it("should delete lines to register and put elsewhere", async () => {
     const result = await manager.callTool("vim", {
       file_path: testFile,
@@ -74,7 +86,7 @@ describe("VimToolManager - Delete and Yank Operations", () => {
     expect(result.isError).toBeFalsy();
 
     const content = await readFile(testFile, "utf-8");
-    expect(content).toBe("line 1\nline 3\nline 4\nline 5\nline 2\n");
+    expect(content).toBe("line 1\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 2\n");
   });
 
   it("should verify register contents after yank", async () => {
