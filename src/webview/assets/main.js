@@ -24,6 +24,7 @@ const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
 const stopButton = document.getElementById("stop-button");
 const continueButton = document.getElementById("continue-button");
+const questionButton = document.getElementById("question-button");
 const rejectButton = document.getElementById("reject-button");
 const clearButton = document.getElementById("clear-button");
 const statusIndicator = document.getElementById("status-indicator");
@@ -150,6 +151,10 @@ stopButton.addEventListener("click", cancelOperation);
 
 continueButton.addEventListener("click", () => {
   sendMessage("Yes, please continue.");
+});
+
+questionButton.addEventListener("click", () => {
+  sendMessage("what happened");
 });
 
 rejectButton.addEventListener("click", () => {

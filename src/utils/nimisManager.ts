@@ -24,7 +24,7 @@ static toolCallHelp(
   ): string {
     return (
       "### How to use **tool_call**\n\n" +
-      "**EXACT TAGS REQUIRED** — Use only `<tool_call>` and `</tool_call>`. Other tags are invalid and will not be executed:\n" +
+      "**EXACT TAGS REQUIRED** — Use only `<tool_call name=\"TOOL_NAME\">` and `</tool_call>`. Other tags are invalid and will not be executed:\n" +
       "❌ `</message_edit>` — wrong (tool will be ignored)\n" +
       "✅ `</tool_call>` — correct closing tag\n\n" +
       "**FORMAT B: Child element format with CDATA** (MANDATORY for tools with code/content)\n" +
@@ -42,7 +42,7 @@ static toolCallHelp(
      "✅ **vim** - Use <commands> with CDATA (each command on its own line)\n" +
       "✅ Any tool that accepts multi-line text, code, or content with special characters\n\n" +
      
-      "## VIM_EDIT SPECIFIC REQUIREMENTS\n\n" +
+      "## VIM SPECIFIC REQUIREMENTS\n\n" +
       
       "**ALWAYS use FORMAT B with CDATA for vim:**\n" +
       '<tool_call name="vim">\n' +
@@ -84,17 +84,7 @@ static toolCallHelp(
       "\\x1b\n" +
       ":w\n" +
       "]]></commands>\n\n" +
-      
-      "## QUICK REFERENCE TABLE\n\n" +
-      "| Tool Name | Required Format | Child Elements |\n" +
-      "|-----------|----------------|----------------|\n" +
-      "| create_file | FORMAT B (CDATA) | file_path, content |\n" +
-      "| edit_file | FORMAT B (CDATA) | file_path, old_text, new_text |\n" +
-      "| replace_file | FORMAT B (CDATA) | file_path, content |\n" +
-      "| **vim** | **FORMAT B (CDATA)** | **file_path (optional), commands** |\n" +
-      "| read_file | FORMAT A or B | file_path |\n" +
-      "| exec_terminal | FORMAT A or B | command |\n\n" +
-      
+     
       "## CDATA RULES SUMMARY\n\n" +
       "- Use `<![CDATA[` and `]]>` to wrap content\n" +
       "- One command per line inside CDATA for vim\n" +

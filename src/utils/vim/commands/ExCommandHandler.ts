@@ -27,6 +27,7 @@ import {
 } from "../operations/BufferOperations";
 import { formatRegisters } from "../models/VimRegister";
 import { listDirectory } from "../operations/DirectoryOperations";
+import { grepInDirectory } from "../operations/GrepOperations";
 
 /** Parse s/pattern/replacement/flags with support for \delim escaping (e.g. \/ for literal /) */
 function parseSubstituteArgs(
@@ -470,6 +471,34 @@ export class ExCommandHandler {
           return `Editing ${path.basename(found)}`;
         }
         throw new Error(`Can't find file "${findArg}" in path`);
+      }
+
+      case "grep": {
+        if (!args || !args.trim()) throw new Error(":grep requires a pattern");
+        const rest = args.trim();
+        const parts = rest.split(/\s+/);
+        const pattern = parts[0];
+        const baseDir = this.ctx.workingDir || (buffer ? path.dirname(buffer.path) : undefined) || process.cwd();
+        let searchDir = baseDir;
+        let filePattern: string | undefined;
+        if (parts.length >= 2) {
+          const second = parts[1];
+          try {
+            const resolved = this.ctx.resolvePath(second);
+            const stats = await fs.promises.stat(resolved);
+            if (stats.isDirectory()) {
+              searchDir = resolved;
+              filePattern = parts[2];
+            } else {
+              filePattern = second;
+            }
+          } catch {
+            filePattern = second;
+          }
+        }
+        const { text, isError } = await grepInDirectory(pattern, searchDir, filePattern);
+        if (isError) throw new Error(text);
+        return text;
       }
 
       case "w":

@@ -10,6 +10,7 @@ import { ExCommandHandler } from "./commands/ExCommandHandler";
 import { NormalCommandHandler } from "./commands/NormalCommandHandler";
 import { isExCommand, stripColonPrefix } from "./commands/CommandParser";
 import { editFile, writeBuffer } from "./operations/FileOperations";
+import { grepInDirectory } from "./operations/GrepOperations";
 import { listBuffers, showRegisters, showMarks } from "./operations/BufferOperations";
 import { VimStateMachine } from "./commands/VimStateMachine";
 import { createVimState } from "./models/VimMode";
@@ -121,6 +122,7 @@ export class VimToolManager {
           "Directory Commands:\n" +
           "  :pwd          - Print current working directory\n" +
           "  :cd <dir>     - Change to specified directory\n" +
+          "  :grep <pat> [path] [glob] - Search for regex in files (e.g. :grep foo, :grep foo *.ts)\n" +
           "Normal Mode Commands (no colon):\n" +
           "  i             - Enter insert mode\n" +
           "  a             - Enter insert mode after cursor\n" +
@@ -288,7 +290,7 @@ export class VimToolManager {
     let wd = this.workingDir || this.pathResolver.workspaceRoot || process.cwd();
     if (!wd) {
       return {
-        content: [{ type: "text", text: "Cannot run :pwd/:cd/:! without a working directory." }],
+        content: [{ type: "text", text: "Cannot run :pwd/:cd/:!/:grep without a working directory." }],
         isError: true
       };
     }
@@ -347,6 +349,38 @@ export class VimToolManager {
         }
         continue;
       }
+      if (/^:grep\s*$/.test(c)) {
+        return { content: [{ type: "text", text: ":grep requires a pattern" }], isError: true };
+      }
+      const grepMatch = c.match(/^:grep\s+(.+)$/s);
+      if (grepMatch) {
+        const rest = grepMatch[1].trim();
+        if (!rest) {
+          return { content: [{ type: "text", text: ":grep requires a pattern" }], isError: true };
+        }
+        const parts = rest.split(/\s+/);
+        let pattern = parts[0];
+        let searchDir = wd;
+        let filePattern: string | undefined;
+        if (parts.length >= 2) {
+          const second = parts[1];
+          const resolved = this.pathResolver.resolve(second);
+          if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+            searchDir = resolved;
+            filePattern = parts[2];
+          } else {
+            filePattern = second;
+          }
+        }
+        try {
+          const { text, isError } = await grepInDirectory(pattern, searchDir, filePattern);
+          if (isError) return { content: [{ type: "text", text }], isError: true };
+          outputs.push(text);
+        } catch (err: any) {
+          return { content: [{ type: "text", text: `grep failed: ${err.message}` }], isError: true };
+        }
+        continue;
+      }
       outputs.push(`Unknown directory command: ${c}`);
     }
 
@@ -384,7 +418,7 @@ private async vimEdit(
       if (eMatch) {
         const filename = eMatch[1].trim();
         await editFile(filename, ctx);
-      } else if (commands.every((c) => /^:\s*(pwd|cd\s|!)/.test(String(c).trim()))) {
+      } else if (commands.every((c) => /^:\s*(pwd|cd\s|!|grep(\s|$))/.test(String(c).trim()))) {
         // Directory/shell-only: run without a buffer (no state machine)
         const result = await this.runDirectoryCommandsOnly(commands);
         if (result) return result;
@@ -395,7 +429,7 @@ private async vimEdit(
       return {
         content: [{
           type: "text",
-          text: "No file specified and no active buffer. Use :e <file> to edit a file or :pwd/:cd/:! for directory/shell."
+          text: "No file specified and no active buffer. Use :e <file> to edit a file or :pwd/:cd/:!/:grep for directory/shell."
         }],
         isError: true
       };
