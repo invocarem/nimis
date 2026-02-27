@@ -10,10 +10,10 @@ import { JsonProcessor } from "./jsonProcessor";
 const HARMONY_MARKER = "to=tool_call code<|message|>";
 
 /** Matches Harmony variant: "commentary to=vim json{" or "to=vim json{" */
-const HARMONY_TO_JSON_REGEX = /(?:^|[\s"])to=(\w+)\s+json\s*\{/;
+const HARMONY_TO_JSON_REGEX = /(?:^|[\s"])to=(\w+)\s+json(?:<\|message\|>)?\s*\{/;
 
-/** Matches Harmony variant: "to=vim code{" or "assistantanalysis to=vim code{" */
-const HARMONY_TO_CODE_REGEX = /to=(\w+)\s+code\s*\{/;
+/** Matches Harmony variant: "to=vim code{", "to=vim code<|message|>{" */
+const HARMONY_TO_CODE_REGEX = /to=(\w+)\s+code(?:<\|message\|>)?\s*\{/;
 
 /**
  * Extracts a Harmony tool call from a response string.
@@ -63,6 +63,7 @@ function extractToCodeFormat(response: string): MCPToolCall | null {
   if (!match) return null;
 
   const toolName = match[1];
+  if (toolName === "tool_call") return null;
   const jsonStartIdx = match.index! + match[0].length - 1; // index of "{"
   const jsonStr = extractBalancedBraces(response, jsonStartIdx);
   if (!jsonStr) return null;

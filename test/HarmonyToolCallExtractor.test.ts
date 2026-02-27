@@ -49,4 +49,17 @@ describe("HarmonyToolCallExtractor", () => {
       arguments: { file_path: "x.ts", commands: ":w" },
     });
   });
+
+  it("extracts to=<tool> code<|message|>{...} hybrid format", () => {
+    const response =
+      '<|start|>assistant<|channel|>analysis to=vim code<|message|>{\n  "file_path": "",\n  "commands": [\n    ":!grep -R \\"crc16_table\\" -n ."\n  ]\n}';
+    const result = extractHarmonyToolCall(response);
+    expect(result).toEqual({
+      name: "vim",
+      arguments: {
+        file_path: "",
+        commands: [':!grep -R "crc16_table" -n .'],
+      },
+    });
+  });
 });
