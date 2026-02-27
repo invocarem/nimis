@@ -12,17 +12,25 @@ const HARMONY_MARKER = "to=tool_call code<|message|>";
 /** Matches Harmony variant: "commentary to=vim json{" or "to=vim json{" */
 const HARMONY_TO_JSON_REGEX = /(?:^|[\s"])to=(\w+)\s+json\s*\{/;
 
+/** Matches Harmony variant: "to=vim code{" or "assistantanalysis to=vim code{" */
+const HARMONY_TO_CODE_REGEX = /to=(\w+)\s+code\s*\{/;
+
 /**
  * Extracts a Harmony tool call from a response string.
- * Supports two formats:
+ * Supports three formats:
  * 1. Standard: to=tool_call code<|message|>{"name": "...", "arguments": {...}}
  * 2. Variant: to=<toolname> json{...} — tool name in "to=", JSON is args directly
+ * 3. Variant: to=<toolname> code{...} — tool name in "to=", JSON is args directly (same as json)
  * Returns null if no valid tool call is found.
  */
 export function extractHarmonyToolCall(response: string): MCPToolCall | null {
   // Try standard format first
   const standard = extractStandardFormat(response);
   if (standard) return standard;
+
+  // Try "to=vim code{...}" format
+  const codeFormat = extractToCodeFormat(response);
+  if (codeFormat) return codeFormat;
 
   // Fallback: Harmony variant "to=vim json{...}"
   return extractToJsonFormat(response);
@@ -45,6 +53,23 @@ function extractStandardFormat(response: string): MCPToolCall | null {
     const args = parsed?.arguments;
     if (name == null) return null;
     return { name, arguments: args ?? {} };
+  } catch {
+    return null;
+  }
+}
+
+function extractToCodeFormat(response: string): MCPToolCall | null {
+  const match = response.match(HARMONY_TO_CODE_REGEX);
+  if (!match) return null;
+
+  const toolName = match[1];
+  const jsonStartIdx = match.index! + match[0].length - 1; // index of "{"
+  const jsonStr = extractBalancedBraces(response, jsonStartIdx);
+  if (!jsonStr) return null;
+
+  try {
+    const args = JsonProcessor.safeParse(jsonStr);
+    return { name: toolName, arguments: args ?? {} };
   } catch {
     return null;
   }

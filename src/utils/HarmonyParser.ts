@@ -58,29 +58,54 @@ export class HarmonyParser {
       const content = block.includes("<|end|>")
         ? block.split(/<\|end\|>/)[0]
         : block;
-      const tagRegex = /<\|(\w+)\|>(.*?)(?=<\|[\w]+\|>|$)/gs;
+      // Match Harmony tags <|tag|> and extract content until next Harmony tag or end
+      // The lookahead (?=<\|[\w]+\|>|$) ensures we only stop at Harmony tags (<|...|>), not at other < characters
+      // This prevents issues when message content contains XML tags like <tool_call>
+      // Note: Content after <|message|> or <|final|> includes everything until <|end|>, preserving any <|tag|> patterns as literal text
+      const tagRegex = /<\|(\w+)\|>([\s\S]*?)(?=<\|[\w]+\|>|$)/gs;
       let match;
       let currentChannel = "";
       let blockMessage = "";
       let blockChannels: string[] = [];
+      let messageStartIndex = -1; // Track where message content starts
+      
       while ((match = tagRegex.exec(content)) !== null) {
         const tag = match[1];
+        const tagStart = match.index;
         const value = match[2].trim();
+        
         switch (tag) {
           case "channel":
             currentChannel = value;
             if (!channels.includes(value)) channels.push(value);
             if (!blockChannels.includes(value)) blockChannels.push(value);
+            messageStartIndex = -1; // Reset message tracking
             break;
           case "message":
           case "final":
-            blockMessage += value + " ";
+            // Extract everything from after <|message|> or <|final|> until <|end|> or end of block
+            // This preserves any <|tag|> patterns that appear in the message content
+            messageStartIndex = tagStart + match[0].length; // Position after the tag
+            break;
+          case "end":
+            // If we were collecting message content, extract everything from messageStartIndex to here
+            if (messageStartIndex >= 0) {
+              const messageContent = content.substring(messageStartIndex, tagStart).trim();
+              blockMessage += messageContent + " ";
+              messageStartIndex = -1;
+            }
             break;
           default:
             if (tag !== "assistant") {
               metadata[tag] = value;
             }
         }
+      }
+      
+      // If we started collecting message content but didn't find <|end|>, extract to end of block
+      if (messageStartIndex >= 0) {
+        const messageContent = content.substring(messageStartIndex).trim();
+        blockMessage += messageContent + " ";
       }
       blockMessage = blockMessage.trim();
       if (blockMessage) {
@@ -90,6 +115,12 @@ export class HarmonyParser {
     }
     // If we found a message in any block, use the last one; else fallback
     finalMessage = lastMessage || input;
+    
+    // Strip tool call markers from message content (they should not appear in user-facing content)
+    // Remove patterns like "assistantanalysis to=vim code{", "to=vim code{", "to=vim json{", etc.
+    // This handles cases where tool call markers leak into message content
+    finalMessage = finalMessage.replace(/\s*(?:assistant\w*\s+)?to=\w+\s+(?:code|json)\s*\{[^}]*\}/g, '');
+    finalMessage = finalMessage.replace(/\s*(?:assistant\w*\s+)?to=\w+\s+(?:code|json)\s*\{[^}]*$/, '');
 
     // Extract reasoning from channels or tags
     const reasoning = this.extractReasoning(input, channels, metadata);
