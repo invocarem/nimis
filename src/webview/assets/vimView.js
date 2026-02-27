@@ -73,6 +73,7 @@ var VimView = (function () {
   function updateState(state) {
     lastState = state;
     if (!state) {
+      lastCommandOutput = "";
       renderEmpty();
       return;
     }

@@ -98,6 +98,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         case "clearChat":
           this.conversationHistory = [];
           this.nimisManager.getStateTracker().reset();
+          this._sendMessageToWebview({ type: "vimState", state: null });
           break;
         case "checkConnection":
           await this._checkConnection();
