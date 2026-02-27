@@ -118,7 +118,7 @@ export class HarmonyParser {
     
     // Strip Harmony tool call markers from message content (they should not appear in user-facing content)
     // Handles nested JSON braces correctly (e.g. "assistantanalysis to=vim code{...nested...}")
-    finalMessage = this.stripToolCallMarkers(finalMessage);
+    //finalMessage = this.stripToolCallMarkers(finalMessage);
 
     // Extract reasoning from channels or tags
     const reasoning = this.extractReasoning(input, channels, metadata);
