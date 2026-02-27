@@ -569,6 +569,11 @@ export class ExCommandHandler {
         return setMark(args, buffer);
 
       case "d":
+      case "de":
+      case "del":
+      case "dele":
+      case "delet":
+      case "delete":
         return deleteLines(
           range || { start: buffer.currentLine, end: buffer.currentLine },
           args || undefined,

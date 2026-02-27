@@ -454,9 +454,7 @@ private async vimEdit(
       await writeFileAsync(backupPath, onDiskContent, 'utf-8');
     }
 
-    const results: string[] = [];
     let currentOutput = '';
-    let commandCount = 0;
 
     // Expand :Nx (e.g. :21i) into :N + x for LLM-generated command compatibility
     const expandedCommands: string[] = [];
@@ -476,27 +474,27 @@ private async vimEdit(
       const cmd = commands[i];
       
       if (cmd === '\n' || cmd === '\r') {
-        // Handle newline as Enter key in insert mode
         const result = await this.stateMachine.processKey('\n');
         if (result.output) {
           currentOutput += result.output;
         }
-        commandCount++;
         continue;
       }
 
-      // Process each character in the command
       for (const char of cmd) {
         const result = await this.stateMachine.processKey(char);
         if (result.output) {
-          // Don't add extra newlines for mode indicators
+          // Skip command-line mode intermediate echoes (partial command buffer on each keystroke)
+          const curState = this.stateMachine.getState();
+          if (curState.mode === 'command-line') {
+            continue;
+          }
           if (result.output.includes('-- INSERT --') || result.output.includes('-- NORMAL --')) {
             currentOutput += result.output + '\n';
           } else if (result.output !== '\n') {
             currentOutput += result.output;
           }
         }
-        commandCount++;
       }
 
       // CRITICAL FIX: After processing a command in insert mode, add a newline
@@ -511,25 +509,20 @@ private async vimEdit(
         !isBareModeSwitch
       ) {
         const nextCmd = commands[i + 1];
-        // Don't add newline before escape, colon commands, or control keys (e.g. backspace)
         const isControlOnly = /^[\b\x7f]+$/.test(nextCmd);
         if (nextCmd !== '\x1b' && !nextCmd.startsWith(':') && !isControlOnly) {
           const result = await this.stateMachine.processKey('\n');
           if (result.output) {
             currentOutput += result.output;
           }
-          commandCount++;
         }
       }
 
-      // After processing the command, if we're in command-line mode and this looks like an Ex command, press Enter
       if (state.mode === 'command-line' && cmd.startsWith(':')) {
         const result = await this.stateMachine.processKey('\n');
         if (result.output) {
           currentOutput += result.output + '\n';
         }
-        commandCount++;
-
         if (result.output && result.output.startsWith('Error:')) {
           throw new Error(result.output.replace(/^Error:\s*Error:\s*/, ''));
         }
@@ -540,16 +533,12 @@ private async vimEdit(
       }
     }
 
-    // Ensure we're in normal mode before saving
     const finalState = this.stateMachine.getState();
     if (finalState.mode === 'insert') {
       await this.stateMachine.processKey('\x1b');
       currentOutput += '\n-- NORMAL --\n';
-      commandCount++;
     } else if (finalState.mode === 'command-line') {
-      // Cancel command-line mode if we're stuck
       await this.stateMachine.processKey('\x1b');
-      commandCount++;
     }
 
     if (backupPath) {
@@ -557,10 +546,16 @@ private async vimEdit(
     }
 
     const state = this.stateMachine.getState();
+    const cmdSummary = commands
+      .filter(c => c !== '\x1b' && c !== '\n' && c !== '\r')
+      .map(c => c.length > 80 ? c.substring(0, 80) + '...' : c)
+      .join(', ');
+    const trimmedOutput = currentOutput.trim();
     return {
       content: [{
         type: "text",
-        text: `Executed ${commandCount} command(s):\n${currentOutput}\n\n` +
+        text: `Executed ${commands.length} command(s): ${cmdSummary}\n` +
+          (trimmedOutput ? `${trimmedOutput}\n\n` : '\n') +
           `Current buffer: ${path.basename(this.currentBuffer?.path || '')} ` +
           `[${this.currentBuffer?.modified ? '+' : ''}] ` +
           `Mode: ${state.mode}`
