@@ -1,5 +1,6 @@
 import type { VimBuffer, Range } from "../types";
 import { shiftDeleteRegisters } from "../models/VimRegister";
+import { NormalCommandHandler } from "../commands/NormalCommandHandler";
 
 /** Convert Vim replacement escapes to JavaScript replace() format */
 function escapeReplacementForJs(replacement: string): string {
@@ -147,10 +148,14 @@ export function normalExCommand(
   }
 
   const targetRange = range || { start: buffer.currentLine, end: buffer.currentLine };
+  const handler = new NormalCommandHandler();
   let executedCount = 0;
 
   for (let i = targetRange.start; i <= targetRange.end; i++) {
+    if (i >= buffer.content.length) break;
     buffer.currentLine = i;
+    handler.setCursorColumn(0);
+    handler.execute(args, buffer);
     executedCount++;
   }
 

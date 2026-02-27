@@ -1,5 +1,5 @@
 // test/vim.normalMode.test.ts
-import { VimToolManager } from "../src/utils/vim";
+import { VimToolManager } from "../../src/utils/vim";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
@@ -343,6 +343,22 @@ describe("Normal Mode Commands - Isolated Tests", () => {
 
       const updatedContent = await readFile(testFile, "utf-8");
       expect(updatedContent).toBe("line1\nline2\nline5\n");
+    });
+  });
+
+  describe(":normal ex command", () => {
+    it("should handle ':normal o' to add a new line after cursor and stay in normal mode", async () => {
+      const content = "line1\nline2\nline3\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["2G", ":normal o", ":w"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("line1\nline2\n\nline3\n");
     });
   });
 
