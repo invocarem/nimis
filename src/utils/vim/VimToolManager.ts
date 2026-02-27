@@ -579,6 +579,33 @@ private async vimEdit(
   }
 }
 
+  getViewState(): {
+    fileName: string;
+    filePath: string;
+    lines: string[];
+    cursorLine: number;
+    mode: string;
+    modified: boolean;
+    commandBuffer: string;
+    totalLines: number;
+  } | null {
+    if (!this.currentBuffer) {
+      return null;
+    }
+    const state = this.stateMachine.getState();
+    const buf = this.currentBuffer;
+    return {
+      fileName: require("path").basename(buf.path),
+      filePath: buf.path,
+      lines: buf.content,
+      cursorLine: buf.currentLine,
+      mode: state.mode,
+      modified: buf.modified,
+      commandBuffer: state.mode === "command-line" ? state.commandBuffer : "",
+      totalLines: buf.content.length,
+    };
+  }
+
   private async executeCommand(cmd: string, buffer: VimBuffer): Promise<string> {
     if (isExCommand(cmd)) {
       return this.exHandler.execute(stripColonPrefix(cmd), buffer);

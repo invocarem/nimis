@@ -105,6 +105,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         case "cancelRequest":
           this._cancelCurrentOperation();
           break;
+        case "vimCommand":
+          await this._handleVimCommand(data.command);
+          break;
+        case "requestVimState":
+          this._sendVimStateToWebview();
+          break;
       }
     });
 
@@ -535,6 +541,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 isFullContent: true,
               });
 
+              if (toolCall.name === "vim" || toolCall.name.startsWith("vim_")) {
+                this._sendVimStateToWebview();
+              }
+
               // If tool execution failed, stop processing remaining tool calls
               if (toolResult.isError) {
                 hasError = true;
@@ -648,6 +658,39 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private _sendVimStateToWebview() {
+    const viewState = VimToolManager.getInstance().getViewState();
+    this._sendMessageToWebview({
+      type: "vimState",
+      state: viewState,
+    });
+  }
+
+  private async _handleVimCommand(command: string) {
+    if (!command.trim()) {
+      return;
+    }
+    const vim = VimToolManager.getInstance();
+    try {
+      const result = await vim.callTool("vim", {
+        commands: [command],
+      });
+      const text = result.content?.map((c) => c.text).join("\n") || "";
+      this._sendMessageToWebview({
+        type: "vimCommandResult",
+        output: text,
+        isError: result.isError || false,
+      });
+    } catch (err: any) {
+      this._sendMessageToWebview({
+        type: "vimCommandResult",
+        output: `Error: ${err.message}`,
+        isError: true,
+      });
+    }
+    this._sendVimStateToWebview();
+  }
+
   private _sendMessageToWebview(message: any) {
     if (this._view) {
       this._view.webview.postMessage(message);
@@ -686,6 +729,16 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       )
     );
 
+    const vimViewScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "dist",
+        "webview",
+        "assets",
+        "vimView.js"
+      )
+    );
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -696,6 +749,25 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     <link rel="stylesheet" href="${stylesUri}">
 </head>
 <body>
+    <div id="vim-view" class="vim-view" style="display: none;">
+        <div class="vim-titlebar">
+            <span class="vim-filename" id="vim-filename">[No File]</span>
+            <button class="vim-toggle-btn" id="vim-toggle-btn" title="Toggle Vim View">VIM</button>
+        </div>
+        <div class="vim-editor" id="vim-editor">
+            <div class="vim-gutter" id="vim-gutter"></div>
+            <div class="vim-content" id="vim-content"><span class="vim-empty">~ No buffer open ~</span></div>
+        </div>
+        <div class="vim-statusbar" id="vim-statusbar">
+            <span class="vim-mode" id="vim-mode">NORMAL</span>
+            <span class="vim-fileinfo" id="vim-fileinfo"></span>
+            <span class="vim-position" id="vim-position">0,0</span>
+        </div>
+        <div class="vim-commandrow" id="vim-commandrow">
+            <span class="vim-command-prefix" id="vim-command-prefix"></span>
+            <input type="text" class="vim-command-input" id="vim-command-input" spellcheck="false" autocomplete="off" placeholder="" />
+        </div>
+    </div>
     <div id="chat-container"></div>
     <div id="input-container">
         <div class="status-indicator" id="status-indicator">Checking connection...</div>
@@ -707,9 +779,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             <button id="question-button" class="question-button secondary-button">What?</button>
             <button id="reject-button" class="reject-button secondary-button">Decline</button>
             <button id="clear-button" class="secondary-button">Clear Chat</button>
+            <button id="vim-view-toggle" class="secondary-button">Vim</button>
         </div>
     </div>
     <script nonce="${nonce}" src="${formatterScriptUri}"></script>
+    <script nonce="${nonce}" src="${vimViewScriptUri}"></script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

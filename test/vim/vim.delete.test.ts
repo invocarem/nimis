@@ -72,6 +72,22 @@ describe("VimToolManager - :delete command", () => {
     expect(updated.trim()).toBe("");
   });
 
+  it("should delete the first line with :1d", async () => {
+    const content = "line 1\nline 2\nline 3\nline 4\nline 5\n";
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      file_path: testFile,
+      commands: [":e test.txt", ":1d", ":w"],
+    });
+
+    expect(result.isError).toBeFalsy();
+
+    const updated = await readFile(testFile, "utf-8");
+    const lines = updated.trimEnd().split("\n");
+    expect(lines).toEqual(["line 2", "line 3", "line 4", "line 5"]);
+  });
+
   it("should delete a range of lines with :2,4delete", async () => {
     const content = "line 1\nline 2\nline 3\nline 4\nline 5\n";
     await writeFile(testFile, content, "utf-8");

@@ -263,6 +263,18 @@ window.addEventListener("message", (event) => {
       toolLimitReached = true;
       break;
 
+    case "vimState":
+      if (typeof VimView !== "undefined") {
+        VimView.updateState(message.state);
+      }
+      break;
+
+    case "vimCommandResult":
+      if (typeof VimView !== "undefined") {
+        VimView.setCommandOutput(message.output);
+      }
+      break;
+
     case "connectionStatus":
       if (message.connected) {
         statusIndicator.textContent = "Connected to LLM";

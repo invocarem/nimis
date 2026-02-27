@@ -1,190 +1,181 @@
 
-# Nimis - AI Prototyping Extension
+# Nimis
 
-A VS Code extension for AI-powered code prototyping, tool execution, and rule-based automation using llama.cpp, MCP, and native tools.
+An AI editor for VS Code that solves engineering problems through Vim. The AI thinks and operates in Vim — reading, navigating, and editing files with the same commands you would use, while you stay in the conversation.
 
+## How It Works
+
+You describe a problem in the chat sidebar. The AI reads your code with `:e`, navigates with motions and ranges, edits with `:s`, `dd`, `o`, `:g`, and writes with `:w` — all inside a live Vim buffer you can watch in real time. Tool calls loop automatically until the task is done.
+
+```
+You:   "Add error handling to the fetchUser function in src/api/users.ts"
+
+Nimis: :e src/api/users.ts          ← opens the file
+       /fetchUser                    ← finds the function
+       :.,+10s/return fetch/return fetch(...).catch(handleError)/
+       :w                            ← saves the file
+```
 
 ## Features
 
-- 💬 **Chat Interface**: Interactive sidebar chat with your AI model
-- 🔄 **Streaming Responses**: Real-time streaming of AI responses
-- 📝 **Code Insertion**: Insert AI-generated code directly into your editor
-- 🔍 **Code Explanation**: Right-click on selected code to get explanations
-- ⚙️ **Configurable**: Customize server URL, temperature, token limits, and more
-- 🎨 **Rich Formatting**: Full markdown and code block formatting support
-- 🛠️ **Tool Execution**: Call both native and MCP tools from chat or programmatically
-- 📜 **Rule System**: Define and manage custom rules to automate workflows and guide LLM behavior
-- 🧩 **Tool Extraction**: Robustly extract and execute tool calls from LLM responses
-- 🤖 **MCP Integration**: Connect to multiple Model Context Protocol (MCP) servers for advanced tool orchestration
+- **Vim-native AI editing** — the LLM uses real Vim commands (`:e`, `:s`, `:g`, `dd`, `yy`, `p`, marks, registers, ranges) to operate on your files
+- **Live Vim buffer** — toggle a Vim display in the sidebar showing buffer contents, cursor, mode, and status bar as the AI works
+- **Agentic tool loop** — the AI plans, executes tools, reads results, and iterates until the task is complete
+- **Multiple LLM backends** — llama.cpp (local), vLLM (local/remote), Mistral AI (cloud)
+- **Native file tools** — `read_file`, `create_file`, `edit_file`, `list_files`, `find_files`, `grep_files`, `exec_terminal` when Vim isn't the right fit
+- **MCP integration** — connect external Model Context Protocol servers for distributed tooling
+- **Rule system** — define custom rules (Markdown/YAML/JSON) to guide LLM behavior, enforce standards, or automate workflows
+- **State tracking** — conversation state, tool calls, and working files persist across sessions in `.nimis/state.json`
+- **Streaming responses** — real-time token streaming with stop, continue, and decline controls
+- **Rich markdown** — AI responses render with headers, code blocks, syntax highlighting, copy/insert buttons, and collapsible thinking blocks
+- **Theme-aware UI** — adapts to VS Code light, dark, and high-contrast themes
 
+## Vim Commands Supported
 
-## Architecture Overview
+The Vim subsystem is not a gimmick — it's a full implementation that the AI uses as its primary editing interface.
 
-The extension is modular and supports advanced AI-driven workflows:
+### Ex Commands
 
-- **Native Tools**: Run local tools (e.g., file operations, shell commands) securely from the extension or LLM.
-- **MCP Tools**: Connect to external MCP servers for distributed tool execution and orchestration.
-- **Rules**: Author custom rules (YAML/JSON/Markdown) to automate tasks, enforce policies, or guide LLM output.
-- **Tool Extraction**: The tool extractor parses LLM responses for XML tool call tags (`<tool_call>`) and executes them.
-- **Tool Executor**: Central logic for dispatching tool calls to native or MCP tools.
-- **Webview UI**: Rich chat interface for interacting with LLM, tools, and rules.
+| Command | Description |
+|---------|-------------|
+| `:e <file>` | Open file into buffer |
+| `:w` / `:wq` / `:q` / `:q!` | Write, quit, force quit |
+| `:[range]s/pat/repl/[flags]` | Substitute with regex, alternate delimiters |
+| `:[range]d [reg]` | Delete lines (optionally into register) |
+| `:[range]y [reg]` | Yank lines (optionally into register) |
+| `:p` / `:P` | Put from register |
+| `:g/pat/cmd` / `:v/pat/cmd` | Global / inverse-global |
+| `:[range]norm <cmd>` | Execute normal-mode commands on a range |
+| `:r <file>` | Read file into buffer |
+| `:saveas <file>` | Save as new file |
+| `:bn` / `:bp` / `:b <n>` / `:ls` | Buffer navigation |
+| `:reg` / `:marks` | Show registers / marks |
+| `:grep <pat> [path] [glob]` | Recursive grep |
+| `:pwd` / `:cd <dir>` | Working directory |
+| `:!<cmd>` / `:[range]!<cmd>` | Shell command / filter through shell |
 
-The extension now supports comprehensive formatting for LLM responses:
+### Normal Mode
 
-### Markdown Features
+`i` `a` `I` `A` `o` `O` — insert mode entry  
+`dd` `yy` `p` `P` — delete, yank, put (with named registers: `"ayy`, `"ap`)  
+`j` `k` `gg` `G` `0` `$` — movement  
+`ma` `'a` — set mark, jump to mark  
+Count prefixes work: `3dd`, `5j`
 
-- **Headers**: H1, H2, H3 headings (# ## ###)
-- **Text Styling**: **bold**, _italic_, `inline code`
-- **Lists**: Ordered and unordered lists
-- **Links**: Clickable links [text](url)
-- **Paragraphs**: Proper paragraph spacing
+### Ranges
 
-### Code Blocks
+`%` (whole file), `.` (current line), `$` (last line), `'a` (mark), `/pattern/` (search forward)
 
-- **Syntax Highlighting**: Language-specific code blocks with labels
-- **Copy Button**: One-click copy for all code blocks
-- **Insert Button**: Insert generated code directly at cursor
-- **JSON Formatting**: Automatic pretty-printing of JSON code blocks
-- **Multi-language Support**: JavaScript, TypeScript, Python, JSON, and more
+## Supported LLM Backends
 
-Example code block:
-\`\`\`javascript
-function example() {
-console.log("Code with syntax highlighting!");
-}
-\`\`\`
+| Backend | Type | Default URL | Notes |
+|---------|------|-------------|-------|
+| **llama.cpp** | Local | `localhost:8080` | GGUF models, SSE streaming |
+| **vLLM** | Local/Remote | `localhost:8000` | OpenAI-compatible API |
+| **Mistral AI** | Cloud | `api.mistral.ai` | Requires API key |
 
+Set the backend with the `nimis.serverType` setting (`llama`, `vllm`, or `mistral`).
 
-## Prerequisites
+## Getting Started
 
-1. **llama.cpp server**: You need to have llama.cpp running with its HTTP server
+### Prerequisites
 
-   ```bash
-   # Example: Running llama.cpp server
-   ./server -m path/to/your/model.gguf -c 2048 --host 127.0.0.1 --port 8080
-   ```
+A running LLM server. For local use with llama.cpp:
 
-2. A compatible GGUF model file
-
-
-## Installation
-
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Compile the extension:
-   ```bash
-   npm run compile
-   ```
-4. Press F5 to open a new VS Code window with the extension loaded
-
-
-## Usage
-
-
-### Starting the Chat
-
-1. Click on the Nimis icon in the Activity Bar (left sidebar)
-2. Make sure your llama.cpp server is running
-3. Check the connection status at the top of the chat panel
-4. Type your message and press Ctrl/Cmd+Enter or click Send
-
-
-### Explaining Code
-
-1. Select code in your editor
-2. Right-click and select "Nimis: Explain Selected Code"
-3. The chat panel will open with the code automatically inserted
-
-
-### Tool Execution
-
-You can call tools directly from the chat using the `tool_call` syntax:
-
-```
-<tool_call name="read_file" args='{"file_path": "src/index.ts"}' />
+```bash
+./server -m path/to/model.gguf -c 2048 --host 127.0.0.1 --port 8080
 ```
 
-Both native and MCP tools are supported. The extension will extract and execute tool calls from LLM responses automatically.
+### Install
 
-### Rule System
-
-Define custom rules to automate workflows, enforce coding standards, or guide LLM output. Rules can be managed via settings (`nimis.rules` and `nimis.rulesPaths`).
-
-Example rule config:
-```json
-{
-   "id": "require-docstring",
-   "description": "All functions must have a docstring.",
-   "enabled": true
-}
+```bash
+git clone https://github.com/dashtotherock/nimis.git
+cd nimis
+npm install
+npm run compile
 ```
 
-Rules can be authored in Markdown, YAML, or JSON and loaded from files.
+Press **F5** in VS Code to launch with the extension loaded.
 
-When the AI generates code blocks, an "Insert at Cursor" button will appear. Click it to insert the code at your cursor position.
+### Usage
 
+1. Click the **Nimis** icon in the Activity Bar
+2. Check the connection status at the top of the chat panel
+3. Describe your problem and press **Ctrl+Enter**
+4. Toggle the **Vim** button to watch the AI edit in real time
 
 ## Configuration
 
-Open VS Code settings and search for "Nimis":
+All settings live under the `nimis.*` namespace in VS Code settings.
 
-- **nimis.llamaServerUrl**: URL of your llama.cpp server (default: `http://localhost:8080`)
-- **nimis.mcpServers**: List of MCP servers for distributed tool execution
-- **nimis.rules**: Array of custom rules (id, description, enabled, config)
-- **nimis.rulesPaths**: Paths to rule files (Markdown/YAML/JSON)
-- **nimis.temperature**: Sampling temperature (0-2, default: 0.7)
-- **nimis.maxTokens**: Maximum tokens to generate (default: 2048)
-- **nimis.model**: Optional model name or path
-
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `nimis.serverType` | `llama` | Backend: `llama`, `vllm`, or `mistral` |
+| `nimis.serverUrl` | (auto) | LLM server URL |
+| `nimis.apiKey` | | API key for cloud providers |
+| `nimis.model` | | Model name or path |
+| `nimis.temperature` | `0.7` | Sampling temperature (0–2) |
+| `nimis.maxTokens` | `2048` | Max tokens to generate (1–32768) |
+| `nimis.mcpServers` | `[]` | MCP server configurations |
+| `nimis.rules` | `[]` | Inline rule definitions |
+| `nimis.rulesPaths` | `[]` | Paths to rule files |
 
 ## Commands
 
-- `Nimis: Open Chat` - Open the chat sidebar
-- `Nimis: Explain Selected Code` - Explain selected code
-- `Nimis: Insert Code at Cursor` - Insert code at cursor position
-- `nimis.callNativeTool` - Call a native tool (internal)
+| Command | Description |
+|---------|-------------|
+| `Nimis: Open Chat` | Open the chat sidebar |
+| `Nimis: Explain Selected Code` | Explain selected code in the editor |
+| `Nimis: Insert Code at Cursor` | Insert AI-generated code at cursor |
 
-
-## Development
-
-
-### Project Structure
+## Project Structure
 
 ```
 nimis/
 ├── src/
-│   ├── extension.ts            # Extension entry point
-│   ├── mcpManager.ts           # MCP server and tool orchestration
-│   ├── rulesManager.ts         # Rule loading, watching, and management
+│   ├── extension.ts                 # Entry point
+│   ├── toolExecutor.ts              # Tool dispatch (vim → native → MCP)
+│   ├── mcpManager.ts                # MCP server orchestration
+│   ├── rulesManager.ts              # Rule loading and matching
 │   ├── api/
-│   │   ├── llamaClient.ts      # llama.cpp API client
-│   │   ├── mcpToolServer.ts    # MCP tool server integration
-│   │   ├── nativeToolServer.ts # Native tool server integration
-│   │   └── ruleServer.ts       # Rule server integration
+│   │   ├── llmClient.ts            # ILLMClient interface
+│   │   ├── llamaClient.ts          # llama.cpp client
+│   │   ├── vllmClient.ts           # vLLM client
+│   │   ├── mistralClient.ts        # Mistral AI client
+│   │   ├── nativeToolServer.ts     # Native tool registration
+│   │   ├── vimToolServer.ts        # Vim tool registration
+│   │   ├── mcpToolServer.ts        # MCP tool registration
+│   │   └── ruleServer.ts           # Rule server
 │   ├── utils/
-│   │   ├── toolCallExtractor.ts # Extracts tool calls from LLM responses
-│   │   ├── toolExecutor.ts      # Executes tool calls (native/MCP)
-│   │   ├── nativeToolManager.ts # Manages native tools
-│   │   ├── nimisManager.ts    # Nimis and prompt management
-│   │   └── ...                  # Other utilities
+│   │   ├── nimisManager.ts         # Prompt building and state
+│   │   ├── nimisStateTracker.ts    # Session persistence
+│   │   ├── responseParser.ts       # LLM response parsing
+│   │   ├── HarmonyParser.ts        # Structured output protocol
+│   │   ├── toolCallExtractor.ts    # XML tool call extraction
+│   │   ├── nativeToolManager.ts    # File and terminal tools
+│   │   ├── editFileHandler.ts      # Precise text replacement
+│   │   └── vim/                    # Vim subsystem
+│   │       ├── VimToolManager.ts   # Singleton orchestrator
+│   │       ├── models/             # VimBuffer, VimMode, VimRegister
+│   │       ├── commands/           # StateMachine, ExHandler, NormalHandler
+│   │       ├── operations/         # File, Text, Buffer, Grep, Directory ops
+│   │       └── utils/              # RangeParser, PathResolver
 │   └── webview/
-│       ├── provider.ts         # Webview provider for chat UI
-│       └── assets/             # Webview JS/CSS
-├── package.json                # Extension manifest
-└── tsconfig.json               # TypeScript configuration
+│       ├── provider.ts             # Webview provider and LLM loop
+│       └── assets/                 # main.js, vimView.js, markdownFormatter.js, styles.css
+├── test/                            # ~56 test files (Vim, parsers, tools, provider)
+├── package.json
+├── webpack.config.js
+└── tsconfig.json
 ```
 
-### Building
+## Development
 
 ```bash
-# Compile TypeScript
-npm run compile
-
-# Watch mode for development
-npm run watch
+npm run compile        # Production build
+npm run watch          # Development watch mode
+npm test               # Run tests
+npm run test:coverage  # Tests with coverage
 ```
 
 ### Packaging
@@ -194,31 +185,6 @@ npm install -g @vscode/vsce
 vsce package
 ```
 
-
-## Troubleshooting
-
-### "Not connected to llama.cpp"
-
-- Ensure llama.cpp server is running
-- Check the server URL in settings matches your llama.cpp server
-- Verify the server is accessible (try curl http://localhost:8080/health)
-
-### Slow responses
-
-- Reduce `maxTokens` in settings
-- Use a smaller/faster model
-- Increase your hardware resources
-
-### Extension won't activate
-
-- Check the Output panel (View > Output) and select "Nimis" from the dropdown
-- Look for error messages in the Developer Tools console (Help > Toggle Developer Tools)
-
-
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.

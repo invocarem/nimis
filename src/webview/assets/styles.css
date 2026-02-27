@@ -416,3 +416,192 @@ button:disabled {
   border-radius: 3px;
   font-size: 0.85em;
 }
+
+/* ── Vim View ── */
+.vim-view {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid var(--vscode-panel-border);
+  background-color: var(--vscode-editor-background);
+  overflow: hidden;
+}
+
+.vim-view.vim-view--collapsed {
+  display: none;
+}
+
+.vim-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 0.85em;
+  min-height: 24px;
+}
+
+.vim-filename {
+  font-family: var(--vscode-editor-font-family);
+  color: var(--vscode-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.vim-filename .vim-modified {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  margin-left: 4px;
+}
+
+.vim-toggle-btn {
+  padding: 1px 6px;
+  font-size: 0.8em;
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.vim-toggle-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.vim-editor {
+  display: flex;
+  flex-shrink: 0;
+  height: calc(24 * 1.4em);
+  overflow: hidden;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.vim-gutter {
+  flex-shrink: 0;
+  padding: 4px 8px 4px 4px;
+  text-align: right;
+  color: var(--vscode-editorLineNumber-foreground);
+  background-color: var(--vscode-editorGutter-background, var(--vscode-editor-background));
+  user-select: none;
+  border-right: 1px solid var(--vscode-panel-border);
+  white-space: pre;
+  min-width: 36px;
+  overflow: hidden;
+}
+
+.vim-content {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  white-space: pre;
+  overflow: hidden;
+  overflow-x: auto;
+  color: var(--vscode-editor-foreground);
+  tab-size: 4;
+}
+
+.vim-content .vim-line {
+  display: block;
+  min-height: 1.4em;
+}
+
+.vim-content .vim-line.vim-cursor-line {
+  background-color: var(--vscode-editor-lineHighlightBackground, rgba(255, 255, 255, 0.04));
+}
+
+.vim-content .vim-empty {
+  color: var(--vscode-editorLineNumber-foreground);
+  font-style: italic;
+}
+
+.vim-content .vim-tilde {
+  color: var(--vscode-editorLineNumber-foreground);
+}
+
+.vim-statusbar {
+  display: flex;
+  align-items: center;
+  padding: 1px 8px;
+  background-color: var(--vscode-statusBar-background, #007acc);
+  color: var(--vscode-statusBar-foreground, #fff);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.85em;
+  min-height: 20px;
+  gap: 12px;
+}
+
+.vim-mode {
+  font-weight: 700;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.vim-mode.vim-mode--insert {
+  background-color: var(--vscode-terminal-ansiGreen, #4ec9b0);
+  color: var(--vscode-editor-background);
+  border-radius: 2px;
+}
+
+.vim-mode.vim-mode--command {
+  background-color: var(--vscode-terminal-ansiYellow, #dcdcaa);
+  color: var(--vscode-editor-background);
+  border-radius: 2px;
+}
+
+.vim-fileinfo {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vim-position {
+  white-space: nowrap;
+}
+
+.vim-commandrow {
+  display: flex;
+  align-items: center;
+  padding: 1px 4px;
+  background-color: var(--vscode-editor-background);
+  border-top: 1px solid var(--vscode-panel-border);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  min-height: 20px;
+}
+
+.vim-command-prefix {
+  color: var(--vscode-foreground);
+  padding-right: 0;
+  font-weight: 700;
+}
+
+.vim-command-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  padding: 0;
+  caret-color: var(--vscode-editorCursor-foreground, #fff);
+}
+
+.vim-command-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.vim-commandrow-output {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}

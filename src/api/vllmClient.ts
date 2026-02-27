@@ -28,6 +28,7 @@ export class VLLMClient implements ILLMClient {
         max_tokens: request.maxTokens ?? 2048,
         stop: request.stop ?? [],
         stream: false,
+        skip_special_tokens: false,
       });
 
       return response.data.choices?.[0]?.text || "";
@@ -57,6 +58,7 @@ export class VLLMClient implements ILLMClient {
           max_tokens: request.maxTokens ?? 2048,
           stop: request.stop ?? [],
           stream: true,
+          skip_special_tokens: false,
         },
         {
           responseType: "stream",
