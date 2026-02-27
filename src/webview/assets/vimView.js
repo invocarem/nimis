@@ -93,7 +93,7 @@ var VimView = (function () {
       contentLines.push('<span class="vim-line vim-tilde">~</span>');
     }
     els.gutter.textContent = gutterLines.join("\n");
-    els.content.innerHTML = contentLines.join("\n");
+    els.content.innerHTML = contentLines.join("");
 
     els.mode.textContent = "NORMAL";
     els.mode.className = "vim-mode";
@@ -142,7 +142,7 @@ var VimView = (function () {
     }
 
     els.gutter.textContent = gutterLines.join("\n");
-    els.content.innerHTML = contentLines.join("\n");
+    els.content.innerHTML = contentLines.join("");
   }
 
   function renderStatusBar(state) {
