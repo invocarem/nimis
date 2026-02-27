@@ -370,9 +370,10 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
+        console.debug("[Provider] raw fullResponse:", fullResponse);
         const parsedResponse: ParsedResponse =
           ResponseParser.parse(fullResponse);
-        console.debug("[Provider] content:", parsedResponse.content);
+        //console.debug("[Provider] content:", parsedResponse.content);
 
         // Diagnostic logging for edit_file old_text mismatch issues
         if (ResponseParser.hasToolCalls(parsedResponse)) {

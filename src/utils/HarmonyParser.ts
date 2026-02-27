@@ -116,11 +116,9 @@ export class HarmonyParser {
     // If we found a message in any block, use the last one; else fallback
     finalMessage = lastMessage || input;
     
-    // Strip tool call markers from message content (they should not appear in user-facing content)
-    // Remove patterns like "assistantanalysis to=vim code{", "to=vim code{", "to=vim json{", etc.
-    // This handles cases where tool call markers leak into message content
-    finalMessage = finalMessage.replace(/\s*(?:assistant\w*\s+)?to=\w+\s+(?:code|json)\s*\{[^}]*\}/g, '');
-    finalMessage = finalMessage.replace(/\s*(?:assistant\w*\s+)?to=\w+\s+(?:code|json)\s*\{[^}]*$/, '');
+    // Strip Harmony tool call markers from message content (they should not appear in user-facing content)
+    // Handles nested JSON braces correctly (e.g. "assistantanalysis to=vim code{...nested...}")
+    finalMessage = this.stripToolCallMarkers(finalMessage);
 
     // Extract reasoning from channels or tags
     const reasoning = this.extractReasoning(input, channels, metadata);
@@ -208,6 +206,58 @@ export class HarmonyParser {
     }
 
     return toolCalls;
+  }
+
+  /**
+   * Strip Harmony tool call markers from message content.
+   * Matches patterns like "assistantanalysis to=vim code{...}" or "to=tool_call code{...}"
+   * and removes them, correctly handling nested braces in JSON.
+   */
+  private static stripToolCallMarkers(text: string): string {
+    const markerPattern = /(?:assistant\w*\s+)?to=\w+\s+(?:code|json)\s*\{/g;
+    let result = text;
+    let match: RegExpExecArray | null;
+
+    // Work backwards so indices stay valid after each removal
+    const removals: Array<{ start: number; end: number }> = [];
+    while ((match = markerPattern.exec(result)) !== null) {
+      const braceIdx = result.indexOf('{', match.index + match[0].length - 1);
+      const endIdx = this.findMatchingBrace(result, braceIdx);
+      // Also trim leading whitespace before the marker
+      let start = match.index;
+      while (start > 0 && (result[start - 1] === ' ' || result[start - 1] === '\n')) {
+        start--;
+      }
+      removals.push({ start, end: endIdx });
+    }
+
+    // Apply removals in reverse order
+    for (let i = removals.length - 1; i >= 0; i--) {
+      const { start, end } = removals[i];
+      result = result.substring(0, start) + result.substring(end);
+    }
+
+    return result;
+  }
+
+  /**
+   * Find the index after the matching closing brace for the opening brace at `start`.
+   * If no match is found (incomplete JSON), returns text.length.
+   */
+  private static findMatchingBrace(text: string, start: number): number {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (inString) { if (ch === '"') inString = false; continue; }
+      if (ch === '"') { inString = true; continue; }
+      if (ch === '{') depth++;
+      if (ch === '}') { depth--; if (depth === 0) return i + 1; }
+    }
+    return text.length; // incomplete — strip to end
   }
 
   /**
