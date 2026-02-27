@@ -22,6 +22,12 @@ export interface VimRegister {
   content: string | string[];
 }
 
+export interface UndoEntry {
+  content: string[];
+  currentLine: number;
+  modified: boolean;
+}
+
 export interface VimBuffer {
   path: string;
   content: string[];
@@ -34,6 +40,7 @@ export interface VimBuffer {
   /** Whether the file had a trailing newline when loaded. New buffers default to true. */
   trailingNewline?: boolean;
   lastRegister?: string;
+  undoStack?: UndoEntry[];
 }
 
 export interface Range {

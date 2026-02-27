@@ -16,34 +16,31 @@ import type { Rule } from "../rulesManager";
 import type { RulesManager } from "../rulesManager";
 
 export class NimisManager {
-
-static toolCallHelp(
+  static toolCallHelp(
     nativeToolManager?: NativeToolsManager,
     vimToolManager?: VimToolManager,
     mcpManager?: MCPManager
   ): string {
     return (
       "### How to use **tool_call**\n\n" +
-      "**EXACT TAGS REQUIRED** — Use only `<tool_call name=\"TOOL_NAME\">` and `</tool_call>`. Other tags are invalid and will not be executed:\n" +
+      '**EXACT TAGS REQUIRED** — Use only `<tool_call name="TOOL_NAME">` and `</tool_call>`. Other tags are invalid and will not be executed:\n' +
       "❌ `</message_edit>` — wrong (tool will be ignored)\n" +
+      "❌ `<|constrain|>tool_call <|constrain|>json<|message|>` — wrong (harnmony tool call will be ignored)\n" +
+      "❌ `<|start|>assistant<|channel|>analysis to=vim` - wrong (harmony tool call ) \n" +
       "✅ `</tool_call>` — correct closing tag\n\n" +
       "**FORMAT B: Child element format with CDATA** (MANDATORY for tools with code/content)\n" +
       '<tool_call name="TOOL_NAME">\n' +
       "  <arg1>simple_value</arg1>\n" +
       "  <content><![CDATA[\n" +
       "    Multi-line code or content\n" +
-      "    with \"quotes\" and <brackets>\n" +
+      '    with "quotes" and <brackets>\n' +
       "  ]]></content>\n" +
       "</tool_call>\n\n" +
-      
       "## FORMAT SELECTION RULES\n\n" +
-      
       "**USE FORMAT B (CDATA) FOR THESE TOOLS:**\n" +
-     "✅ **vim** - Use <commands> with CDATA (each command on its own line)\n" +
+      "✅ **vim** - Use <commands> with CDATA (each command on its own line)\n" +
       "✅ Any tool that accepts multi-line text, code, or content with special characters\n\n" +
-     
       "## VIM SPECIFIC REQUIREMENTS\n\n" +
-      
       "**ALWAYS use FORMAT B with CDATA for vim:**\n" +
       '<tool_call name="vim">\n' +
       "  <file_path>hello.py</file_path>\n" +
@@ -52,30 +49,25 @@ static toolCallHelp(
       "i\n" +
       "#!/usr/bin/env python3\n" +
       "def main():\n" +
-      "    print(\"Hello, World!\")\n" +
-      "if __name__ == \"__main__\":\n" +
+      '    print("Hello, World!")\n' +
+      'if __name__ == "__main__":\n' +
       "    main()\n" +
       "\\x1b\n" +
       ":w\n" +
       "]]></commands>\n" +
       "</tool_call>\n\n" +
-      
       "**Why CDATA is required for vim:**\n" +
       "- Each command must be a separate array element\n" +
       "- Commands contain quotes, newlines, and special characters\n" +
       "- The escape sequence \\x1b must be preserved exactly\n" +
       "- Indentation in code must be maintained\n\n" +
-      
       "## COMMON PITFALLS TO AVOID\n\n" +
-      
       "❌ **DON'T use format A for vim:**\n" +
       '<tool_call name="vim" args=\'{ "file_path": "hello.py", "commands": [":e hello.py", "i", "code"] }\' />\n' +
       "   → This WILL corrupt multi-line content and escape sequences!\n\n" +
-      
       "❌ **DON'T put commands in a single string:**\n" +
       "<commands>i\\nline1\\nline2</commands>\n" +
       "   → Each command must be on its own line in CDATA\n\n" +
-      
       "✅ **DO use CDATA with one command per line:**\n" +
       "<commands><![CDATA[\n" +
       "i\n" +
@@ -84,13 +76,11 @@ static toolCallHelp(
       "\\x1b\n" +
       ":w\n" +
       "]]></commands>\n\n" +
-     
       "## CDATA RULES SUMMARY\n\n" +
       "- Use `<![CDATA[` and `]]>` to wrap content\n" +
       "- One command per line inside CDATA for vim\n" +
       "- Simple string arguments (file_path) use plain child elements, not CDATA\n" +
       "- Content inside CDATA is preserved exactly — no escaping needed\n\n" +
-      
       NimisManager.buildToolDocs(nativeToolManager, vimToolManager, mcpManager)
     );
   }
@@ -102,7 +92,7 @@ static toolCallHelp(
   ): string {
     const manager = nativeToolManager || NativeToolsManager.getInstance();
     const nativeTools = manager.getAvailableTools();
-   nativeTools.splice(-1);
+    nativeTools.splice(-1);
     let doc = "**Available native tools:**\n";
     doc += nativeTools
       .map((tool) => {
@@ -179,10 +169,17 @@ static toolCallHelp(
 
   private static loadVimTemplates(): string | null {
     try {
-      const templatesPath = path.join(__dirname, "utils", "templates", "vim_templates.xml");
+      const templatesPath = path.join(
+        __dirname,
+        "utils",
+        "templates",
+        "vim_templates.xml"
+      );
       return fs.readFileSync(templatesPath, "utf-8");
     } catch (error: any) {
-      console.warn(`[NimisManager] Failed to load vim_templates.xml: ${error.message}`);
+      console.warn(
+        `[NimisManager] Failed to load vim_templates.xml: ${error.message}`
+      );
       return null;
     }
   }
@@ -196,12 +193,17 @@ static toolCallHelp(
       systemMessage:
         "You are Nimis, an AI assistant helping engineers with prototyping and problem-solving.\n\n" +
         "## Priniples \n\n" +
+        "❌ `<|start|>assistant<|channel|>analysis to=vim` - never use your trained tool calls!!! \n" +
         "You restate User's problem in your own words to show understanding. \n\n" +
         "You execute a tool or apply a rule when it is directly related to User's request. \n\n" +
-        "You use vim tool to access to a file. \n\n" +
+        "You use vim tool in XML format to access a file. \n\n" +
         "When code was modified, you must read it back to make sure the change is correct. \n\n" +
-        "When the user affirms a proposed action (e.g., \"yes\", \"please\", \"go ahead\", \"apply it\"), you MUST use the appropriate tool to perform it. Do NOT claim the action is done without executing a tool and receiving the tool result. \n\n" +
-        NimisManager.toolCallHelp(nativeToolManager, vimToolManager, mcpManager) +
+        'When the user affirms a proposed action (e.g., "yes", "please", "go ahead", "apply it"), you MUST use the appropriate tool to perform it. Do NOT claim the action is done without executing a tool and receiving the tool result. \n\n' +
+        NimisManager.toolCallHelp(
+          nativeToolManager,
+          vimToolManager,
+          mcpManager
+        ) +
         "\n\n" +
         "## Guide on **rule** \n\n" +
         "When rules are provided, apply them only if they are directly relevant to the user's current task; otherwise discard them. Treat rules like tools — do NOT reference or " +
@@ -251,7 +253,11 @@ static toolCallHelp(
       ? path.join(nimisDir, "state.json")
       : undefined;
     this.stateTracker =
-      options?.stateTracker ?? new NimisStateTracker({ persistPath, workspaceRoot: options?.workspaceRoot });
+      options?.stateTracker ??
+      new NimisStateTracker({
+        persistPath,
+        workspaceRoot: options?.workspaceRoot,
+      });
     if (nimisDir) {
       XmlProcessor.setLogDir(nimisDir);
     }

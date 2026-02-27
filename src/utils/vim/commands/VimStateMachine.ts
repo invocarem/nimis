@@ -1,7 +1,7 @@
 // src/utils/vim/commands/VimStateMachine.ts
 import { VimState, createVimState } from "../models/VimMode";
 import type { VimBuffer } from "../types";
-import { NormalCommandHandler } from "./NormalCommandHandler";
+import { NormalCommandHandler, pushUndo } from "./NormalCommandHandler";
 import { ExCommandHandler } from "./ExCommandHandler";
 import { CommandContext } from "../types";
 
@@ -143,12 +143,14 @@ export class VimStateMachine {
     // Mode switching commands
     switch (key) {
       case 'i':
+        pushUndo(buffer);
         this.syncCursorToHandler(buffer);
         this.state.mode = 'insert';
         this.state.pendingCommand = undefined;
         return { output: "-- INSERT --", stateChanged: true };
 
       case 'a': {
+        pushUndo(buffer);
         // First sync the buffer's currentLine with our cursor position
         this.syncCursorToHandler(buffer);
         
@@ -165,6 +167,7 @@ export class VimStateMachine {
       }
  
       case 'A':
+        pushUndo(buffer);
         this.syncCursorToHandler(buffer);
         this.state.cursorPosition.column = buffer.content[this.state.cursorPosition.line].length;
         this.state.mode = 'insert';
@@ -172,6 +175,7 @@ export class VimStateMachine {
         return { output: "-- INSERT --", stateChanged: true };
 
       case 'I':
+        pushUndo(buffer);
         this.syncCursorToHandler(buffer);
         this.state.cursorPosition.column = 0;
         this.state.mode = 'insert';
@@ -179,6 +183,7 @@ export class VimStateMachine {
         return { output: "-- INSERT --", stateChanged: true };
 
       case 'o': {
+        pushUndo(buffer);
         this.syncCursorToHandler(buffer);
         buffer.content.splice(buffer.currentLine + 1, 0, '');
         buffer.currentLine++;
@@ -191,6 +196,7 @@ export class VimStateMachine {
       }
 
       case 'O': {
+        pushUndo(buffer);
         this.syncCursorToHandler(buffer);
         buffer.content.splice(buffer.currentLine, 0, '');
         this.state.cursorPosition.line = buffer.currentLine;

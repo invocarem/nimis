@@ -2,6 +2,15 @@
 import type { VimBuffer } from "../types";
 import { deleteLines, yankLines, putLines } from "../operations/TextOperations";
 
+export function pushUndo(buffer: VimBuffer): void {
+  if (!buffer.undoStack) buffer.undoStack = [];
+  buffer.undoStack.push({
+    content: [...buffer.content],
+    currentLine: buffer.currentLine,
+    modified: buffer.modified,
+  });
+}
+
 export class NormalCommandHandler {
   cursorColumn: number = 0;
 
@@ -73,6 +82,7 @@ export class NormalCommandHandler {
       // Then execute the operation with the count
       switch (operation) {
         case 'dd':
+          pushUndo(buffer);
           deleteLines(
             { start: buffer.currentLine, end: Math.min(buffer.content.length - 1, buffer.currentLine + count - 1) },
             undefined,
@@ -134,6 +144,7 @@ export class NormalCommandHandler {
     
     // Insert text at cursor position: i{text}
     if (remainingCmd.startsWith('i') && remainingCmd.length > 1) {
+      pushUndo(buffer);
       const text = remainingCmd.substring(1);
       const currentLine = buffer.content[buffer.currentLine];
       
@@ -150,6 +161,7 @@ export class NormalCommandHandler {
 
     // Append text at end of line: a{text}
     if (remainingCmd.startsWith('a') && remainingCmd.length > 1) {
+      pushUndo(buffer);
       const text = remainingCmd.substring(1);
       const currentLine = buffer.content[buffer.currentLine];
       
@@ -178,6 +190,7 @@ export class NormalCommandHandler {
 
     // Open new line below and enter insert mode
     if (remainingCmd === 'o') {
+      pushUndo(buffer);
       const indent = this.getIndentation(buffer.content[buffer.currentLine]);
       buffer.content.splice(buffer.currentLine + 1, 0, indent);
       buffer.currentLine++;
@@ -188,6 +201,7 @@ export class NormalCommandHandler {
 
     // Open new line above and enter insert mode
     if (remainingCmd === 'O') {
+      pushUndo(buffer);
       const indent = this.getIndentation(buffer.content[buffer.currentLine]);
       buffer.content.splice(buffer.currentLine, 0, indent);
       this.cursorColumn = indent.length;
@@ -199,6 +213,7 @@ export class NormalCommandHandler {
       case 'dG':
         // Delete from current line to end of file
         if (buffer.content.length > 0) {
+          pushUndo(buffer);
           const start = buffer.currentLine;
           const end = buffer.content.length - 1;
           deleteLines({ start, end }, register, buffer);
@@ -208,6 +223,7 @@ export class NormalCommandHandler {
         return 'No lines to delete';
 
       case 'dd':
+        pushUndo(buffer);
         deleteLines(
           { start: buffer.currentLine, end: Math.min(buffer.content.length - 1, buffer.currentLine + count - 1) },
           register,
@@ -230,6 +246,7 @@ export class NormalCommandHandler {
         return `Yanked ${count} line(s)`;
 
       case 'p':
+        pushUndo(buffer);
         for (let i = 0; i < count; i++) {
           putLines(false, register, buffer);
         }
@@ -238,6 +255,7 @@ export class NormalCommandHandler {
         return `Put from register ${register || '"'}`;
 
       case 'P':
+        pushUndo(buffer);
         for (let i = 0; i < count; i++) {
           putLines(true, register, buffer);
         }
@@ -251,6 +269,7 @@ export class NormalCommandHandler {
         if (buffer.content.length > 0 && buffer.currentLine < buffer.content.length) {
           const line = buffer.content[buffer.currentLine];
           if (this.cursorColumn < line.length) {
+            pushUndo(buffer);
             const beforeCursor = line.substring(0, this.cursorColumn);
             const deleted = line.substring(this.cursorColumn);
             buffer.content[buffer.currentLine] = beforeCursor;
@@ -272,6 +291,7 @@ export class NormalCommandHandler {
           const afterCursor = line.substring(this.cursorColumn);
           const wordMatch = afterCursor.match(/^\s*\S+\s*/);
           if (wordMatch) {
+            pushUndo(buffer);
             const newLine = beforeCursor + afterCursor.substring(wordMatch[0].length);
             buffer.content[buffer.currentLine] = newLine;
             buffer.modified = true;
@@ -378,6 +398,7 @@ export class NormalCommandHandler {
         // Delete character under cursor
         const line = buffer.content[buffer.currentLine];
         if (this.cursorColumn < line.length) {
+          pushUndo(buffer);
           buffer.content[buffer.currentLine] = 
             line.substring(0, this.cursorColumn) + 
             line.substring(this.cursorColumn + 1);
@@ -385,6 +406,18 @@ export class NormalCommandHandler {
           return 'Deleted character';
         }
         return 'No character to delete';
+      }
+
+      case 'u': {
+        if (!buffer.undoStack || buffer.undoStack.length === 0) {
+          return 'Already at oldest change';
+        }
+        const entry = buffer.undoStack.pop()!;
+        buffer.content = entry.content;
+        buffer.currentLine = Math.min(entry.currentLine, buffer.content.length - 1);
+        buffer.modified = entry.modified;
+        this.cursorColumn = 0;
+        return 'Undone';
       }
 
       case 'r': {
