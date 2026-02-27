@@ -293,7 +293,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       const config = vscode.workspace.getConfiguration("nimis");
       const temperature = config.get<number>("temperature", 0.7);
       const maxTokens = config.get<number>("maxTokens", 2048);
-
+      console.log("[Provider] temperature:", temperature);
+      console.log("[Provider] maxTokens:", maxTokens);
       let continueLoop = true;
 
       stateTracker.startNewTurn();
@@ -320,7 +321,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               }
               fullResponse += chunk;
               const parsed = ResponseParser.parse(fullResponse);
-              console.debug("[Provider] stream:", parsed.content);
+              //console.debug("[Provider] stream:", parsed.content);
 
               // Diagnostic logging: Check if edit_file or vim tool call appears in streaming response
               if (parsed.tool_calls) {
