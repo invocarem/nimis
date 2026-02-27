@@ -67,11 +67,9 @@ export class HarmonyParser {
       let currentChannel = "";
       let blockMessage = "";
       let blockChannels: string[] = [];
-      let messageStartIndex = -1; // Track where message content starts
       
       while ((match = tagRegex.exec(content)) !== null) {
         const tag = match[1];
-        const tagStart = match.index;
         const value = match[2].trim();
         
         switch (tag) {
@@ -79,33 +77,18 @@ export class HarmonyParser {
             currentChannel = value;
             if (!channels.includes(value)) channels.push(value);
             if (!blockChannels.includes(value)) blockChannels.push(value);
-            messageStartIndex = -1; // Reset message tracking
             break;
           case "message":
           case "final":
-            // Extract everything from after <|message|> or <|final|> until <|end|> or end of block
-            // This preserves any <|tag|> patterns that appear in the message content
-            messageStartIndex = tagStart + match[0].length; // Position after the tag
-            break;
-          case "end":
-            // If we were collecting message content, extract everything from messageStartIndex to here
-            if (messageStartIndex >= 0) {
-              const messageContent = content.substring(messageStartIndex, tagStart).trim();
-              blockMessage += messageContent + " ";
-              messageStartIndex = -1;
+            if (value) {
+              blockMessage += value + " ";
             }
             break;
           default:
-            if (tag !== "assistant") {
+            if (tag !== "assistant" && tag !== "end") {
               metadata[tag] = value;
             }
         }
-      }
-      
-      // If we started collecting message content but didn't find <|end|>, extract to end of block
-      if (messageStartIndex >= 0) {
-        const messageContent = content.substring(messageStartIndex).trim();
-        blockMessage += messageContent + " ";
       }
       blockMessage = blockMessage.trim();
       if (blockMessage) {
