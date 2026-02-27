@@ -87,123 +87,16 @@ export class VimToolManager {
     return [
       {
         name: "vim",
-        description: "Execute Vim commands to edit files. This is your primary tool for all file operations.\n\n" +
-          "Core Philosophy:\n" +
-          "- All file operations are done through Vim commands\n" +
-          "- Maintains buffer state across commands\n" +
-          "- Supports registers, marks, and ranges\n\n" +
-          "IMPORTANT: COMMAND FORMAT RULES\n" +
-          "- Each command must be a separate string in the 'commands' array\n" +
-          "- Use 'i' to enter insert mode, then type your text in separate commands\n" +
-          "- Use '\\x1b' (Escape) to return to normal mode\n" +
-          "- Always include ':w' at the end to save changes\n\n" +
-          "Basic Commands:\n" +
-          "  :e <file>     - Edit file (opens/creates in buffer)\n" +
-          "  :[range]print  - Print lines (output returned in result). Use :%print to read full file.\n" +
-          "  :[range]print # - Print with line numbers\n" +
-          "  :w            - Write current buffer to disk\n" +
-          "  :q            - Close current buffer (fails if modified)\n" +
-          "  :wq           - Write and close\n" +
-          "  :q!           - Force close (discard changes)\n" +
-          "  :bn           - Next buffer\n" +
-          "  :bp           - Previous buffer\n" +
-          "  :ls           - List all buffers\n" +
-          "  :b <num>      - Switch to buffer number\n\n" +
-          "Editing Commands:\n" +
-          "  :[range]s/pattern/repl/[flags] - Substitute (see below)\n" +
-          "  :[range]d [reg]             - Delete lines into register\n" +
-          "  :[range]y [reg]             - Yank lines into register\n" +
-          "  :[reg]p                      - Put after current line\n" +
-          "  :[reg]P                      - Put before current line\n" +
-          "  :[range]!<cmd>                - Filter lines through shell\n" +
-          "  :g/pattern/cmd                - Global command\n" +
-          "  :v/pattern/cmd                - Inverse global\n" +
-          "  :[range]norm <cmd>            - Execute normal commands\n\n" +
-          "Directory Commands:\n" +
-          "  :pwd          - Print current working directory\n" +
-          "  :cd <dir>     - Change to specified directory\n" +
-          "  :grep <pat> [path] [glob] - Search for regex in files (e.g. :grep foo, :grep foo *.ts)\n" +
-          "Normal Mode Commands (no colon):\n" +
-          "  i             - Enter insert mode\n" +
-          "  a             - Enter insert mode after cursor\n" +
-          "  A             - Enter insert mode at end of line\n" +
-          "  I             - Enter insert mode at beginning of line\n" +
-          "  o             - Open new line below and enter insert mode\n" +
-          "  O             - Open new line above and enter insert mode\n" +
-          "  dd            - Delete current line\n" +
-          "  3dd           - Delete 3 lines\n" +
-          "  yy            - Yank current line\n" +
-          "  p             - Put after cursor\n" +
-          "  P             - Put before cursor\n" +
-          "  j/k           - Move down/up\n" +
-          "  gg/G          - Go to top/bottom\n" +
-          "  0/$           - Go to start/end of line\n" +
-          "  ma            - Set mark a at current line\n" +
-          "  'a            - Jump to mark a\n" +
-          "  \"ayy          - Yank line to register a\n\n" +
-          "File Operations:\n" +
-          "  :r <file>      - Read file into current buffer\n" +
-          "  :saveas <file> - Save buffer to new file\n" +
-          "  :!mkdir -p <dir> - Create directory\n" +
-          "  :!ls [dir]      - List files\n" +
-          "  :!find <pattern> - Find files by name\n" +
-          "  :!grep <pattern> - Search in files\n\n" +
-          "Marks and Registers:\n" +
-          "  ma            - Set mark a at current line\n" +
-          "  'a            - Jump to mark a (in commands)\n" +
-          "  \"ayy          - Yank line to register a\n" +
-          "  \"ap           - Put from register a\n" +
-          "  :reg          - Show registers\n\n" +
-          "Range Formats:\n" +
-          "  %             - Entire file\n" +
-          "  .             - Current line\n" +
-          "  $             - Last line\n" +
-          "  'a            - Mark a\n" +
-          "  /pattern/     - Next line with pattern\n" +
-          "  10            - Line 10\n" +
-          "  10,20         - Lines 10-20\n" +
-          "  .,+5          - Current through next 5 lines\n\n" +
-          "Substitute (:s) - IMPORTANT:\n" +
-          "  The pattern is a regular expression (like Vim). To match literal characters that are\n" +
-          "  special in regex, escape them: \\( \\) for parentheses, \\. for dot, \\* for asterisk.\n" +
-          "  Example - match literal 'def greet():' then replace:\n" +
-          "    :%s/def greet\\(\\):/def greet(name=\"World\"):/\n" +
-          "  Use a different delimiter if pattern/replacement contain '/': :%s#/usr/local#/opt#g\n" +
-          "  Flags: g = replace all on each line (default: first only), i = case-insensitive.\n\n" +
-          "EXAMPLES - CORRECT USAGE:\n\n" +
-          "✅ Create new file with content:\n" +
-          "  commands: [\n" +
-          "    \"i\",                     # Enter insert mode\n" +
-          "    \"#!/usr/bin/env python3\",  # Type first line\n" +
-          "    \"\\n\",                    # New line\n" +
-          "    \"def main():\",            # Type function definition\n" +
-          "    \"\\n\",                    # New line\n" +
-          "    \"    print('Hello')\",     # Type indented line\n" +
-          "    \"\\x1b\",                   # Escape to normal mode\n" +
-          "    \":w\"                      # Save\n" +
-          "  ]\n\n" +
-          "✅ Search and replace:\n" +
-          "  commands: [\n" +
-          "    \":%s/oldFunction/newFunction/g\",\n" +
-          "    \":w\"\n" +
-          "  ]\n\n" +
-          "✅ Substitute with literal parentheses (escape \\( \\) in pattern):\n" +
-          "  commands: [\n" +
-          "    \":%s/def greet\\\\\\(\\\\\\):/def greet(name=\\\"World\\\"):/\",\n" +
-          "    \":w\"\n" +
-          "  ]\n\n" +
-          "✅ Delete lines matching pattern:\n" +
-          "  commands: [\n" +
-          "    \":g/^\\s*console\\.log/d\",\n" +
-          "    \":w\"\n" +
-          "  ]\n\n" +
-          "✅ Read file content (use instead of read_file):\n" +
-          "  file_path: \"path/to/file\", commands: [\":%print\"]\n" +
-          "  Or: commands: [\":e path/to/file\", \":%print\"]\n\n" +
-          "❌ INCORRECT - DON'T DO THIS:\n" +
-          "  commands: [\n" +
-          "    \"i#!/usr/bin/env python3\"  # WRONG - i should be separate from text\n" +
-          "  ]",
+        description: "Execute Vim commands to edit files. Primary tool for all file operations.\n\n" +
+          "FORMAT RULES:\n" +
+          "- Each command is a separate string in the 'commands' array\n" +
+          "- 'i' (insert mode) must be separate from the text that follows\n" +
+          "- '\\x1b' returns to normal mode; ':w' saves\n\n" +
+          "Commands: :e :w :q :wq :q! :[range]s/pat/repl/[g|i] :[range]d :[range]y :p\n" +
+          "  :%print (read file) :g/pat/cmd :v/pat/cmd :grep :cd :pwd :! :r :find :help\n" +
+          "Normal: i a A I o O dd yy p P gg G j k 0 $ ma 'a \"ayy\n" +
+          "Ranges: % . $ N N,M 'a /pat/\n" +
+          "Use :help or :help <topic> for detailed command reference.",
         inputSchema: {
           type: "object",
           properties: {

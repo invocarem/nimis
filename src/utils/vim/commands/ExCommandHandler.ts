@@ -106,11 +106,127 @@ async function findFileInPath(
   return null;
 }
 
+const HELP_TOPICS: Record<string, string> = {
+  "e": ":e[dit] {file}\n  Open {file} for editing. Creates a new buffer if the file doesn't exist.\n  If {file} is a directory, lists its contents.\n\n  Examples:\n    :e main.ts        Open main.ts\n    :e .              List current directory",
+
+  "w": ":w[rite]\n  Write the current buffer to disk.\n\n  Example:\n    :w                Save current file",
+
+  "q": ":q[uit]\n  Close the current buffer. Fails if there are unsaved changes.\n  Use :q! to force-close and discard changes.\n\n  Examples:\n    :q                Close buffer\n    :q!               Force close, discard changes",
+
+  "wq": ":wq\n  Write current buffer to disk and close it.\n\n  Example:\n    :wq               Save and close",
+
+  "s": ":[range]s/{pattern}/{replacement}/[flags]\n  Substitute {pattern} with {replacement} in [range].\n  Without a range, operates on the current line.\n  Use %s for the entire file.\n\n  Flags:\n    g   Replace all occurrences on each line (default: first only)\n    i   Case-insensitive matching\n\n  The delimiter can be any non-alphanumeric character.\n\n  Examples:\n    :s/foo/bar/         Replace first 'foo' on current line\n    :%s/foo/bar/g       Replace all 'foo' in file\n    :10,20s/old/new/g   Replace in lines 10-20\n    :%s#/usr#/opt#g     Use # as delimiter",
+
+  "d": ":[range]d[elete] [register]\n  Delete [range] lines (default: current line).\n  Deleted text is stored in [register] (default: unnamed).\n\n  Examples:\n    :d                Delete current line\n    :5,10d            Delete lines 5-10\n    :%d               Delete all lines",
+
+  "y": ":[range]y[ank] [register]\n  Yank (copy) [range] lines into [register].\n\n  Examples:\n    :y                Yank current line\n    :%y               Yank entire file",
+
+  "p": ":p[ut] [register]\n  Put (paste) text from [register] after the current line.\n  :P or :pu! puts before the current line.\n\n  Example:\n    :p                Paste after current line",
+
+  "print": ":[range]print [#]\n  Print [range] lines. Use # for line numbers.\n  Without a range, prints the current line.\n\n  Examples:\n    :%print           Print entire file\n    :%print #         Print entire file with line numbers\n    :10,20print       Print lines 10-20",
+
+  "g": ":[range]g/{pattern}/{cmd}\n  Execute {cmd} on every line matching {pattern}.\n  :v is the inverse (lines NOT matching).\n\n  Examples:\n    :g/TODO/print     Print all lines containing TODO\n    :g/^$/d           Delete all blank lines\n    :v/keep/d         Delete lines not containing 'keep'",
+
+  "v": ":[range]v/{pattern}/{cmd}\n  Execute {cmd} on every line NOT matching {pattern}.\n  Inverse of :g. See :help g for more.",
+
+  "bn": ":bn[ext]\n  Switch to the next buffer.\n\n  Example:\n    :bn               Go to next buffer",
+
+  "bp": ":bp[revious]\n  Switch to the previous buffer.\n\n  Example:\n    :bp               Go to previous buffer",
+
+  "ls": ":ls / :buffers\n  List all open buffers with their numbers and status.\n\n  Example:\n    :ls               Show buffer list",
+
+  "b": ":b {number|name}\n  Switch to buffer by number or name.\n\n  Example:\n    :b 2              Switch to buffer 2",
+
+  "r": ":r[ead] {file}\n  Read {file} and insert its contents below the current line.\n\n  Example:\n    :r header.txt     Insert header.txt contents",
+
+  "saveas": ":saveas {file}\n  Save the current buffer to {file} and switch to it.\n\n  Example:\n    :saveas copy.ts   Save as copy.ts",
+
+  "find": ":fin[d] {file}\n  Search for {file} in the working directory tree and open it.\n\n  Example:\n    :find utils.ts    Find and open utils.ts",
+
+  "grep": ":grep {pattern} [path] [glob]\n  Search for {pattern} in files under [path] (default: working dir).\n  Optionally filter by [glob] pattern.\n\n  Examples:\n    :grep TODO              Search for TODO in all files\n    :grep foo src *.ts      Search for foo in src/**/*.ts",
+
+  "cd": ":cd {dir}\n  Change the working directory to {dir}.\n  Without arguments, changes to the home directory.\n\n  Examples:\n    :cd src           Change to src/\n    :cd               Change to home directory",
+
+  "pwd": ":pwd\n  Print the current working directory.",
+
+  "reg": ":reg[isters]\n  Display the contents of all registers.",
+
+  "mark": ":ma[rk] {a-z}\n  Set mark {a-z} at the current line.\n  Jump to a mark with '{a-z} in normal mode.\n\n  Example:\n    :mark a           Set mark a",
+
+  "norm": ":norm[al] {commands}\n  Execute normal-mode {commands} on each line in [range].\n\n  Example:\n    :%norm dd         Delete every line (one by one)",
+
+  "!": ":[range]! {cmd}\n  Filter [range] lines through external shell {cmd}.\n  Without a range, just runs {cmd}.\n\n  Examples:\n    :%!sort           Sort entire file\n    :!ls              List directory contents",
+
+  "insert": "Insert Mode Commands (entered from normal mode):\n  i   Enter insert mode at cursor\n  a   Enter insert mode after cursor\n  A   Enter insert mode at end of line\n  I   Enter insert mode at beginning of line\n  o   Open new line below and enter insert mode\n  O   Open new line above and enter insert mode\n  <Esc>  Return to normal mode",
+
+  "normal": "Normal Mode Commands:\n  h/j/k/l     Move left/down/up/right\n  gg          Go to first line\n  G           Go to last line\n  0           Go to start of line\n  $           Go to end of line\n  dd          Delete current line\n  [count]dd   Delete [count] lines\n  yy          Yank (copy) current line\n  p           Put (paste) after cursor\n  P           Put (paste) before cursor\n  x           Delete character under cursor\n  ma          Set mark a\n  'a          Jump to mark a\n  \"ayy        Yank line into register a\n  \"ap         Put from register a\n  u           Undo",
+
+  "range": "Range Formats:\n  (none)   Current line\n  %        Entire file\n  .        Current line (explicit)\n  $        Last line\n  N        Line N (e.g. 10)\n  N,M      Lines N through M (e.g. 10,20)\n  .,+N     Current line through N lines below\n  'a       Mark a\n  'a,'b    From mark a to mark b\n  /pat/    Next line matching pattern",
+};
+
 export class ExCommandHandler {
   constructor(
     private ctx: CommandContext,
     private onWorkingDirChange?: (dir: string) => void
   ) {}
+
+  private helpCommand(topic?: string): string {
+    if (!topic) {
+      return [
+        "Nimis Vim — Quick Reference",
+        "═══════════════════════════",
+        "",
+        "File Operations:",
+        "  :e {file}        Edit/open file          :w           Write (save)",
+        "  :q               Quit buffer             :wq          Write and quit",
+        "  :q!              Force quit               :saveas {f}  Save as new file",
+        "  :r {file}        Read file into buffer   :find {file} Search & open file",
+        "",
+        "Navigation & Buffers:",
+        "  :ls              List buffers             :b {n}       Switch to buffer",
+        "  :bn / :bp        Next / previous buffer",
+        "  :{number}        Jump to line number",
+        "",
+        "Editing:",
+        "  :[range]s/p/r/g  Substitute               :[range]d    Delete lines",
+        "  :[range]y        Yank lines               :p / :P      Put after/before",
+        "  :g/pat/cmd       Global command           :v/pat/cmd   Inverse global",
+        "  :[range]norm     Normal-mode on range     :[range]!    Shell filter",
+        "",
+        "Search & Directory:",
+        "  :grep {pat}      Search in files          :pwd         Working directory",
+        "  :cd {dir}        Change directory",
+        "",
+        "Info:",
+        "  :reg             Show registers           :mark {a-z}  Set mark",
+        "  :[range]print    Print lines              :[range]print # With numbers",
+        "",
+        "Normal Mode:  i/a/o  Enter insert    dd  Delete line    yy  Yank line",
+        "              p/P    Put after/before  gg/G  Top/bottom   0/$  Start/end",
+        "",
+        "Type :help {topic} for detailed help.  Topics:",
+        "  e w q wq s d y p print g v bn bp ls b r saveas find grep",
+        "  cd pwd reg mark norm ! insert normal range",
+      ].join("\n");
+    }
+
+    const key = topic.replace(/^:/, "");
+    const entry = HELP_TOPICS[key];
+    if (entry) {
+      return entry;
+    }
+
+    const keys = Object.keys(HELP_TOPICS);
+    const fuzzy = keys.filter(k => k.startsWith(key));
+    if (fuzzy.length === 1) {
+      return HELP_TOPICS[fuzzy[0]];
+    }
+    if (fuzzy.length > 1) {
+      return `Multiple matches: ${fuzzy.join(", ")}\nTry :help {topic} with a more specific topic.`;
+    }
+
+    return `No help found for "${topic}".\nAvailable topics: ${keys.join(", ")}`;
+  }
 
   private printLines(
     range: { start: number; end: number },
@@ -621,6 +737,12 @@ export class ExCommandHandler {
 
       case "!":
         return await externalCommand(range, args, buffer);
+
+      case "h":
+      case "he":
+      case "hel":
+      case "help":
+        return this.helpCommand(args?.trim() || undefined);
 
       default:
         throw new Error(`Unsupported Ex command: ${cmdName}`);
