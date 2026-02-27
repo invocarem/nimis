@@ -117,11 +117,21 @@ export class NormalCommandHandler {
     let count = 1;
     let remainingCmd = cmd;
 
-    // Parse count prefix
-    const countMatch = cmd.match(/^(\d+)/);
+    // Parse count prefix (counts start with 1-9; bare 0 is the "go to column 0" motion)
+    const countMatch = cmd.match(/^([1-9]\d*)/);
     if (countMatch) {
       count = parseInt(countMatch[1], 10);
       remainingCmd = cmd.substring(countMatch[1].length);
+
+      // Bare number (e.g. "5") → go to line N, like nG
+      if (remainingCmd === '') {
+        if (count >= 1 && count <= buffer.content.length) {
+          buffer.currentLine = count - 1;
+          this.cursorColumn = 0;
+          return `Moved to line ${count}`;
+        }
+        throw new Error(`Line ${count} out of range`);
+      }
     }
 
     // Parse register prefix (e.g., "ayy)

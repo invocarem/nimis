@@ -107,6 +107,53 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       const content = await readFile(testFile, "utf-8");
       expect(content).toBe("line1\nline2\nline4\nline5\n");
     });
+
+    it("should handle bare number to go to line N", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["3"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("Moved to line 3");
+
+      await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["dd", ":w"]
+      });
+
+      const content = await readFile(testFile, "utf-8");
+      expect(content).toBe("line1\nline2\nline4\nline5\n");
+    });
+
+    it("should handle bare number in a command sequence", async () => {
+      await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["4", "dd", ":w"]
+      });
+
+      const content = await readFile(testFile, "utf-8");
+      expect(content).toBe("line1\nline2\nline3\nline5\n");
+    });
+
+    it("should handle '0' as move to beginning of line, not line 0", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["3l", "0"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("Moved to beginning of line");
+    });
+
+    it("should error on bare number out of range", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["99"]
+      });
+
+      expect(result.isError).toBeTruthy();
+    });
   });
 
   describe("Delete commands", () => {

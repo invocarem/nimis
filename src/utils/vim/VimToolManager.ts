@@ -390,10 +390,12 @@ private async vimEdit(
         }
       }
 
-      // CRITICAL FIX: After processing a command in insert mode, add a newline
-      // to separate it from the next command (unless it's the last command).
-      // Skip for bare mode-switch commands (i, a, I, A, o, O) - they don't insert
-      // content; the next command is the first line to type.
+      // Bare numeric command (e.g. "5") → treat as "go to line 5"
+      const flushResult = this.stateMachine.flushPending();
+      if (flushResult?.output) {
+        currentOutput += flushResult.output;
+      }
+
       const state = this.stateMachine.getState();
       const isBareModeSwitch = /^[iaIAoO]$/.test(cmd);
       if (

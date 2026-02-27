@@ -386,6 +386,32 @@ export class VimStateMachine {
     // Don't wrap to next line
   }
 
+  flushPending(): { output: string; stateChanged: boolean } | null {
+    if (
+      this.state.mode !== 'normal' ||
+      !this.state.pendingCommand ||
+      !/^\d+$/.test(this.state.pendingCommand)
+    ) {
+      return null;
+    }
+
+    const buffer = this.state.buffer;
+    if (!buffer) return null;
+
+    const lineNum = parseInt(this.state.pendingCommand, 10);
+    this.state.pendingCommand = undefined;
+
+    if (lineNum < 1 || lineNum > buffer.content.length) {
+      throw new Error(`Line ${lineNum} out of range`);
+    }
+
+    buffer.currentLine = lineNum - 1;
+    this.state.cursorPosition.line = lineNum - 1;
+    this.state.cursorPosition.column = 0;
+    this.normalHandler.setCursorColumn(0);
+    return { output: `Moved to line ${lineNum}`, stateChanged: false };
+  }
+
   private syncCursorToHandler(buffer: VimBuffer): void {
     buffer.currentLine = this.state.cursorPosition.line;
     this.normalHandler.setCursorColumn(this.state.cursorPosition.column);
