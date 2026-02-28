@@ -174,20 +174,79 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       expect(updatedContent).toBe("path = /opt/bin\n");
     });
 
-    it("should handle patterns with forward slashes using different delimiter", async () => {
+    it("should handle patterns with forward slashes using # delimiter", async () => {
       const content = "path = /usr/local/bin\n";
       await writeFile(testFile, content, "utf-8");
 
-      // Using backslash as delimiter instead of forward slash
       const result = await manager.callTool("vim", {
         file_path: testFile,
-        commands: [":%s\\/usr/local\\/opt", ":w"],
+        commands: [":%s#/usr/local#/opt#g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
 
       const updatedContent = await readFile(testFile, "utf-8");
       expect(updatedContent).toBe("path = /opt/bin\n");
+    });
+
+    it("should handle patterns with forward slashes using | delimiter", async () => {
+      const content = "path = /usr/local/bin\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [":%s|/usr/local|/opt|g", ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("path = /opt/bin\n");
+    });
+
+    it("should handle patterns with forward slashes using @ delimiter", async () => {
+      const content = "url = http://example.com/path\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [":%s@http://example.com@https://new.example.com@g", ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("url = https://new.example.com/path\n");
+    });
+
+    it("should use alternative delimiter on current line with :s#old#new#", async () => {
+      const content = "first/path\nsecond/path\nthird/path\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["2G", ":s#second/path#replaced#", ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("first/path\nreplaced\nthird/path\n");
+    });
+
+    it("should use alternative delimiter with line range :1,2s|old|new|g", async () => {
+      const content = "a/b/c\na/b/c\na/b/c\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [":1,2s|a/b|x/y|g", ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("x/y/c\nx/y/c\na/b/c\n");
     });
 
     it("should handle patterns with special regex characters", async () => {
