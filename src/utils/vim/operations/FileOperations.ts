@@ -99,17 +99,24 @@ export async function externalCommand(
     throw new Error(':! requires a shell command');
   }
 
-  const targetRange = range || { start: buffer.currentLine, end: buffer.currentLine };
-  const linesToFilter = buffer.content.slice(targetRange.start, targetRange.end + 1);
+  const execAsync = promisify(exec);
+  const cwd = path.dirname(buffer.path);
+
+  // :!cmd (no range) — run the command and return its output without modifying the buffer
+  if (range === null) {
+    const { stdout, stderr } = await execAsync(args, { cwd });
+    const output = (stdout + stderr).trimEnd();
+    return output || `(no output)`;
+  }
+
+  // :[range]!cmd — filter the range lines through the command and replace them
+  const linesToFilter = buffer.content.slice(range.start, range.end + 1);
   const tempFile = path.join(os.tmpdir(), `vim_filter_${Date.now()}.tmp`);
 
   try {
     await fs.promises.writeFile(tempFile, linesToFilter.join('\n'), 'utf-8');
 
-    const execAsync = promisify(exec);
-    const cwd = path.dirname(buffer.path);
     const cmd = `cat "${tempFile}" | ${args}`;
-
     const { stdout } = await execAsync(cmd, { cwd });
 
     const filteredLines = stdout.split(/\r?\n/);
@@ -117,10 +124,10 @@ export async function externalCommand(
       filteredLines.pop();
     }
 
-    buffer.content.splice(targetRange.start, targetRange.end - targetRange.start + 1, ...filteredLines);
+    buffer.content.splice(range.start, range.end - range.start + 1, ...filteredLines);
     buffer.modified = true;
 
-    return `Filtered ${targetRange.end - targetRange.start + 1} line(s) through: ${args}`;
+    return `Filtered ${range.end - range.start + 1} line(s) through: ${args}`;
   } catch (error: any) {
     throw new Error(`Filter command failed: ${error.message}`);
   } finally {
