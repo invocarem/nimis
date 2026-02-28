@@ -325,4 +325,50 @@ describe("VimToolManager - :e (edit) command", () => {
       }
     });
   });
+
+  describe(":e! (force edit / reload)", () => {
+    it("should reload current file from disk, discarding in-memory changes", async () => {
+      const original = "original line 1\noriginal line 2\n";
+      await writeFile(testFile1, original, "utf-8");
+
+      // Open file, modify it in buffer, then :e! to reload
+      const result = await manager.callTool("vim", {
+        file_path: testFile1,
+        commands: [":1s/original/modified/", ":e!", ":%print"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      const text = result.content[0].text;
+      expect(text).toContain("original line 1");
+      expect(text).not.toContain("modified line 1");
+    });
+
+    it("should open a different file with :e!, discarding current changes", async () => {
+      await writeFile(testFile1, "file one content\n", "utf-8");
+      await writeFile(testFile2, "file two content\n", "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile1,
+        commands: [":1s/one/ONE/", `:e! ${testFile2}`, ":%print"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      const text = result.content[0].text;
+      expect(text).toContain("file two content");
+    });
+
+    it("should clear modified flag after reload", async () => {
+      await writeFile(testFile1, "hello\n", "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile1,
+        commands: [":1s/hello/world/", ":e!"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      // After :e!, buffer should not be marked as modified
+      const text = result.content[0].text;
+      expect(text).not.toContain("[+]");
+    });
+  });
 });

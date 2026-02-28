@@ -28,6 +28,7 @@ import {
   switchToBuffer,
 } from "../operations/BufferOperations";
 import { formatRegisters } from "../models/VimRegister";
+import { loadBufferFromFile } from "../models/VimBuffer";
 import { listDirectory } from "../operations/DirectoryOperations";
 import { grepInDirectory } from "../operations/GrepOperations";
 
@@ -109,7 +110,7 @@ async function findFileInPath(
 }
 
 const HELP_TOPICS: Record<string, string> = {
-  "e": ":e[dit] {file}\n  Open {file} for editing. Creates a new buffer if the file doesn't exist.\n  If {file} is a directory, lists its contents.\n\n  Examples:\n    :e main.ts        Open main.ts\n    :e .              List current directory",
+  "e": ":e[dit] {file}\n  Open {file} for editing. Creates a new buffer if the file doesn't exist.\n  If {file} is a directory, lists its contents.\n  :e! reloads the current file from disk, discarding unsaved changes.\n  :e! {file} opens {file}, discarding unsaved changes to the current buffer.\n\n  Examples:\n    :e main.ts        Open main.ts\n    :e .              List current directory\n    :e!               Reload current file from disk\n    :e! main.ts       Open main.ts, discard current changes",
 
   "w": ":w[rite]\n  Write the current buffer to disk.\n\n  Example:\n    :w                Save current file",
 
@@ -674,6 +675,26 @@ export class ExCommandHandler {
         if (!args) throw new Error(":e requires a filename");
         await editFile(args, this.ctx);
         return `Editing ${path.basename(args)}`;
+
+      case "e!": {
+        // :e! — reload current file from disk, discarding changes
+        // :e! filename — open file, discarding unsaved changes to current buffer
+        const editTarget = args?.trim();
+        if (!editTarget) {
+          // Reload current buffer from disk
+          const reloadPath = buffer.path;
+          const reloaded = await loadBufferFromFile(reloadPath);
+          this.ctx.buffers.set(reloadPath, reloaded);
+          this.ctx.setCurrentBuffer(reloaded);
+          return `"${path.basename(reloadPath)}" ${reloaded.content.length}L`;
+        }
+        // Open a different file, discarding current changes
+        buffer.modified = false;
+        const bangResolved = this.ctx.resolvePath(editTarget);
+        this.ctx.buffers.delete(bangResolved);
+        await editFile(editTarget, this.ctx);
+        return `Editing ${path.basename(editTarget)}`;
+      }
 
       case "find":
       case "fin": {

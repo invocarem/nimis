@@ -97,7 +97,7 @@ export class XmlProcessor {
    * Extract XML tool calls from text
    */
   static extractToolCalls(text: string): XmlToolCall[] {
-    const results: XmlToolCall[] = [];
+    let results: XmlToolCall[] = [];
 
     // Track all processed positions to avoid duplicate extraction
     const processedPositions: Array<{ start: number; end: number }> = [];
@@ -146,8 +146,14 @@ export class XmlProcessor {
               );
               if (parsed) {
                 results.push(parsed);
-                // Track this processed position
                 processedPositions.push({ start: startPos, end: tagEnd });
+              } else {
+                // No args found — tool call with name only (no arguments)
+                const nameOnly = attributes.match(/name\s*=\s*(["'])([^"']+)\1/);
+                if (nameOnly && !/args\s*=/.test(attributes)) {
+                  results.push({ raw, name: nameOnly[2], args: {} });
+                  processedPositions.push({ start: startPos, end: tagEnd });
+                }
               }
             }
           }
@@ -318,7 +324,18 @@ export class XmlProcessor {
             if (parsed) {
               results.push(parsed);
               processedPositions.push({ start: matchStart, end: matchEnd });
+              continue;
             }
+          }
+
+          // No args found — tool call with name only (no arguments required)
+          if (nameAttrMatch && !content.trim()) {
+            results.push({
+              raw,
+              name: nameAttrMatch[1],
+              args: {},
+            });
+            processedPositions.push({ start: matchStart, end: matchEnd });
           }
         } catch (error) {
           // Silently continue on parse error
@@ -687,6 +704,13 @@ export class XmlProcessor {
       }
     }
 
+    // Sort results by document order using their tracked positions
+    if (results.length > 1 && processedPositions.length === results.length) {
+      const indexed = results.map((r, i) => ({ result: r, start: processedPositions[i].start }));
+      indexed.sort((a, b) => a.start - b.start);
+      results = indexed.map(item => item.result);
+    }
+
     if (results.length > 0) {
       console.log(`[XmlProcessor] Found ${results.length} XML tool call(s)`);
     } else if (this.looksLikeXmlToolCall(text)) {
@@ -974,11 +998,14 @@ export class XmlProcessor {
         inDoubleQuote = !inDoubleQuote;
       }
 
-      // Only check for /> when we're not inside quotes
+      // Only check for /> or > when we're not inside quotes
       if (!inSingleQuote && !inDoubleQuote) {
-        // Check for closing />
         if (char === "/" && pos + 1 < text.length && text[pos + 1] === ">") {
           return pos + 2; // Return position after />
+        }
+        // Bare > outside quotes means tag was opened (not self-closing)
+        if (char === ">") {
+          return -1;
         }
       }
 

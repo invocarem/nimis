@@ -294,8 +294,10 @@ describe("XmlProcessor", () => {
         const text = '<tool_call name="test" />';
         const result = XmlProcessor.extractToolCalls(text);
 
-        // Should return empty array since args is required
-        expect(result).toHaveLength(0);
+        // Tools with no arguments should return empty args
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("test");
+        expect(result[0].args).toEqual({});
       });
 
       it("should handle malformed JSON gracefully", () => {
@@ -862,23 +864,51 @@ A tiny Python script that greets a user.
   });
 
   describe("Malformed and truncated tool calls", () => {
-    it("should handle tool call with missing args gracefully", () => {
-      // Tool call with name but no args attribute
+    it("should handle tool call with missing args as no-args tool call", () => {
+      // Tool call with name but no args attribute — treated as no-args tool call
       const text = '<tool_call name="create_file" />';
       const result = XmlProcessor.extractToolCalls(text);
 
-      // Should return empty array (no valid args found)
-      expect(result).toHaveLength(0);
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("create_file");
+      expect(result[0].args).toEqual({});
     });
 
-    it("should handle tool call with empty args", () => {
-      // Tool call with empty args string
-      const text = "<tool_call name=\"create_file\" args='' />";
-      const result = XmlProcessor.extractToolCalls(text);
+      it("should handle tool call with empty args", () => {
+        // Tool call with empty args string
+        const text = "<tool_call name=\"create_file\" args='' />";
+        const result = XmlProcessor.extractToolCalls(text);
 
-      // Should return empty array (invalid JSON)
-      expect(result).toHaveLength(0);
-    });
+        // Should return empty array (invalid JSON)
+        expect(result).toHaveLength(0);
+      });
+
+      it("should extract no-args tool call with opening/closing tags (vim_buffer_list)", () => {
+        const text = '<tool_call name="vim_buffer_list">\n</tool_call>';
+        const result = XmlProcessor.extractToolCalls(text);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("vim_buffer_list");
+        expect(result[0].args).toEqual({});
+      });
+
+      it("should extract no-args tool call with empty body", () => {
+        const text = '<tool_call name="vim_show_registers"></tool_call>';
+        const result = XmlProcessor.extractToolCalls(text);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("vim_show_registers");
+        expect(result[0].args).toEqual({});
+      });
+
+      it("should extract no-args MCP_CALL with opening/closing tags", () => {
+        const text = '<MCP_CALL name="list_tools">\n</MCP_CALL>';
+        const result = XmlProcessor.extractToolCalls(text);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("list_tools");
+        expect(result[0].args).toEqual({});
+      });
 
     it("should handle truncated JSON in create_file call using brace matching", () => {
       // Simulates the error case reported: truncated JSON
@@ -1183,6 +1213,48 @@ Step 3: Test`;
         expect(result.reasoning[0]).toContain("Unclosed think tag");
         expect(result.reasoning[0]).toContain("Another");
       });
+    });
+  });
+
+  describe("No-args tool calls through full parsing chain", () => {
+    it("should extract vim_buffer_list through ResponseParser", () => {
+      const { ResponseParser } = require("../src/utils/responseParser");
+      const rawResponse = '<tool_call name="vim_buffer_list">\n</tool_call>';
+
+      const parsed = ResponseParser.parse(rawResponse);
+
+      expect(parsed.tool_calls).toBeDefined();
+      expect(parsed.tool_calls).toHaveLength(1);
+      expect(parsed.tool_calls[0].name).toBe("vim_buffer_list");
+      expect(parsed.tool_calls[0].arguments).toEqual({});
+    });
+
+    it("should extract self-closing no-args tool call through ResponseParser", () => {
+      const { ResponseParser } = require("../src/utils/responseParser");
+      const rawResponse = '<tool_call name="vim_show_marks" />';
+
+      const parsed = ResponseParser.parse(rawResponse);
+
+      expect(parsed.tool_calls).toBeDefined();
+      expect(parsed.tool_calls).toHaveLength(1);
+      expect(parsed.tool_calls[0].name).toBe("vim_show_marks");
+      expect(parsed.tool_calls[0].arguments).toEqual({});
+    });
+
+    it("should extract no-args tool call alongside tool call with args", () => {
+      const { ResponseParser } = require("../src/utils/responseParser");
+      const rawResponse =
+        '<tool_call name="vim_buffer_list">\n</tool_call>\n' +
+        '<tool_call name="read_file" args=\'{"file_path": "test.txt"}\' />';
+
+      const parsed = ResponseParser.parse(rawResponse);
+
+      expect(parsed.tool_calls).toBeDefined();
+      expect(parsed.tool_calls).toHaveLength(2);
+      expect(parsed.tool_calls[0].name).toBe("vim_buffer_list");
+      expect(parsed.tool_calls[0].arguments).toEqual({});
+      expect(parsed.tool_calls[1].name).toBe("read_file");
+      expect(parsed.tool_calls[1].arguments).toEqual({ file_path: "test.txt" });
     });
   });
 
