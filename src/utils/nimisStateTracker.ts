@@ -30,7 +30,7 @@ export interface NimisStateSnapshot {
  * Optionally persists state to a JSON file in the workspace.
  */
 /** Max tool calls per turn; after this we stop and ask for user feedback. */
-export const TOOL_CALL_LIMIT_PER_TURN = 6;
+export const TOOL_CALL_LIMIT_PER_TURN = 14;
 
 export class NimisStateTracker {
   private problem: string = "";

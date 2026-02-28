@@ -147,7 +147,6 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           : "http://localhost:8080";
       const serverUrl =
         config.get<string>("serverUrl") ||
-        config.get<string>("llamaServerUrl") ||
         defaultUrl;
 
       if (serverType === "vllm") {

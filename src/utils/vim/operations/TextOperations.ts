@@ -260,6 +260,51 @@ export function deleteLines(
   return `Deleted ${deletedLines.length} line(s) to register ${regName}`;
 }
 
+export function changeLines(
+  range: Range,
+  replacementText: string,
+  register: string | undefined,
+  buffer: VimBuffer
+): string {
+  const regName = register || '"';
+  const deletedLines = buffer.content.slice(range.start, range.end + 1);
+
+  buffer.registers.set(regName, {
+    type: 'linewise',
+    content: [...deletedLines]
+  });
+  buffer.registers.set('"', {
+    type: 'linewise',
+    content: [...deletedLines]
+  });
+  shiftDeleteRegisters(buffer, deletedLines);
+
+  const newLines = replacementText.split('\n');
+  const deletedCount = range.end - range.start + 1;
+  buffer.content.splice(range.start, deletedCount, ...newLines);
+
+  if (buffer.content.length === 0) {
+    buffer.content.push('');
+  }
+  buffer.modified = true;
+
+  const delta = newLines.length - deletedCount;
+  for (const [mark, line] of buffer.marks) {
+    if (line >= range.start && line <= range.end) {
+      buffer.marks.delete(mark);
+    } else if (line > range.end) {
+      buffer.marks.set(mark, line + delta);
+    }
+  }
+
+  buffer.currentLine = Math.min(
+    range.start + newLines.length - 1,
+    buffer.content.length - 1
+  );
+
+  return `Changed ${deletedLines.length} line(s) to ${newLines.length} line(s)`;
+}
+
 export async function globalCommand(
   args: string | undefined,
   inverse: boolean,

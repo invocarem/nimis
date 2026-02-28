@@ -7,6 +7,7 @@ import { parseRange } from "../utils/RangeParser";
 import {
   substituteWithPattern,
   deleteLines,
+  changeLines,
   yankLines,
   putLines,
   globalCommand,
@@ -118,6 +119,8 @@ const HELP_TOPICS: Record<string, string> = {
 
   "s": ":[range]s/{pattern}/{replacement}/[flags]\n  Substitute {pattern} with {replacement} in [range].\n  Without a range, operates on the current line.\n  Use %s for the entire file.\n\n  Flags:\n    g   Replace all occurrences on each line (default: first only)\n    i   Case-insensitive matching\n\n  The delimiter can be any non-alphanumeric character.\n\n  Examples:\n    :s/foo/bar/         Replace first 'foo' on current line\n    :%s/foo/bar/g       Replace all 'foo' in file\n    :10,20s/old/new/g   Replace in lines 10-20\n    :%s#/usr#/opt#g     Use # as delimiter",
 
+  "c": ":[range]c[hange]\\{text}\n  Delete [range] lines and replace with {text}.\n  Use \\n in {text} for newlines. Deleted text is stored in the unnamed register.\n\n  Forms:\n    :[range]c\\{text}   Inline replacement (backslash before text)\n    :[range]c {text}   Space-separated replacement\n\n  Examples:\n    :5c\\new line       Replace line 5 with 'new line'\n    :5,10c\\line1\\nline2  Replace lines 5-10 with two lines\n    :%c\\replaced       Replace entire file with one line",
+
   "d": ":[range]d[elete] [register]\n  Delete [range] lines (default: current line).\n  Deleted text is stored in [register] (default: unnamed).\n\n  Examples:\n    :d                Delete current line\n    :5,10d            Delete lines 5-10\n    :%d               Delete all lines",
 
   "y": ":[range]y[ank] [register]\n  Yank (copy) [range] lines into [register].\n\n  Examples:\n    :y                Yank current line\n    :%y               Yank entire file",
@@ -191,7 +194,8 @@ export class ExCommandHandler {
         "  :{number}        Jump to line number",
         "",
         "Editing:",
-        "  :[range]s/p/r/g  Substitute               :[range]d    Delete lines",
+        "  :[range]s/p/r/g  Substitute               :[range]c    Change lines",
+        "  :[range]d        Delete lines",
         "  :[range]y        Yank lines               :p / :P      Put after/before",
         "  :g/pat/cmd       Global command           :v/pat/cmd   Inverse global",
         "  :[range]norm     Normal-mode on range     :[range]!    Shell filter",
@@ -209,7 +213,7 @@ export class ExCommandHandler {
         "              p/P    Put after/before  gg/G  Top/bottom   0/$  Start/end",
         "",
         "Type :help {topic} for detailed help.  Topics:",
-        "  e w q wq s d y p print g v bn bp ls b r saveas find grep",
+        "  e w q wq s c d y p print g v bn bp ls b r saveas find grep",
         "  cd pwd reg mark norm ! set insert normal range",
       ].join("\n");
     }
@@ -555,6 +559,19 @@ export class ExCommandHandler {
       return await globalCommand(gargs, gv === "v", buffer);
     }
 
+    // Handle change command with inline text: c\text (backslash means text follows)
+    const changeInlineMatch = rest.match(/^c(?:hange)?\\(.*)$/s);
+    if (changeInlineMatch) {
+      const rawText = changeInlineMatch[1];
+      const replacementText = rawText.replace(/\\n/g, "\n");
+      return changeLines(
+        range || { start: buffer.currentLine, end: buffer.currentLine },
+        replacementText,
+        undefined,
+        buffer
+      );
+    }
+
     // Handle external command (! prefix) before splitting on whitespace,
     // since the shell command after ! may not have a space separator (e.g. %!sort)
     if (rest.startsWith("!")) {
@@ -778,6 +795,28 @@ export class ExCommandHandler {
       case "ma":
       case "mark":
         return setMark(args, buffer);
+
+      case "c":
+      case "ch":
+      case "cha":
+      case "chan":
+      case "chang":
+      case "change": {
+        if (!args) {
+          return deleteLines(
+            range || { start: buffer.currentLine, end: buffer.currentLine },
+            undefined,
+            buffer
+          );
+        }
+        const replacementText = args.replace(/\\n/g, "\n");
+        return changeLines(
+          range || { start: buffer.currentLine, end: buffer.currentLine },
+          replacementText,
+          undefined,
+          buffer
+        );
+      }
 
       case "d":
       case "de":
