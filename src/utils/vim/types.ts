@@ -48,6 +48,50 @@ export interface Range {
   end: number;
 }
 
+export interface VimOptions {
+  expandtab: boolean;
+  tabstop: number;
+  shiftwidth: number;
+  autoindent: boolean;
+  number: boolean;
+  relativenumber: boolean;
+  wrapscan: boolean;
+  ignorecase: boolean;
+  smartcase: boolean;
+  hlsearch: boolean;
+}
+
+export const VIM_OPTION_DEFAULTS: Readonly<VimOptions> = {
+  expandtab: true,
+  tabstop: 8,
+  shiftwidth: 8,
+  autoindent: false,
+  number: false,
+  relativenumber: false,
+  wrapscan: true,
+  ignorecase: false,
+  smartcase: false,
+  hlsearch: false,
+};
+
+export const VIM_OPTION_ALIASES: Record<string, keyof VimOptions> = {
+  et: 'expandtab',
+  ts: 'tabstop',
+  sw: 'shiftwidth',
+  ai: 'autoindent',
+  nu: 'number',
+  rnu: 'relativenumber',
+  ws: 'wrapscan',
+  ic: 'ignorecase',
+  scs: 'smartcase',
+  hls: 'hlsearch',
+};
+
+export const VIM_BOOLEAN_OPTIONS = new Set<keyof VimOptions>([
+  'expandtab', 'autoindent', 'number', 'relativenumber',
+  'wrapscan', 'ignorecase', 'smartcase', 'hlsearch',
+]);
+
 /**
  * Shared mutable state passed to command handlers and operations.
  */
@@ -56,5 +100,6 @@ export interface CommandContext {
   getCurrentBuffer(): VimBuffer | null;
   setCurrentBuffer(buffer: VimBuffer | null): void;
   resolvePath(filePath: string): string;
-  readonly workingDir?: string;  // Add this for cd/pwd support
+  readonly workingDir?: string;
+  readonly options: VimOptions;
 }

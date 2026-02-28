@@ -4,7 +4,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
 import { exec } from "child_process";
-import type { VimTool, VimToolResult, VimBuffer, CommandContext } from "./types";
+import type { VimTool, VimToolResult, VimBuffer, CommandContext, VimOptions } from "./types";
+import { VIM_OPTION_DEFAULTS } from "./types";
 import { PathResolver } from "./utils/PathResolver";
 import { ExCommandHandler } from "./commands/ExCommandHandler";
 import { NormalCommandHandler } from "./commands/NormalCommandHandler";
@@ -26,6 +27,7 @@ export class VimToolManager {
   private currentBuffer: VimBuffer | null = null;
   private sharedRegisters: Map<string, any> | null = null;
   private workingDir: string | undefined;
+  private options: VimOptions = { ...VIM_OPTION_DEFAULTS };
 
   private pathResolver: PathResolver;
   private exHandler: ExCommandHandler;
@@ -75,6 +77,7 @@ export class VimToolManager {
       },
       resolvePath: (fp) => self.pathResolver.resolve(fp),
       get workingDir() { return self.workingDir; },
+      get options() { return self.options; },
     };
 
     const onWorkingDirChange = (dir: string) => self.setWorkingDir(dir);
@@ -299,6 +302,7 @@ private async vimEdit(
         }
       },
       resolvePath: (fp) => this.pathResolver.resolve(fp),
+      options: this.options,
     };
 
     let scratchPath: string | undefined;

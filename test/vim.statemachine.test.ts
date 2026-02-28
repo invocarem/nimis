@@ -1,6 +1,6 @@
 // test/vim.stateMachine.test.ts
 import { VimStateMachine } from "../src/utils/vim/commands/VimStateMachine";
-import { VimBuffer, CommandContext } from "../src/utils/vim/types";
+import { VimBuffer, CommandContext, VIM_OPTION_DEFAULTS } from "../src/utils/vim/types";
 import { createBuffer } from "../src/utils/vim/models/VimBuffer";
 import { ExCommandHandler } from "../src/utils/vim/commands/ExCommandHandler";
 import * as FileOperations from "../src/utils/vim/operations/FileOperations";
@@ -39,7 +39,8 @@ describe("VimStateMachine", () => {
       buffers: new Map(),
       getCurrentBuffer: jest.fn(),
       setCurrentBuffer: jest.fn(),
-      resolvePath: (filePath: string) => filePath
+      resolvePath: (filePath: string) => filePath,
+      options: { ...VIM_OPTION_DEFAULTS },
     } as any;
 
     // Create test buffer
@@ -264,13 +265,34 @@ describe("VimStateMachine", () => {
       expect(stateMachine.getState().cursorPosition.column).toBe(prevLineContent.length);
     });
 
-    it("should handle Tab key", async () => {
-      stateMachine.getState().cursorPosition.column = 4; // Before ' ' in "line one"
+    it("should handle Tab key with default options (expandtab, tabstop=8)", async () => {
+      stateMachine.getState().cursorPosition.column = 4;
       
       await stateMachine.processKey('\t');
       
-      expect(mockBuffer.content[0]).toBe("line   one"); // Two spaces inserted before existing space
-      expect(stateMachine.getState().cursorPosition.column).toBe(6);
+      expect(mockBuffer.content[0]).toBe("line     one"); // 4 spaces inserted (next tab stop at col 8)
+      expect(stateMachine.getState().cursorPosition.column).toBe(8);
+    });
+
+    it("should handle Tab key with custom tabstop/shiftwidth", async () => {
+      mockContext.options.tabstop = 4;
+      mockContext.options.shiftwidth = 4;
+      stateMachine.getState().cursorPosition.column = 2;
+      
+      await stateMachine.processKey('\t');
+      
+      expect(mockBuffer.content[0]).toBe("li  ne one"); // 2 spaces to reach next tab stop at col 4
+      expect(stateMachine.getState().cursorPosition.column).toBe(4);
+    });
+
+    it("should insert literal tab when noexpandtab", async () => {
+      mockContext.options.expandtab = false;
+      stateMachine.getState().cursorPosition.column = 4;
+      
+      await stateMachine.processKey('\t');
+      
+      expect(mockBuffer.content[0]).toBe("line\t one");
+      expect(stateMachine.getState().cursorPosition.column).toBe(5);
     });
 
     it("should return to normal mode on Escape", async () => {

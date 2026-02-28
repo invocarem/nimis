@@ -1,6 +1,6 @@
 // test/vim.exCommandHandler.test.ts
 import { ExCommandHandler } from "../src/utils/vim/commands/ExCommandHandler";
-import { VimBuffer, CommandContext } from "../src/utils/vim/types";
+import { VimBuffer, CommandContext, VIM_OPTION_DEFAULTS } from "../src/utils/vim/types";
 import { createBuffer } from "../src/utils/vim/models/VimBuffer";
 import * as FileOperations from "../src/utils/vim/operations/FileOperations";
 import * as BufferOperations from "../src/utils/vim/operations/BufferOperations";
@@ -34,7 +34,8 @@ describe("ExCommandHandler", () => {
       getCurrentBuffer: jest.fn(),
       setCurrentBuffer: jest.fn(),
       workingDir: "/test",
-      resolvePath: (filePath: string) => filePath.startsWith('/') ? filePath : `/test/${filePath}`
+      resolvePath: (filePath: string) => filePath.startsWith('/') ? filePath : `/test/${filePath}`,
+      options: { ...VIM_OPTION_DEFAULTS },
     } as any;
 
     // Create test buffer using the actual createBuffer function

@@ -1,7 +1,8 @@
 // src/commands/ExCommandHandler.ts
 import * as fs from "fs";
 import * as path from "path";
-import type { VimBuffer, CommandContext } from "../types";
+import type { VimBuffer, CommandContext, VimOptions } from "../types";
+import { VIM_OPTION_ALIASES, VIM_BOOLEAN_OPTIONS, VIM_OPTION_DEFAULTS } from "../types";
 import { parseRange } from "../utils/RangeParser";
 import {
   substituteWithPattern,
@@ -157,6 +158,8 @@ const HELP_TOPICS: Record<string, string> = {
 
   "!": ":[range]! {cmd}\n  Filter [range] lines through external shell {cmd}.\n  Without a range, just runs {cmd}.\n\n  Examples:\n    :%!sort           Sort entire file\n    :!ls              List directory contents",
 
+  "set": ":se[t] [{option}[={value}] ...]\n  Show or change editor options.\n\n  Boolean options:\n    :set expandtab      Enable option\n    :set noexpandtab    Disable option\n    :set invexpandtab   Toggle option\n\n  Numeric options:\n    :set tabstop=4      Set value\n    :set tabstop?       Query current value\n    :set tabstop&       Reset to default\n\n  Multiple options at once:\n    :set expandtab tabstop=4 shiftwidth=4\n\n  Show all options:\n    :set                Show all current values\n    :set all            Show all current values\n\n  Available options (aliases):\n    expandtab (et)      Use spaces instead of tabs\n    tabstop (ts)        Number of spaces a tab counts for\n    shiftwidth (sw)     Number of spaces for indent\n    autoindent (ai)     Copy indent from current line\n    number (nu)         Show line numbers\n    relativenumber (rnu) Show relative line numbers\n    wrapscan (ws)       Searches wrap around end of file\n    ignorecase (ic)     Ignore case in search\n    smartcase (scs)     Override ignorecase if pattern has uppercase\n    hlsearch (hls)      Highlight search matches",
+
   "insert": "Insert Mode Commands (entered from normal mode):\n  i   Enter insert mode at cursor\n  a   Enter insert mode after cursor\n  A   Enter insert mode at end of line\n  I   Enter insert mode at beginning of line\n  o   Open new line below and enter insert mode\n  O   Open new line above and enter insert mode\n  <Esc>  Return to normal mode",
 
   "normal": "Normal Mode Commands:\n  h/j/k/l     Move left/down/up/right\n  gg          Go to first line\n  G           Go to last line\n  0           Go to start of line\n  $           Go to end of line\n  dd          Delete current line\n  [count]dd   Delete [count] lines\n  yy          Yank (copy) current line\n  p           Put (paste) after cursor\n  P           Put (paste) before cursor\n  x           Delete character under cursor\n  ma          Set mark a\n  'a          Jump to mark a\n  \"ayy        Yank line into register a\n  \"ap         Put from register a\n  u           Undo",
@@ -197,7 +200,8 @@ export class ExCommandHandler {
         "  :grep {pat}      Search in files          :pwd         Working directory",
         "  :cd {dir}        Change directory",
         "",
-        "Info:",
+        "Settings & Info:",
+        "  :set {opt}[=val] Set option               :set         Show all options",
         "  :reg             Show registers           :mark {a-z}  Set mark",
         "  :[range]print    Print lines              :[range]print # With numbers",
         "",
@@ -206,7 +210,7 @@ export class ExCommandHandler {
         "",
         "Type :help {topic} for detailed help.  Topics:",
         "  e w q wq s d y p print g v bn bp ls b r saveas find grep",
-        "  cd pwd reg mark norm ! insert normal range",
+        "  cd pwd reg mark norm ! set insert normal range",
       ].join("\n");
     }
 
@@ -226,6 +230,97 @@ export class ExCommandHandler {
     }
 
     return `No help found for "${topic}".\nAvailable topics: ${keys.join(", ")}`;
+  }
+
+  private resolveOptionName(name: string): keyof VimOptions | null {
+    if (name in VIM_OPTION_DEFAULTS) return name as keyof VimOptions;
+    if (name in VIM_OPTION_ALIASES) return VIM_OPTION_ALIASES[name];
+    return null;
+  }
+
+  private setCommand(args: string): string {
+    const opts = this.ctx.options;
+
+    if (!args || args === 'all') {
+      const lines: string[] = [];
+      for (const [key, value] of Object.entries(opts)) {
+        if (VIM_BOOLEAN_OPTIONS.has(key as keyof VimOptions)) {
+          lines.push(value ? `  ${key}` : `  no${key}`);
+        } else {
+          lines.push(`  ${key}=${value}`);
+        }
+      }
+      return lines.join('\n');
+    }
+
+    const tokens = args.split(/\s+/);
+    const results: string[] = [];
+
+    for (const token of tokens) {
+      const queryMatch = token.match(/^(\w+)\?$/);
+      if (queryMatch) {
+        const key = this.resolveOptionName(queryMatch[1]);
+        if (!key) throw new Error(`Unknown option: ${queryMatch[1]}`);
+        const val = opts[key];
+        if (VIM_BOOLEAN_OPTIONS.has(key)) {
+          results.push(val ? `  ${key}` : `  no${key}`);
+        } else {
+          results.push(`  ${key}=${val}`);
+        }
+        continue;
+      }
+
+      const resetMatch = token.match(/^(\w+)&$/);
+      if (resetMatch) {
+        const key = this.resolveOptionName(resetMatch[1]);
+        if (!key) throw new Error(`Unknown option: ${resetMatch[1]}`);
+        (opts as any)[key] = VIM_OPTION_DEFAULTS[key];
+        continue;
+      }
+
+      const assignMatch = token.match(/^(\w+)[:=](\S+)$/);
+      if (assignMatch) {
+        const key = this.resolveOptionName(assignMatch[1]);
+        if (!key) throw new Error(`Unknown option: ${assignMatch[1]}`);
+        if (VIM_BOOLEAN_OPTIONS.has(key)) {
+          throw new Error(`Invalid argument: ${token} (use :set ${key} or :set no${key})`);
+        }
+        const num = parseInt(assignMatch[2], 10);
+        if (isNaN(num)) throw new Error(`Number required after =: ${token}`);
+        (opts as any)[key] = num;
+        continue;
+      }
+
+      if (token.startsWith('no')) {
+        const key = this.resolveOptionName(token.slice(2));
+        if (key && VIM_BOOLEAN_OPTIONS.has(key)) {
+          (opts as any)[key] = false;
+          continue;
+        }
+      }
+
+      if (token.startsWith('inv')) {
+        const key = this.resolveOptionName(token.slice(3));
+        if (key && VIM_BOOLEAN_OPTIONS.has(key)) {
+          (opts as any)[key] = !opts[key];
+          continue;
+        }
+      }
+
+      const key = this.resolveOptionName(token);
+      if (key) {
+        if (VIM_BOOLEAN_OPTIONS.has(key)) {
+          (opts as any)[key] = true;
+        } else {
+          results.push(`  ${key}=${opts[key]}`);
+        }
+        continue;
+      }
+
+      throw new Error(`Unknown option: ${token}`);
+    }
+
+    return results.join('\n');
   }
 
   private printLines(
@@ -737,6 +832,10 @@ export class ExCommandHandler {
 
       case "!":
         return await externalCommand(range, args, buffer);
+
+      case "se":
+      case "set":
+        return this.setCommand(args?.trim() || '');
 
       case "h":
       case "he":

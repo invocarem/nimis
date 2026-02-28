@@ -282,15 +282,25 @@ export class VimStateMachine {
 
     // Handle Tab
     if (key === '\t') {
+      const opts = this.ctx.options;
+      let insertion: string;
+      if (opts.expandtab) {
+        const width = opts.shiftwidth || opts.tabstop;
+        const col = this.state.cursorPosition.column;
+        const spaces = width - (col % width);
+        insertion = ' '.repeat(spaces);
+      } else {
+        insertion = '\t';
+      }
       const line = buffer.content[this.state.cursorPosition.line];
       buffer.content[this.state.cursorPosition.line] =
         line.substring(0, this.state.cursorPosition.column) +
-        '  ' + // Insert 2 spaces for tab
+        insertion +
         line.substring(this.state.cursorPosition.column);
 
-      this.state.cursorPosition.column += 2;
+      this.state.cursorPosition.column += insertion.length;
       buffer.modified = true;
-      return { output: '  ', stateChanged: false };
+      return { output: insertion, stateChanged: false };
     }
 
     // Insert regular character

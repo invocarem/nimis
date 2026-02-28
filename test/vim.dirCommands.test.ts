@@ -1,6 +1,6 @@
 // test/vim.dirCommands.test.ts
 import { ExCommandHandler } from "../src/utils/vim/commands/ExCommandHandler";
-import { VimBuffer, CommandContext } from "../src/utils/vim/types";
+import { VimBuffer, CommandContext, VIM_OPTION_DEFAULTS } from "../src/utils/vim/types";
 import { createBuffer } from "../src/utils/vim/models/VimBuffer";
 import * as path from "path";
 
@@ -70,7 +70,8 @@ describe("Vim Directory Commands", () => {
         if (filePath === '..') return path.dirname(workingDirValue);
         if (filePath === 'src') return path.join(workingDirValue, 'src');
         return path.join(workingDirValue, filePath);
-      })
+      }),
+      options: { ...VIM_OPTION_DEFAULTS },
     };
 
     // Create test buffer
