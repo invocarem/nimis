@@ -14,6 +14,8 @@ import { XmlProcessor } from "./xmlProcessor";
 import { MCPManager } from "../mcpManager";
 import type { Rule } from "../rulesManager";
 import type { RulesManager } from "../rulesManager";
+import { VIM_VIEW_INSTRUCTIONS } from "./vimViewInstructions";
+import { VIM_TOOL_ESSENTIALS } from "./vimToolEssentials";
 
 export class NimisManager {
   static toolCallHelp(
@@ -22,7 +24,7 @@ export class NimisManager {
     mcpManager?: MCPManager
   ): string {
     return (
-      "### How to use **tool_call**\n\n" +
+/*      "### How to use **tool_call**\n\n" +
       '**EXACT TAGS REQUIRED** — Use only `<tool_call name="TOOL_NAME">` and `</tool_call>`. Other tags are invalid and will not be executed:\n' +
       "❌ `</message_edit>` — wrong (tool will be ignored)\n" +
       "❌ `<|constrain|>tool_call <|constrain|>json<|message|>` — wrong (harnmony tool call will be ignored)\n" +
@@ -81,7 +83,7 @@ export class NimisManager {
       "- One command per line inside CDATA for vim\n" +
       "- Simple string arguments (file_path) use plain child elements, not CDATA\n" +
       "- Content inside CDATA is preserved exactly — no escaping needed\n\n" +
-      NimisManager.buildToolDocs(nativeToolManager, vimToolManager, mcpManager)
+*/      NimisManager.buildToolDocs(nativeToolManager, vimToolManager, mcpManager)
     );
   }
 
@@ -199,6 +201,10 @@ export class NimisManager {
         "You execute vim tool call in XML format, one step a time, means one call and wait for the result before providing the second tool call.\n" +
         "When code was modified, you must read it back to make sure the change is correct. \n\n" +
         'When the user affirms a proposed action (e.g., "yes", "please", "go ahead", "apply it"), you MUST use the appropriate tool to perform it. Do NOT claim the action is done without executing a tool and receiving the tool result. \n\n' +
+        VIM_VIEW_INSTRUCTIONS +
+        "\n\n" +
+        VIM_TOOL_ESSENTIALS +
+        "\n\n" +
         NimisManager.toolCallHelp(
           nativeToolManager,
           vimToolManager,
