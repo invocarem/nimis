@@ -363,7 +363,7 @@ describe("NativeToolsManager - exec_terminal", () => {
             });
 
             expect(result.isError).toBeTruthy();
-            expect(result.content[0].text).toContain("Error executing command");
+            expect(result.content[0].text).toContain("Execution failed");
         });
 
         it("should handle commands with non-zero exit codes", async () => {

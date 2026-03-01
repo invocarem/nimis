@@ -361,6 +361,11 @@ private async vimEdit(
       if (match) {
         expandedCommands.push(":" + match[1]);
         expandedCommands.push(match[2]);
+      } else if (
+        !trimmed.startsWith(':') &&
+        /^(\d+\s*[,;]\s*(\d+|\$|\.)\s*|%\s*)[a-z!]/i.test(trimmed)
+      ) {
+        expandedCommands.push(':' + trimmed);
       } else {
         expandedCommands.push(c);
       }

@@ -51,6 +51,7 @@ export interface Range {
 export interface VimOptions {
   expandtab: boolean;
   tabstop: number;
+  softtabstop: number;
   shiftwidth: number;
   autoindent: boolean;
   number: boolean;
@@ -64,6 +65,7 @@ export interface VimOptions {
 export const VIM_OPTION_DEFAULTS: Readonly<VimOptions> = {
   expandtab: true,
   tabstop: 8,
+  softtabstop: 0,
   shiftwidth: 8,
   autoindent: false,
   number: false,
@@ -77,6 +79,7 @@ export const VIM_OPTION_DEFAULTS: Readonly<VimOptions> = {
 export const VIM_OPTION_ALIASES: Record<string, keyof VimOptions> = {
   et: 'expandtab',
   ts: 'tabstop',
+  sts: 'softtabstop',
   sw: 'shiftwidth',
   ai: 'autoindent',
   nu: 'number',

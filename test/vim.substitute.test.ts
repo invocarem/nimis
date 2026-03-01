@@ -349,9 +349,8 @@ def main():
       const result = await manager.callTool("vim", {
         file_path: testFile,
         commands: [
-          // Escape () in pattern so they match literally (Vim-style: \( \) in pattern)
-          ':%s/def greet\\(\\):/def greet(name="World"):/',
-          ':%s/print\\("Hello, World!"\\)/print(f"Hello, {name}")/',
+          ':%s/def greet[(][)]:/def greet(name="World"):/',
+          ':%s/print[(]"Hello, World!"[)]/print(f"Hello, {name}")/',
           ":w",
         ],
       });
@@ -487,6 +486,76 @@ def main():
 
       const updatedContent = await readFile(testFile, "utf-8");
       expect(updatedContent).toBe("TODO: implement function (urgent)\n");
+    });
+  });
+
+  describe("Vim regex pattern conversion", () => {
+    it("should handle \\( \\) as capture groups with backreference", async () => {
+      const content = "foo bar\nhello world\nbaz qux\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [
+          ':%s/^\\(.*\\)/    \\1/',
+          ":w",
+        ],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("    foo bar\n    hello world\n    baz qux\n");
+    });
+
+    it("should handle range substitute with \\( \\) capture groups", async () => {
+      const content = "line1\nline2\nline3\nline4\nline5\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [
+          ':2,4s/^\\(.*\\)/  \\1/',
+          ":w",
+        ],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("line1\n  line2\n  line3\n  line4\nline5\n");
+    });
+
+    it("should handle range substitute without : prefix", async () => {
+      const content = "aaa\nbbb\nccc\nddd\neee\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [
+          "2,4s/^/  /",
+          ":w",
+        ],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("aaa\n  bbb\n  ccc\n  ddd\neee\n");
+    });
+
+    it("should handle %print without : prefix", async () => {
+      const content = "hello\nworld\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["%print"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("hello");
+      expect(result.content[0].text).toContain("world");
     });
   });
 });

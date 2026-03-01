@@ -295,6 +295,51 @@ describe("VimStateMachine", () => {
       expect(stateMachine.getState().cursorPosition.column).toBe(5);
     });
 
+    it("should use softtabstop for Tab width when expandtab is on", async () => {
+      mockContext.options.softtabstop = 2;
+      mockContext.options.tabstop = 8;
+      mockContext.options.shiftwidth = 4;
+      stateMachine.getState().cursorPosition.column = 1;
+
+      await stateMachine.processKey('\t');
+
+      expect(mockBuffer.content[0]).toBe("l ine one");
+      expect(stateMachine.getState().cursorPosition.column).toBe(2);
+    });
+
+    it("should insert spaces with softtabstop when noexpandtab", async () => {
+      mockContext.options.expandtab = false;
+      mockContext.options.softtabstop = 4;
+      stateMachine.getState().cursorPosition.column = 1;
+
+      await stateMachine.processKey('\t');
+
+      expect(mockBuffer.content[0]).toBe("l   ine one");
+      expect(stateMachine.getState().cursorPosition.column).toBe(4);
+    });
+
+    it("should delete back to softtabstop boundary on Backspace in leading whitespace", async () => {
+      mockContext.options.softtabstop = 4;
+      mockBuffer.content[0] = "      text";
+      stateMachine.getState().cursorPosition.column = 6;
+
+      await stateMachine.processKey('\b');
+
+      expect(mockBuffer.content[0]).toBe("    text");
+      expect(stateMachine.getState().cursorPosition.column).toBe(4);
+    });
+
+    it("should delete single char on Backspace in non-whitespace with softtabstop", async () => {
+      mockContext.options.softtabstop = 4;
+      mockBuffer.content[0] = "    hello";
+      stateMachine.getState().cursorPosition.column = 7;
+
+      await stateMachine.processKey('\b');
+
+      expect(mockBuffer.content[0]).toBe("    helo");
+      expect(stateMachine.getState().cursorPosition.column).toBe(6);
+    });
+
     it("should return to normal mode on Escape", async () => {
       const result = await stateMachine.processKey('\x1b');
       

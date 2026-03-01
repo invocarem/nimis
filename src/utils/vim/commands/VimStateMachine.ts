@@ -258,12 +258,22 @@ export class VimStateMachine {
     // Handle Backspace
     if (key === '\b' || key === '\x7f') {
       if (this.state.cursorPosition.column > 0) {
-        // Delete character before cursor
         const line = buffer.content[this.state.cursorPosition.line];
-        buffer.content[this.state.cursorPosition.line] =
-          line.substring(0, this.state.cursorPosition.column - 1) +
-          line.substring(this.state.cursorPosition.column);
-        this.state.cursorPosition.column--;
+        const col = this.state.cursorPosition.column;
+        const opts = this.ctx.options;
+        const stsWidth = opts.softtabstop > 0 ? opts.softtabstop : 0;
+
+        if (stsWidth > 0 && line.substring(0, col).trimStart().length === 0) {
+          const prevStop = col - ((col % stsWidth) || stsWidth);
+          const deleteCount = col - Math.max(prevStop, 0);
+          buffer.content[this.state.cursorPosition.line] =
+            line.substring(0, col - deleteCount) + line.substring(col);
+          this.state.cursorPosition.column -= deleteCount;
+        } else {
+          buffer.content[this.state.cursorPosition.line] =
+            line.substring(0, col - 1) + line.substring(col);
+          this.state.cursorPosition.column--;
+        }
         buffer.modified = true;
       } else if (this.state.cursorPosition.line > 0) {
         // Join with previous line
@@ -285,12 +295,18 @@ export class VimStateMachine {
       const opts = this.ctx.options;
       let insertion: string;
       if (opts.expandtab) {
-        const width = opts.shiftwidth || opts.tabstop;
+        const width = opts.softtabstop > 0 ? opts.softtabstop : (opts.shiftwidth || opts.tabstop);
         const col = this.state.cursorPosition.column;
         const spaces = width - (col % width);
         insertion = ' '.repeat(spaces);
       } else {
-        insertion = '\t';
+        if (opts.softtabstop > 0) {
+          const col = this.state.cursorPosition.column;
+          const spaces = opts.softtabstop - (col % opts.softtabstop);
+          insertion = ' '.repeat(spaces);
+        } else {
+          insertion = '\t';
+        }
       }
       const line = buffer.content[this.state.cursorPosition.line];
       buffer.content[this.state.cursorPosition.line] =

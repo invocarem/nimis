@@ -120,9 +120,9 @@ describe("NativeToolsManager - editFile", () => {
       const originalContent = "line 1\r\nline 2\r\nline 3\r\n";
       await writeFile(testFile, originalContent, "utf-8");
 
-      // Edit with LF in old_text and new_text
-      const oldText = "line 1\nline 2";
-      const newText = "line 1\nline 2 (edited)";
+      // Edit with LF in old_text and new_text (min 3 lines required)
+      const oldText = "line 1\nline 2\nline 3";
+      const newText = "line 1\nline 2 (edited)\nline 3";
 
       // Execute edit_file
       const result = await (manager as any).editFile(

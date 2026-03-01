@@ -2,6 +2,66 @@ import type { VimBuffer, Range } from "../types";
 import { shiftDeleteRegisters } from "../models/VimRegister";
 import { NormalCommandHandler } from "../commands/NormalCommandHandler";
 
+/**
+ * Convert a Vim "magic" mode regex pattern to a JavaScript RegExp pattern.
+ *
+ * In Vim's default (magic) mode the following atoms need a backslash to be
+ * special, whereas in JavaScript they are special WITHOUT a backslash:
+ *   \( \)  →  ( )   capture group
+ *   \+ \?  →  + ?   quantifiers
+ *   \|     →  |     alternation
+ *   \{ \}  →  { }   counted quantifier
+ *   \< \>  →  \b    word boundary
+ */
+export function vimPatternToJs(pattern: string): string {
+  let result = '';
+  let i = 0;
+  let inCharClass = false;
+
+  while (i < pattern.length) {
+    const ch = pattern[i];
+
+    if (inCharClass) {
+      if (ch === ']') inCharClass = false;
+      result += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '[') {
+      inCharClass = true;
+      result += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '\\' && i + 1 < pattern.length) {
+      const next = pattern[i + 1];
+      switch (next) {
+        case '(': result += '(';  i += 2; continue;
+        case ')': result += ')';  i += 2; continue;
+        case '+': result += '+';  i += 2; continue;
+        case '?': result += '?';  i += 2; continue;
+        case '=': result += '?';  i += 2; continue;
+        case '|': result += '|';  i += 2; continue;
+        case '{': result += '{';  i += 2; continue;
+        case '}': result += '}';  i += 2; continue;
+        case '<': result += '\\b'; i += 2; continue;
+        case '>': result += '\\b'; i += 2; continue;
+        default:
+          result += ch + next;
+          i += 2;
+          continue;
+      }
+    }
+
+    result += ch;
+    i++;
+  }
+
+  return result;
+}
+
 /** Convert Vim replacement escapes to JavaScript replace() format */
 function escapeReplacementForJs(replacement: string): string {
   // Normalize \1 as single character (SOH, from "\\1" in JS string) to $1 for backreference
@@ -11,7 +71,7 @@ function escapeReplacementForJs(replacement: string): string {
     .replace(/\\\./g, ".")        // \. -> . (literal .)
     .replace(/\\&/g, "$&")        // \& -> $& (whole match)
     .replace(/\\0/g, "$&")        // \0 -> $& (whole match)
-    .replace(/\\([1-9]\\d{0,1})(?![0-9])/g, (_, n) => "$" + n);  // \1-\99 -> $1-$99 (backreferences)
+    .replace(/\\([1-9]\d?)(?![0-9])/g, (_, n) => "$" + n);  // \1-\99 -> $1-$99 (backreferences)
 }
 
 export function substituteWithPattern(
@@ -25,12 +85,12 @@ export function substituteWithPattern(
     if (!pattern) {
       throw new Error("Empty pattern");
     }
-    // Use 'g' only when explicitly requested (Vim: s/foo/bar/ = first only, s/foo/bar/g = all)
+    const jsPattern = vimPatternToJs(pattern);
     let regexFlags = flags.includes("g") ? "g" : "";
     if (flags.includes("i")) {
       regexFlags += "i";
     }
-    const regex = new RegExp(pattern, regexFlags);
+    const regex = new RegExp(jsPattern, regexFlags);
     const jsReplacement = escapeReplacementForJs(replacement);
     let replaceCount = 0;
 
@@ -39,7 +99,7 @@ export function substituteWithPattern(
       const newLine = line.replace(regex, jsReplacement);
       if (newLine !== line) {
         buffer.content[i] = newLine;
-        const matches = line.match(new RegExp(pattern, flags.includes("g") ? (flags.includes("i") ? "gi" : "g") : (flags.includes("i") ? "i" : "")));
+        const matches = line.match(new RegExp(jsPattern, flags.includes("g") ? (flags.includes("i") ? "gi" : "g") : (flags.includes("i") ? "i" : "")));
         replaceCount += flags.includes("g") ? (matches ? matches.length : 0) : 1;
       }
     }
