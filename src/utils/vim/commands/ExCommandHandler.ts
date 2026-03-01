@@ -162,6 +162,8 @@ const HELP_TOPICS: Record<string, string> = {
 
   "!": ":[range]! {cmd}\n  Filter [range] lines through external shell {cmd}.\n  Without a range, just runs {cmd}.\n\n  Examples:\n    :%!sort           Sort entire file\n    :!ls              List directory contents",
 
+  "retab": ":[range]ret[ab][!] [new_tabstop]\n  Replace all sequences of white-space containing a <Tab> with new strings\n  using the current 'tabstop' (or [new_tabstop]) value.\n\n  With 'expandtab' on, tabs are replaced with spaces.\n  With 'expandtab' off, spaces are replaced with tabs where possible.\n  With [!], also replaces strings of only normal spaces.\n\n  If [new_tabstop] is given, the 'tabstop' option is set to that value.\n  Without a range, the entire file is retabbed.\n\n  Examples:\n    :retab              Retab entire file with current tabstop\n    :retab 4            Retab entire file, set tabstop to 4\n    :retab!             Retab, also convert space-only sequences\n    :10,20retab 2       Retab lines 10-20, set tabstop to 2",
+
   "set": ":se[t] [{option}[={value}] ...]\n  Show or change editor options.\n\n  Boolean options:\n    :set expandtab      Enable option\n    :set noexpandtab    Disable option\n    :set invexpandtab   Toggle option\n\n  Numeric options:\n    :set tabstop=4      Set value\n    :set tabstop?       Query current value\n    :set tabstop&       Reset to default\n\n  Multiple options at once:\n    :set expandtab tabstop=4 shiftwidth=4\n\n  Show all options:\n    :set                Show all current values\n    :set all            Show all current values\n\n  Available options (aliases):\n    expandtab (et)      Use spaces instead of tabs\n    tabstop (ts)        Number of spaces a tab counts for\n    softtabstop (sts)   Number of spaces for Tab/Backspace\n    shiftwidth (sw)     Number of spaces for indent\n    autoindent (ai)     Copy indent from current line\n    number (nu)         Show line numbers\n    relativenumber (rnu) Show relative line numbers\n    wrapscan (ws)       Searches wrap around end of file\n    ignorecase (ic)     Ignore case in search\n    smartcase (scs)     Override ignorecase if pattern has uppercase\n    hlsearch (hls)      Highlight search matches",
 
   "insert": "Insert Mode Commands (entered from normal mode):\n  i   Enter insert mode at cursor\n  a   Enter insert mode after cursor\n  A   Enter insert mode at end of line\n  I   Enter insert mode at beginning of line\n  o   Open new line below and enter insert mode\n  O   Open new line above and enter insert mode\n  <Esc>  Return to normal mode",
@@ -207,6 +209,7 @@ export class ExCommandHandler {
         "",
         "Settings & Info:",
         "  :set {opt}[=val] Set option               :set         Show all options",
+        "  :retab [N]       Retab with tabstop        :retab!      Also convert spaces",
         "  :reg             Show registers           :mark {a-z}  Set mark",
         "  :[range]print    Print lines              :[range]print # With numbers",
         "",
@@ -215,7 +218,7 @@ export class ExCommandHandler {
         "",
         "Type :help {topic} for detailed help.  Topics:",
         "  e w q wq s c d y p print g v bn bp ls b r saveas find grep",
-        "  cd pwd reg mark norm ! set insert normal range",
+        "  cd pwd reg mark norm ! set retab insert normal range",
       ].join("\n");
     }
 
@@ -892,6 +895,92 @@ export class ExCommandHandler {
 
       case "!":
         return await externalCommand(range, args, buffer);
+
+      case "retab":
+      case "ret":
+      case "retab!":
+      case "ret!": {
+        const bang = cmdName.endsWith("!");
+        const effectiveRange = range || {
+          start: 0,
+          end: buffer.content.length - 1,
+        };
+        const newTabstop = args?.trim()
+          ? parseInt(args.trim(), 10)
+          : undefined;
+        if (newTabstop !== undefined) {
+          if (isNaN(newTabstop) || newTabstop < 1)
+            throw new Error("Invalid argument for :retab");
+          (this.ctx.options as any).tabstop = newTabstop;
+        }
+        const ts = this.ctx.options.tabstop;
+        const useSpaces = this.ctx.options.expandtab;
+        let changed = 0;
+
+        for (
+          let i = effectiveRange.start;
+          i <= effectiveRange.end && i < buffer.content.length;
+          i++
+        ) {
+          const original = buffer.content[i];
+          let result = "";
+          let col = 0;
+
+          for (let j = 0; j < original.length; j++) {
+            const ch = original[j];
+            if (ch === "\t") {
+              const spacesToNext = ts - (col % ts);
+              if (useSpaces) {
+                result += " ".repeat(spacesToNext);
+              } else {
+                result += "\t";
+              }
+              col += spacesToNext;
+            } else if (ch === " " && bang && !useSpaces) {
+              let spaceCount = 1;
+              while (
+                j + spaceCount < original.length &&
+                original[j + spaceCount] === " "
+              ) {
+                spaceCount++;
+              }
+              const endCol = col + spaceCount;
+              const startTab = Math.ceil(col / ts) * ts;
+              let pos = col;
+              let replacement = "";
+              if (startTab <= endCol) {
+                replacement += " ".repeat(startTab - pos);
+                pos = startTab;
+                while (pos + ts <= endCol) {
+                  replacement += "\t";
+                  pos += ts;
+                }
+                replacement += " ".repeat(endCol - pos);
+              } else {
+                replacement += " ".repeat(spaceCount);
+              }
+              result += replacement;
+              col = endCol;
+              j += spaceCount - 1;
+            } else {
+              result += ch;
+              col++;
+            }
+          }
+
+          if (result !== original) {
+            buffer.content[i] = result;
+            changed++;
+          }
+        }
+
+        if (changed > 0) buffer.modified = true;
+        const lineCount =
+          effectiveRange.end - effectiveRange.start + 1;
+        return changed > 0
+          ? `${changed} line${changed !== 1 ? "s" : ""} changed`
+          : `${lineCount} line${lineCount !== 1 ? "s" : ""} unchanged`;
+      }
 
       case "se":
       case "set":
