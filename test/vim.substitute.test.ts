@@ -558,4 +558,45 @@ def main():
       expect(result.content[0].text).toContain("world");
     });
   });
+
+  describe("Two-pattern range substitution", () => {
+    it("should re-indent a function body using /start/,/end/s with Vim \\| alternation", async () => {
+      const content = [
+        "def add(a, b):",
+        "    return a + b",
+        "",
+        "def divide(a, b):",
+        '  """Return the quotient of a and b. Raises ValueError if b is zero."""',
+        "  if b == 0:",
+        '    raise ValueError("Cannot divide by zero")',
+        "  return a / b",
+        "",
+        'if __name__ == "__main__":',
+        "    print(add(1, 2))",
+        "",
+      ].join("\n");
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [
+          ":/^def divide/,/^def \\|^if __/s/^  /    /g",
+          ":w",
+        ],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toContain('    """Return the quotient');
+      expect(updatedContent).toContain("    if b == 0:");
+      expect(updatedContent).toContain(
+        '      raise ValueError("Cannot divide by zero")'
+      );
+      expect(updatedContent).toContain("    return a / b");
+      // Lines outside the range should be unchanged
+      expect(updatedContent).toContain("def add(a, b):");
+      expect(updatedContent).toContain("    return a + b");
+    });
+  });
 });

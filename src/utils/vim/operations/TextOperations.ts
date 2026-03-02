@@ -381,7 +381,7 @@ export async function globalCommand(
 
   const [_, pattern, command] = match;
   try {
-    const regex = new RegExp(pattern);
+    const regex = new RegExp(vimPatternToJs(pattern));
 
     // Find matching lines
     const matchingLines: number[] = [];

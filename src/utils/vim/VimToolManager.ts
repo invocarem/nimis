@@ -492,6 +492,8 @@ private async vimEdit(
     modified: boolean;
     commandBuffer: string;
     totalLines: number;
+    list: boolean;
+    tabstop: number;
   } | null {
     if (!this.currentBuffer) {
       return null;
@@ -507,6 +509,8 @@ private async vimEdit(
       modified: buf.modified,
       commandBuffer: state.mode === "command-line" ? state.commandBuffer : "",
       totalLines: buf.content.length,
+      list: this.options.list,
+      tabstop: this.options.tabstop,
     };
   }
 

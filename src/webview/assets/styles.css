@@ -523,6 +523,18 @@ button:disabled {
   color: var(--vscode-editorLineNumber-foreground);
 }
 
+.vim-list-tab {
+  color: var(--vscode-editorWhitespace-foreground, #3b3b3b);
+}
+
+.vim-list-trail {
+  color: var(--vscode-editorWhitespace-foreground, #3b3b3b);
+}
+
+.vim-list-eol {
+  color: var(--vscode-editorWhitespace-foreground, #3b3b3b);
+}
+
 .vim-statusbar {
   display: flex;
   align-items: center;

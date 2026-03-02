@@ -60,6 +60,7 @@ export interface VimOptions {
   ignorecase: boolean;
   smartcase: boolean;
   hlsearch: boolean;
+  list: boolean;
 }
 
 export const VIM_OPTION_DEFAULTS: Readonly<VimOptions> = {
@@ -74,6 +75,7 @@ export const VIM_OPTION_DEFAULTS: Readonly<VimOptions> = {
   ignorecase: false,
   smartcase: false,
   hlsearch: false,
+  list: false,
 };
 
 export const VIM_OPTION_ALIASES: Record<string, keyof VimOptions> = {
@@ -88,11 +90,12 @@ export const VIM_OPTION_ALIASES: Record<string, keyof VimOptions> = {
   ic: 'ignorecase',
   scs: 'smartcase',
   hls: 'hlsearch',
+  li: 'list',
 };
 
 export const VIM_BOOLEAN_OPTIONS = new Set<keyof VimOptions>([
   'expandtab', 'autoindent', 'number', 'relativenumber',
-  'wrapscan', 'ignorecase', 'smartcase', 'hlsearch',
+  'wrapscan', 'ignorecase', 'smartcase', 'hlsearch', 'list',
 ]);
 
 /**

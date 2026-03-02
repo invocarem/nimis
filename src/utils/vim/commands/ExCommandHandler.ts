@@ -13,6 +13,7 @@ import {
   globalCommand,
   normalExCommand,
   setMark,
+  vimPatternToJs,
 } from "../operations/TextOperations";
 import {
   editFile,
@@ -162,9 +163,11 @@ const HELP_TOPICS: Record<string, string> = {
 
   "!": ":[range]! {cmd}\n  Filter [range] lines through external shell {cmd}.\n  Without a range, just runs {cmd}.\n\n  Examples:\n    :%!sort           Sort entire file\n    :!ls              List directory contents",
 
-  "retab": ":[range]ret[ab][!] [new_tabstop]\n  Replace all sequences of white-space containing a <Tab> with new strings\n  using the current 'tabstop' (or [new_tabstop]) value.\n\n  With 'expandtab' on, tabs are replaced with spaces.\n  With 'expandtab' off, spaces are replaced with tabs where possible.\n  With [!], also replaces strings of only normal spaces.\n\n  If [new_tabstop] is given, the 'tabstop' option is set to that value.\n  Without a range, the entire file is retabbed.\n\n  Examples:\n    :retab              Retab entire file with current tabstop\n    :retab 4            Retab entire file, set tabstop to 4\n    :retab!             Retab, also convert space-only sequences\n    :10,20retab 2       Retab lines 10-20, set tabstop to 2",
+  "retab": ":[range]ret[ab][!] [new_tabstop]\n  Replace whitespace using the current or new tabstop value.\n\n  Without [new_tabstop]:\n    With 'expandtab' on: converts tabs to spaces.\n    With 'expandtab' off: keeps tabs. With [!]: converts spaces to tabs.\n\n  With [new_tabstop]:\n    Re-indents the file: interprets leading whitespace using the OLD\n    tabstop, then rebuilds it using [new_tabstop]. This changes\n    indentation width (e.g. 2-space → 4-space).\n    Set 'tabstop' to match current indentation first for best results.\n\n  Without a range, the entire file is retabbed.\n\n  Examples:\n    :retab              Convert tabs to spaces (expandtab on)\n    :set tabstop=2\n    :retab 4            Re-indent from 2-space to 4-space\n    :retab!             Convert space sequences to tabs (noexpandtab)\n    :10,20retab 2       Re-indent lines 10-20",
 
   "set": ":se[t] [{option}[={value}] ...]\n  Show or change editor options.\n\n  Boolean options:\n    :set expandtab      Enable option\n    :set noexpandtab    Disable option\n    :set invexpandtab   Toggle option\n\n  Numeric options:\n    :set tabstop=4      Set value\n    :set tabstop?       Query current value\n    :set tabstop&       Reset to default\n\n  Multiple options at once:\n    :set expandtab tabstop=4 shiftwidth=4\n\n  Show all options:\n    :set                Show all current values\n    :set all            Show all current values\n\n  Available options (aliases):\n    expandtab (et)      Use spaces instead of tabs\n    tabstop (ts)        Number of spaces a tab counts for\n    softtabstop (sts)   Number of spaces for Tab/Backspace\n    shiftwidth (sw)     Number of spaces for indent\n    autoindent (ai)     Copy indent from current line\n    number (nu)         Show line numbers\n    relativenumber (rnu) Show relative line numbers\n    wrapscan (ws)       Searches wrap around end of file\n    ignorecase (ic)     Ignore case in search\n    smartcase (scs)     Override ignorecase if pattern has uppercase\n    hlsearch (hls)      Highlight search matches",
+
+  "setlocal": ":setl[ocal] [{option}[={value}] ...]\n  Same as :set. Set options for the current buffer.\n  In Nimis, options are shared across buffers, so :setlocal behaves like :set.",
 
   "insert": "Insert Mode Commands (entered from normal mode):\n  i   Enter insert mode at cursor\n  a   Enter insert mode after cursor\n  A   Enter insert mode at end of line\n  I   Enter insert mode at beginning of line\n  o   Open new line below and enter insert mode\n  O   Open new line above and enter insert mode\n  <Esc>  Return to normal mode",
 
@@ -178,6 +181,35 @@ export class ExCommandHandler {
     private ctx: CommandContext,
     private onWorkingDirChange?: (dir: string) => void
   ) {}
+
+  /** Find the GCD of all non-zero indentation widths in the range. */
+  static detectIndentUnit(
+    content: string[],
+    range: { start: number; end: number },
+    tabstop: number
+  ): number {
+    const widths: number[] = [];
+    for (let i = range.start; i <= range.end && i < content.length; i++) {
+      const line = content[i];
+      if (line.trim() === "") continue;
+      let col = 0;
+      for (const ch of line) {
+        if (ch === " ") col++;
+        else if (ch === "\t") col += tabstop - (col % tabstop);
+        else break;
+      }
+      if (col > 0) widths.push(col);
+    }
+    if (widths.length === 0) return tabstop;
+    let g = widths[0];
+    for (let i = 1; i < widths.length; i++) {
+      let a = g, b = widths[i];
+      while (b) { [a, b] = [b, a % b]; }
+      g = a;
+      if (g === 1) return 1;
+    }
+    return g;
+  }
 
   private helpCommand(topic?: string): string {
     if (!topic) {
@@ -218,7 +250,7 @@ export class ExCommandHandler {
         "",
         "Type :help {topic} for detailed help.  Topics:",
         "  e w q wq s c d y p print g v bn bp ls b r saveas find grep",
-        "  cd pwd reg mark norm ! set retab insert normal range",
+        "  cd pwd reg mark norm ! set setlocal retab insert normal range",
       ].join("\n");
     }
 
@@ -457,8 +489,8 @@ export class ExCommandHandler {
     if (twoPatternMatch) {
       const [_, pat1Str, pat2Str, restOfCmd] = twoPatternMatch;
       try {
-        const regex1 = new RegExp(pat1Str.slice(1, -1));
-        const regex2 = new RegExp(pat2Str.slice(1, -1));
+        const regex1 = new RegExp(vimPatternToJs(pat1Str.slice(1, -1)));
+        const regex2 = new RegExp(vimPatternToJs(pat2Str.slice(1, -1)));
 
         let startLine = -1;
         for (let i = buffer.currentLine; i < buffer.content.length; i++) {
@@ -478,7 +510,7 @@ export class ExCommandHandler {
         if (startLine === -1) throw new Error(`Pattern not found: ${pat1Str}`);
 
         let endLine = -1;
-        for (let i = startLine; i < buffer.content.length; i++) {
+        for (let i = startLine + 1; i < buffer.content.length; i++) {
           if (regex2.test(buffer.content[i])) {
             endLine = i;
             break;
@@ -911,66 +943,138 @@ export class ExCommandHandler {
         if (newTabstop !== undefined) {
           if (isNaN(newTabstop) || newTabstop < 1)
             throw new Error("Invalid argument for :retab");
+        }
+
+        const currentTs = this.ctx.options.tabstop;
+        const newTs = newTabstop ?? currentTs;
+        const useSpaces = this.ctx.options.expandtab;
+        const reindent = newTabstop !== undefined && newTabstop !== currentTs;
+
+        if (newTabstop !== undefined) {
           (this.ctx.options as any).tabstop = newTabstop;
         }
-        const ts = this.ctx.options.tabstop;
-        const useSpaces = this.ctx.options.expandtab;
+
         let changed = 0;
 
-        for (
-          let i = effectiveRange.start;
-          i <= effectiveRange.end && i < buffer.content.length;
-          i++
-        ) {
-          const original = buffer.content[i];
-          let result = "";
-          let col = 0;
+        if (reindent) {
+          // Auto-detect the file's indentation unit so :retab N just works
+          const detectedUnit = ExCommandHandler.detectIndentUnit(
+            buffer.content,
+            effectiveRange,
+            currentTs
+          );
 
-          for (let j = 0; j < original.length; j++) {
-            const ch = original[j];
-            if (ch === "\t") {
-              const spacesToNext = ts - (col % ts);
-              if (useSpaces) {
-                result += " ".repeat(spacesToNext);
+          for (
+            let i = effectiveRange.start;
+            i <= effectiveRange.end && i < buffer.content.length;
+            i++
+          ) {
+            const original = buffer.content[i];
+
+            let leadingCols = 0;
+            let j = 0;
+            while (
+              j < original.length &&
+              (original[j] === " " || original[j] === "\t")
+            ) {
+              if (original[j] === "\t") {
+                leadingCols += currentTs - (leadingCols % currentTs);
               } else {
-                result += "\t";
+                leadingCols++;
               }
-              col += spacesToNext;
-            } else if (ch === " " && bang && !useSpaces) {
-              let spaceCount = 1;
-              while (
-                j + spaceCount < original.length &&
-                original[j + spaceCount] === " "
-              ) {
-                spaceCount++;
-              }
-              const endCol = col + spaceCount;
-              const startTab = Math.ceil(col / ts) * ts;
-              let pos = col;
-              let replacement = "";
-              if (startTab <= endCol) {
-                replacement += " ".repeat(startTab - pos);
-                pos = startTab;
-                while (pos + ts <= endCol) {
-                  replacement += "\t";
-                  pos += ts;
-                }
-                replacement += " ".repeat(endCol - pos);
-              } else {
-                replacement += " ".repeat(spaceCount);
-              }
-              result += replacement;
-              col = endCol;
-              j += spaceCount - 1;
+              j++;
+            }
+
+            const indentLevels = Math.floor(leadingCols / detectedUnit);
+            const remainder = leadingCols % detectedUnit;
+
+            let newLeading: string;
+            if (useSpaces) {
+              newLeading = " ".repeat(indentLevels * newTs + remainder);
             } else {
-              result += ch;
-              col++;
+              newLeading =
+                "\t".repeat(indentLevels) + " ".repeat(remainder);
+            }
+
+            let rest = "";
+            let col = indentLevels * newTs + remainder;
+            for (let k = j; k < original.length; k++) {
+              if (original[k] === "\t") {
+                const spacesToNext = newTs - (col % newTs);
+                if (useSpaces) {
+                  rest += " ".repeat(spacesToNext);
+                } else {
+                  rest += "\t";
+                }
+                col += spacesToNext;
+              } else {
+                rest += original[k];
+                col++;
+              }
+            }
+
+            const result = newLeading + rest;
+            if (result !== original) {
+              buffer.content[i] = result;
+              changed++;
             }
           }
+        } else {
+          for (
+            let i = effectiveRange.start;
+            i <= effectiveRange.end && i < buffer.content.length;
+            i++
+          ) {
+            const original = buffer.content[i];
+            let result = "";
+            let col = 0;
 
-          if (result !== original) {
-            buffer.content[i] = result;
-            changed++;
+            for (let j = 0; j < original.length; j++) {
+              const ch = original[j];
+              if (ch === "\t") {
+                const spacesToNext = newTs - (col % newTs);
+                if (useSpaces) {
+                  result += " ".repeat(spacesToNext);
+                } else {
+                  result += "\t";
+                }
+                col += spacesToNext;
+              } else if (ch === " " && bang && !useSpaces) {
+                let spaceCount = 1;
+                while (
+                  j + spaceCount < original.length &&
+                  original[j + spaceCount] === " "
+                ) {
+                  spaceCount++;
+                }
+                const endCol = col + spaceCount;
+                const startTab = Math.ceil(col / newTs) * newTs;
+                let pos = col;
+                let replacement = "";
+                if (startTab <= endCol) {
+                  replacement += " ".repeat(startTab - pos);
+                  pos = startTab;
+                  while (pos + newTs <= endCol) {
+                    replacement += "\t";
+                    pos += newTs;
+                  }
+                  replacement += " ".repeat(endCol - pos);
+                } else {
+                  replacement += " ".repeat(spaceCount);
+                }
+                result += replacement;
+                col = endCol;
+                j += spaceCount - 1;
+              } else {
+                result += ch;
+                col++;
+              }
+            }
+
+            if (result !== original) {
+              buffer.content[i] = result;
+              changed++;
+            }
           }
         }
 
@@ -984,6 +1088,8 @@ export class ExCommandHandler {
 
       case "se":
       case "set":
+      case "setlocal":
+      case "setl":
         return this.setCommand(args?.trim() || '');
 
       case "h":
@@ -992,8 +1098,21 @@ export class ExCommandHandler {
       case "help":
         return this.helpCommand(args?.trim() || undefined);
 
-      default:
+      default: {
+        // Map common normal-mode commands to Ex equivalents when used after a range/address
+        const normalToEx: Record<string, string> = { dd: "d", yy: "y" };
+        if (range && normalToEx[rest]) {
+          return this.execute(
+            `${range.start + 1},${range.end + 1}${normalToEx[rest]}`,
+            buffer
+          );
+        }
+        // Fall back to :normal for other unrecognized commands that follow a range
+        if (range && rest) {
+          return normalExCommand(range, rest, buffer);
+        }
         throw new Error(`Unsupported Ex command: ${cmdName}`);
+      }
     }
   }
 }

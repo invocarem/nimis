@@ -8,15 +8,19 @@ import * as TextOperations from "../src/utils/vim/operations/TextOperations";
 
 
 // Mock the TextOperations functions
-jest.mock("../src/utils/vim/operations/TextOperations", () => ({
-  substituteWithPattern: jest.fn().mockReturnValue("Substituted"),
-  globalCommand: jest.fn().mockResolvedValue("Executed global command"),
-  putLines: jest.fn().mockReturnValue("Put 1 line(s) from register"),
-  yankLines: jest.fn().mockReturnValue("Yanked lines"),
-  deleteLines: jest.fn().mockReturnValue("Deleted lines"),
-  normalExCommand: jest.fn().mockReturnValue("Executed normal command"),
-  setMark: jest.fn().mockReturnValue("Mark set")
-}));
+jest.mock("../src/utils/vim/operations/TextOperations", () => {
+  const actual = jest.requireActual("../src/utils/vim/operations/TextOperations");
+  return {
+    substituteWithPattern: jest.fn().mockReturnValue("Substituted"),
+    globalCommand: jest.fn().mockResolvedValue("Executed global command"),
+    putLines: jest.fn().mockReturnValue("Put 1 line(s) from register"),
+    yankLines: jest.fn().mockReturnValue("Yanked lines"),
+    deleteLines: jest.fn().mockReturnValue("Deleted lines"),
+    normalExCommand: jest.fn().mockReturnValue("Executed normal command"),
+    setMark: jest.fn().mockReturnValue("Mark set"),
+    vimPatternToJs: actual.vimPatternToJs,
+  };
+});
 
 
 describe("ExCommandHandler", () => {

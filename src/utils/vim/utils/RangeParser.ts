@@ -1,4 +1,5 @@
 import type { VimBuffer, Range } from "../types";
+import { vimPatternToJs } from "../operations/TextOperations";
 
 export function parseRange(rangeStr: string, buffer: VimBuffer): Range {
   if (rangeStr === '%') {
@@ -25,7 +26,7 @@ export function parseRange(rangeStr: string, buffer: VimBuffer): Range {
   if (rangeStr.startsWith('/') && rangeStr.endsWith('/')) {
     const pattern = rangeStr.slice(1, -1);
     try {
-      const regex = new RegExp(pattern);
+      const regex = new RegExp(vimPatternToJs(pattern));
       // Search from current line first (Vim: / finds next match, including current line)
       for (let i = buffer.currentLine; i < buffer.content.length; i++) {
         if (regex.test(buffer.content[i])) {

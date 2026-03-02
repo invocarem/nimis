@@ -104,6 +104,29 @@ var VimView = (function () {
     els.commandInput.value = "";
   }
 
+  function renderListLine(line, tabstop) {
+    var result = "";
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (ch === "\t") {
+        var col = result.replace(/<[^>]*>/g, "").length;
+        var width = tabstop - (col % tabstop);
+        var fill = width > 1 ? new Array(width).join("-") : "";
+        result += '<span class="vim-list-tab">&gt;' + fill + "</span>";
+      } else {
+        result += escapeHtml(ch);
+      }
+    }
+    var trailMatch = result.match(/((?:\xB7| )+)$/);
+    if (trailMatch) {
+      var plain = result.slice(0, result.length - trailMatch[1].length);
+      var dots = trailMatch[1].replace(/ /g, "\xB7");
+      result = plain + '<span class="vim-list-trail">' + dots + "</span>";
+    }
+    result += '<span class="vim-list-eol">$</span>';
+    return result;
+  }
+
   function renderBuffer(state) {
     var nameHtml = escapeHtml(state.fileName);
     if (state.modified) {
@@ -114,6 +137,8 @@ var VimView = (function () {
     var lines = state.lines;
     var totalLines = lines.length;
     var cursorLine = state.cursorLine;
+    var listMode = state.list || false;
+    var tabstop = state.tabstop || 8;
 
     // Keep cursor within the viewport window
     if (cursorLine < viewportTop) {
@@ -132,7 +157,9 @@ var VimView = (function () {
         var lineNum = String(lineIdx + 1).padStart(gutterWidth, " ");
         gutterLines.push(lineNum);
 
-        var lineText = escapeHtml(lines[lineIdx]) || " ";
+        var lineText = listMode
+          ? renderListLine(lines[lineIdx], tabstop)
+          : (escapeHtml(lines[lineIdx]) || " ");
         var cls = "vim-line";
         if (lineIdx === cursorLine) cls += " vim-cursor-line";
         contentLines.push('<span class="' + cls + '">' + lineText + "</span>");
