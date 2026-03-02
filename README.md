@@ -52,6 +52,7 @@ The Vim subsystem is not a gimmick — it's a full implementation that the AI us
 | `:reg` / `:marks` | Show registers / marks |
 | `:grep <pat> [path] [glob]` | Recursive grep |
 | `:pwd` / `:cd <dir>` | Working directory |
+| `:terminal [cmd]` / `:termal [cmd]` | Open VS Code terminal (optionally run command) |
 | `:!<cmd>` / `:[range]!<cmd>` | Shell command / filter through shell |
 
 ### Normal Mode

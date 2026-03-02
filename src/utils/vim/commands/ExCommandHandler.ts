@@ -1,6 +1,7 @@
 // src/commands/ExCommandHandler.ts
 import * as fs from "fs";
 import * as path from "path";
+import * as vscode from "vscode";
 import type { VimBuffer, CommandContext, VimOptions } from "../types";
 import { VIM_OPTION_ALIASES, VIM_BOOLEAN_OPTIONS, VIM_OPTION_DEFAULTS } from "../types";
 import { parseRange } from "../utils/RangeParser";
@@ -163,6 +164,10 @@ const HELP_TOPICS: Record<string, string> = {
 
   "!": ":[range]! {cmd}\n  Filter [range] lines through external shell {cmd}.\n  Without a range, just runs {cmd}.\n\n  Examples:\n    :%!sort           Sort entire file\n    :!ls              List directory contents",
 
+  "terminal": ":ter[minal] [cmd]\n  Open a VS Code terminal. With [cmd], runs the command in the new terminal.\n  Uses the current working directory.\n\n  Examples:\n    :terminal         Open new terminal\n    :terminal npm run dev   Run command in terminal",
+
+  "termal": "Alias for :terminal. Open a VS Code terminal.",
+
   "retab": ":[range]ret[ab][!] [new_tabstop]\n  Replace whitespace using the current or new tabstop value.\n\n  Without [new_tabstop]:\n    With 'expandtab' on: converts tabs to spaces.\n    With 'expandtab' off: keeps tabs. With [!]: converts spaces to tabs.\n\n  With [new_tabstop]:\n    Re-indents the file: interprets leading whitespace using the OLD\n    tabstop, then rebuilds it using [new_tabstop]. This changes\n    indentation width (e.g. 2-space → 4-space).\n    Set 'tabstop' to match current indentation first for best results.\n\n  Without a range, the entire file is retabbed.\n\n  Examples:\n    :retab              Convert tabs to spaces (expandtab on)\n    :set tabstop=2\n    :retab 4            Re-indent from 2-space to 4-space\n    :retab!             Convert space sequences to tabs (noexpandtab)\n    :10,20retab 2       Re-indent lines 10-20",
 
   "set": ":se[t] [{option}[={value}] ...]\n  Show or change editor options.\n\n  Boolean options:\n    :set expandtab      Enable option\n    :set noexpandtab    Disable option\n    :set invexpandtab   Toggle option\n\n  Numeric options:\n    :set tabstop=4      Set value\n    :set tabstop?       Query current value\n    :set tabstop&       Reset to default\n\n  Multiple options at once:\n    :set expandtab tabstop=4 shiftwidth=4\n\n  Show all options:\n    :set                Show all current values\n    :set all            Show all current values\n\n  Available options (aliases):\n    expandtab (et)      Use spaces instead of tabs\n    tabstop (ts)        Number of spaces a tab counts for\n    softtabstop (sts)   Number of spaces for Tab/Backspace\n    shiftwidth (sw)     Number of spaces for indent\n    autoindent (ai)     Copy indent from current line\n    number (nu)         Show line numbers\n    relativenumber (rnu) Show relative line numbers\n    wrapscan (ws)       Searches wrap around end of file\n    ignorecase (ic)     Ignore case in search\n    smartcase (scs)     Override ignorecase if pattern has uppercase\n    hlsearch (hls)      Highlight search matches",
@@ -250,7 +255,7 @@ export class ExCommandHandler {
         "",
         "Type :help {topic} for detailed help.  Topics:",
         "  e w q wq s c d y p print g v bn bp ls b r saveas find grep",
-        "  cd pwd reg mark norm ! set setlocal retab insert normal range",
+        "  cd pwd reg mark norm ! terminal termal set setlocal retab insert normal range",
       ].join("\n");
     }
 
@@ -927,6 +932,21 @@ export class ExCommandHandler {
 
       case "!":
         return await externalCommand(range, args, buffer);
+
+      case "terminal":
+      case "term":
+      case "termal": {
+        const cwd = this.ctx.workingDir || (buffer ? path.dirname(buffer.path) : undefined);
+        const term = vscode.window.createTerminal({
+          cwd: cwd || undefined,
+          name: "Vim :terminal",
+        });
+        term.show();
+        if (args && args.trim()) {
+          term.sendText(args.trim());
+        }
+        return `Opened terminal${args?.trim() ? `: ${args.trim()}` : ""}`;
+      }
 
       case "retab":
       case "ret":

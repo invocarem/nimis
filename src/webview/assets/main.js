@@ -1,22 +1,27 @@
 /**
  * Webview JavaScript for Nimis AI Chat Interface
  * This file is injected into the webview and handles all UI interactions
+ *
+ * Script load order (provider.ts): markdownFormatter.js -> vimView.js -> main.js
+ * formatMarkdown and setupThinkingBlockHandlers are in global scope from markdownFormatter.js.
+ * Do NOT use require() - webviews run in a browser context where require may be undefined
+ * or resolve paths incorrectly in packaged extensions.
  */
 
-// Import formatting utilities
-// Note: In production, this would be bundled, but for development we load it separately
-if (typeof require !== "undefined") {
-  var {
-    formatMarkdown,
-    setupThinkingBlockHandlers,
-  } = require("./markdownFormatter.js");
-} else {
-  // Fallback for when not in Node environment
-  console.warn("markdownFormatter not loaded, using fallback");
-}
-
-// Get VS Code API
+// Get VS Code API (must be called synchronously when script loads)
 const vscode = acquireVsCodeApi();
+
+// Use formatMarkdown/setupThinkingBlockHandlers from global scope (loaded by markdownFormatter.js)
+// Provide no-op fallbacks if markdownFormatter.js failed to load (e.g. 404 in packaged extension)
+const formatMarkdownFn = typeof formatMarkdown === "function" ? formatMarkdown : function (text) { return escapeHtmlFallback(text); };
+const setupThinkingBlockHandlersFn = typeof setupThinkingBlockHandlers === "function" ? setupThinkingBlockHandlers : function () {};
+
+function escapeHtmlFallback(text) {
+  if (!text) return "";
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML.replace(/\n/g, "<br>");
+}
 
 // Get DOM elements
 const chatContainer = document.getElementById("chat-container");
@@ -39,17 +44,17 @@ let toolLimitReached = false;
  * Send a message to the extension (optionally with a specific text)
  */
 function sendMessage(overrideMessage) {
-  const message = overrideMessage ?? messageInput.value.trim();
+  const message = overrideMessage ?? (messageInput ? messageInput.value.trim() : "");
   if (message && !isGenerating) {
     vscode.postMessage({
       type: "sendMessage",
       message: message,
     });
-    if (!overrideMessage) {
+    if (!overrideMessage && messageInput) {
       messageInput.value = "";
     }
     isGenerating = true;
-    sendButton.disabled = true;
+    if (sendButton) sendButton.disabled = true;
     // Stop button will be shown when assistantMessageStart is received
     isCancelling = false;
   }
@@ -61,8 +66,10 @@ function sendMessage(overrideMessage) {
 function cancelOperation() {
   if (isGenerating && !isCancelling) {
     isCancelling = true;
-    stopButton.disabled = true;
-    stopButton.textContent = "Stopping...";
+    if (stopButton) {
+      stopButton.disabled = true;
+      stopButton.textContent = "Stopping...";
+    }
     vscode.postMessage({
       type: "cancelRequest",
     });
@@ -73,6 +80,7 @@ function cancelOperation() {
  * Add a message to the chat container
  */
 function addMessage(content, type) {
+  if (!chatContainer) return null;
   const messageDiv = document.createElement("div");
   messageDiv.className = `message message-${type}`;
   messageDiv.textContent = content;
@@ -86,7 +94,7 @@ function addMessage(content, type) {
  */
 function formatMessageContent(messageDiv) {
   const content = messageDiv.textContent;
-  const formatted = formatMarkdown(content);
+  const formatted = formatMarkdownFn(content);
   messageDiv.innerHTML = formatted;
 
   // Add copy button event listeners
@@ -106,7 +114,7 @@ function formatMessageContent(messageDiv) {
     });
   });
 
-  setupThinkingBlockHandlers(messageDiv);
+  setupThinkingBlockHandlersFn(messageDiv);
 }
 
 /**
@@ -143,36 +151,32 @@ function addInsertButton(messageDiv) {
 }
 
 /**
- * Event Listeners
+ * Event Listeners - guard against null elements (can happen if webview loads before DOM ready)
  */
-sendButton.addEventListener("click", () => sendMessage());
-
-stopButton.addEventListener("click", cancelOperation);
-
-continueButton.addEventListener("click", () => {
-  sendMessage("Yes, please continue.");
-});
-
-questionButton.addEventListener("click", () => {
-  sendMessage("what happened");
-});
-
-rejectButton.addEventListener("click", () => {
-  sendMessage("No, that's not what I wanted.");
-});
-
-messageInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    sendMessage();
+function initEventListeners() {
+  if (sendButton) sendButton.addEventListener("click", () => sendMessage());
+  if (stopButton) stopButton.addEventListener("click", cancelOperation);
+  if (continueButton) continueButton.addEventListener("click", () => sendMessage("Yes, please continue."));
+  if (questionButton) questionButton.addEventListener("click", () => sendMessage("what happened"));
+  if (rejectButton) rejectButton.addEventListener("click", () => sendMessage("No, that's not what I wanted."));
+  if (messageInput) {
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
   }
-});
+  if (clearButton) {
+    clearButton.addEventListener("click", () => {
+      if (chatContainer) chatContainer.innerHTML = "";
+      toolLimitReached = false;
+      vscode.postMessage({ type: "clearChat" });
+    });
+  }
+}
 
-clearButton.addEventListener("click", () => {
-  chatContainer.innerHTML = "";
-  toolLimitReached = false;
-  vscode.postMessage({ type: "clearChat" });
-});
+initEventListeners();
 
 /**
  * Handle messages from the extension
@@ -188,11 +192,12 @@ window.addEventListener("message", (event) => {
     case "assistantMessageStart":
       currentAssistantMessage = addMessage("", "assistant");
       isGenerating = true;
-      sendButton.disabled = true;
-      // Only show Stop button when streaming actually starts
-      stopButton.style.display = "inline-block";
-      stopButton.disabled = false;
-      stopButton.textContent = "Stop";
+      if (sendButton) sendButton.disabled = true;
+      if (stopButton) {
+        stopButton.style.display = "inline-block";
+        stopButton.disabled = false;
+        stopButton.textContent = "Stop";
+      }
       isCancelling = false;
       break;
 
@@ -201,7 +206,7 @@ window.addEventListener("message", (event) => {
         // Server sends preprocessed full content each time (isFullContent: true)
         currentAssistantMessage.textContent = message.chunk;
         formatMessageContent(currentAssistantMessage);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
       }
       break;
 
@@ -211,8 +216,8 @@ window.addEventListener("message", (event) => {
       }
       currentAssistantMessage = null;
       isGenerating = false;
-      sendButton.disabled = false;
-      stopButton.style.display = "none";
+      if (sendButton) sendButton.disabled = false;
+      if (stopButton) stopButton.style.display = "none";
       toolLimitReached = false;
       isCancelling = false;
       break;
@@ -220,15 +225,15 @@ window.addEventListener("message", (event) => {
     case "error":
       addMessage(message.message, "error");
       isGenerating = false;
-      sendButton.disabled = false;
-      stopButton.style.display = "none";
+      if (sendButton) sendButton.disabled = false;
+      if (stopButton) stopButton.style.display = "none";
       toolLimitReached = false;
       isCancelling = false;
       break;
 
     case "cancellationInProgress":
       // Visual feedback that cancellation is in progress
-      if (currentAssistantMessage) {
+      if (currentAssistantMessage && chatContainer) {
         const cancelIndicator = document.createElement("div");
         cancelIndicator.className = "message message-system";
         cancelIndicator.textContent = "Cancelling operation...";
@@ -239,20 +244,22 @@ window.addEventListener("message", (event) => {
 
     case "cancellationComplete":
       isGenerating = false;
-      sendButton.disabled = false;
-      stopButton.style.display = "none";
-      toolLimitReached = false;
-      stopButton.disabled = false;
-      stopButton.textContent = "Stop";
-      isCancelling = false;
-      if (currentAssistantMessage) {
-        currentAssistantMessage = null;
+      if (sendButton) sendButton.disabled = false;
+      if (stopButton) {
+        stopButton.style.display = "none";
+        stopButton.disabled = false;
+        stopButton.textContent = "Stop";
       }
+      toolLimitReached = false;
+      isCancelling = false;
+      currentAssistantMessage = null;
       break;
 
     case "setInput":
-      messageInput.value = message.message;
-      messageInput.focus();
+      if (messageInput) {
+        messageInput.value = message.message;
+        messageInput.focus();
+      }
       break;
 
     case "requestFeedback":
@@ -276,12 +283,14 @@ window.addEventListener("message", (event) => {
       break;
 
     case "connectionStatus":
-      if (message.connected) {
-        statusIndicator.textContent = "Connected to LLM";
-        statusIndicator.className = "status-indicator status-connected";
-      } else {
-        statusIndicator.textContent = "Not connected to LLM";
-        statusIndicator.className = "status-indicator status-disconnected";
+      if (statusIndicator) {
+        if (message.connected) {
+          statusIndicator.textContent = "Connected to LLM";
+          statusIndicator.className = "status-indicator status-connected";
+        } else {
+          statusIndicator.textContent = "Not connected to LLM";
+          statusIndicator.className = "status-indicator status-disconnected";
+        }
       }
       break;
   }
@@ -293,8 +302,7 @@ window.addEventListener("message", (event) => {
  */
 setTimeout(() => {
   vscode.postMessage({ type: "checkConnection" });
-  // Ensure Stop button is hidden on initialization
-  stopButton.style.display = "none";
+  if (stopButton) stopButton.style.display = "none";
   isGenerating = false;
   isCancelling = false;
 }, 100);
