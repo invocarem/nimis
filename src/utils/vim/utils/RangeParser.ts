@@ -25,21 +25,29 @@ export function parseRange(rangeStr: string, buffer: VimBuffer): Range {
 
   if (rangeStr.startsWith('/') && rangeStr.endsWith('/')) {
     const pattern = rangeStr.slice(1, -1);
+    let regex: RegExp;
     try {
-      const regex = new RegExp(vimPatternToJs(pattern));
-      // Search from current line first (Vim: / finds next match, including current line)
-      for (let i = buffer.currentLine; i < buffer.content.length; i++) {
-        if (regex.test(buffer.content[i])) {
-          return { start: i, end: i };
-        }
-      }
-      for (let i = 0; i < buffer.currentLine; i++) {
-        if (regex.test(buffer.content[i])) {
-          return { start: i, end: i };
-        }
-      }
+      regex = new RegExp(vimPatternToJs(pattern));
     } catch (e) {
-      throw new Error(`Invalid pattern: ${pattern}`);
+      // vimPatternToJs may produce invalid regex (e.g. unbalanced groups from
+      // LLM-style \( escapes).  Fall back to literal interpretation: un-escape
+      // vim backslash sequences then escape for JS regex.
+      const literal = pattern.replace(/\\(.)/g, '$1');
+      try {
+        regex = new RegExp(literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      } catch {
+        throw new Error(`Invalid pattern: ${pattern}`);
+      }
+    }
+    for (let i = buffer.currentLine; i < buffer.content.length; i++) {
+      if (regex.test(buffer.content[i])) {
+        return { start: i, end: i };
+      }
+    }
+    for (let i = 0; i < buffer.currentLine; i++) {
+      if (regex.test(buffer.content[i])) {
+        return { start: i, end: i };
+      }
     }
     throw new Error(`Pattern not found: ${pattern}`);
   }

@@ -544,9 +544,11 @@ export class ExCommandHandler {
             return `Jumped to line ${range.start + 1}`;
           }
         } catch (e: any) {
-          // Pattern not found: do nothing (no-op), don't fall through to generic range parsing
           if (e?.message?.includes?.("Pattern not found")) {
             return "";
+          }
+          if (e?.message?.includes?.("Invalid pattern")) {
+            throw e;
           }
           rest = cmd;
         }

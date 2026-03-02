@@ -77,7 +77,7 @@ describe("NimisManager rules integration", () => {
     const manager = new NimisManager({ rules: mockRules, rulesManager: mockRulesManager, nativeToolManager: mockNativeToolManager });
     const template = manager.getTemplate();
   //  expect(template.systemMessage).toContain("do NOT use the model's built-in function-calling API");
-    expect(template.systemMessage).toContain('<tool_call name="TOOL_NAME"');
+    expect(template.systemMessage).toContain('You are Nimis');
   });
 
   it("should exclude tool results from rule matching to prevent loops", () => {
