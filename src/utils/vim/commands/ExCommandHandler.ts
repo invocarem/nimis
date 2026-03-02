@@ -970,7 +970,9 @@ export class ExCommandHandler {
         const currentTs = this.ctx.options.tabstop;
         const newTs = newTabstop ?? currentTs;
         const useSpaces = this.ctx.options.expandtab;
-        const reindent = newTabstop !== undefined && newTabstop !== currentTs;
+        // When user provides :retab N or :retab! N, always re-indent (auto-detect file's indent unit).
+        // Previously we required newTabstop !== currentTs, which broke :set tabstop=4 + :retab! 4.
+        const reindent = newTabstop !== undefined;
 
         if (newTabstop !== undefined) {
           (this.ctx.options as any).tabstop = newTabstop;

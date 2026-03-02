@@ -111,6 +111,70 @@ describe("VimToolManager - :retab command", () => {
       expect(result.content[0].text).toContain("unchanged");
     });
 
+    it("should re-indent with :%retab! 4 after :set expandtab tabstop=4 (user scenario)", async () => {
+      // User sets tabstop=4 first, then :retab! 4 - must re-indent even when newTs === currentTs
+      const content = `# calc.py - Simple Calculator Module
+
+def add(a, b):
+ return a + b
+
+def subtract(a, b):
+ return a - b
+`;
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [
+          ":set expandtab",
+          ":set tabstop=4",
+          ":set shiftwidth=4",
+          ":%retab! 4",
+          ":w",
+          ":%print",
+        ],
+      });
+
+      expect(result.isError).toBeFalsy();
+      const text = result.content[0].text;
+      expect(text).toContain("written");
+      expect(text).toContain("    return a + b");
+      expect(text).not.toMatch(/\n return /);
+    });
+
+    it("should not change 1-space indented file with :retab! (no arg, expandtab on) - use :retab 4 instead", async () => {
+      // User scenario: expandtab + retab! on space-indented file does nothing.
+      // retab! only converts spaces→tabs when expandtab is OFF.
+      // For re-indenting 1-space→4-space, use :retab 4 (with numeric argument).
+      const content = `# calc.py - Simple Calculator Module
+
+def add(a, b):
+ return a + b
+
+def subtract(a, b):
+ return a - b
+`;
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [
+          ":set expandtab",
+          ":set tabstop=4",
+          ":set shiftwidth=4",
+          ":%retab!",
+          ":%print",
+        ],
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("unchanged");
+      // 1-space indent is still there (retab! did nothing)
+      const text = result.content[0].text;
+      expect(text).toContain(" return a + b");
+      expect(text).not.toContain("    return a + b");
+    });
+
     it("should report changed line count", async () => {
       await writeFile(testFile, "\thello\nworld\n\tfoo\n", "utf-8");
 
