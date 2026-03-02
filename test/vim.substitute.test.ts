@@ -284,6 +284,42 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       const updatedContent = await readFile(testFile, "utf-8");
       expect(updatedContent).toBe("Hi Hi Hi\n");
     });
+
+    it("should replace tabs with spaces using :%s/\\t/    /g", async () => {
+      const content = "\thello\n\t\tworld\n  spaces\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [":%s/\\t/    /g", ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("Substituted 3 occurrence");
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe("    hello\n        world\n  spaces\n");
+    });
+
+    it("should replace tabs when commands come from JSON.parse (tool call format)", async () => {
+      const content = "\tdef foo():\n\t\tpass\n";
+      await writeFile(testFile, content, "utf-8");
+
+      // Simulate tool call args as parsed from JSON - JSON "\\t" becomes \t in the string
+      const args = JSON.parse(
+        '{"file_path":"test.txt","commands":[":e test.txt",":%s/\\t/    /g",":w"]}'
+      );
+
+      const result = await manager.callTool("vim", args);
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("Substituted");
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toContain("    def foo():");
+      expect(updatedContent).toContain("        pass");
+      expect(updatedContent).not.toContain("\t");
+    });
   });
 
   describe("Complex replacements", () => {

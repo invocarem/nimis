@@ -12,6 +12,7 @@ import { NormalCommandHandler } from "../commands/NormalCommandHandler";
  *   \|     →  |     alternation
  *   \{ \}  →  { }   counted quantifier
  *   \< \>  →  \b    word boundary
+ *   \t    →  \t    tab (explicit so it survives JSON/string escaping)
  */
 export function vimPatternToJs(pattern: string): string {
   let result = '';
@@ -48,11 +49,20 @@ export function vimPatternToJs(pattern: string): string {
         case '}': result += '}';  i += 2; continue;
         case '<': result += '\\b'; i += 2; continue;
         case '>': result += '\\b'; i += 2; continue;
+        case 't': result += '\\t';  i += 2; continue;  // \t -> tab (explicit for substitute)
+        case 'n': result += '\\n';  i += 2; continue;  // \n -> newline
         default:
           result += ch + next;
           i += 2;
           continue;
       }
+    }
+
+    // Literal tab character (e.g. from JSON "\t" in pattern) -> match tab
+    if (ch === '\t') {
+      result += '\\t';
+      i++;
+      continue;
     }
 
     result += ch;

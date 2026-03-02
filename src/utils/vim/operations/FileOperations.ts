@@ -111,7 +111,10 @@ export async function externalCommand(
 
   // :[range]!cmd — filter the range lines through the command and replace them
   const linesToFilter = buffer.content.slice(range.start, range.end + 1);
-  const tempFile = path.join(os.tmpdir(), `vim_filter_${Date.now()}.tmp`);
+  const tempFile = path.join(
+    os.tmpdir(),
+    `vim_filter_${Date.now()}_${Math.random().toString(36).slice(2, 11)}.tmp`
+  );
 
   try {
     await fs.promises.writeFile(tempFile, linesToFilter.join('\n'), 'utf-8');
