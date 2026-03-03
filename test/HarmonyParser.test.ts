@@ -129,6 +129,22 @@ describe("HarmonyParser", () => {
       });
     });
 
+    it("should extract vim from OpenAI Harmony spec format (<|constrain|>json)", () => {
+      const input = `<|start|>assistant<|channel|>commentary to=vim <|constrain|>json<|message|>{
+  "file_path": "crc16.awk",
+  "commands": [":e crc16.awk", ":%print"]
+}`;
+      const result: ParsedResponse = HarmonyParser.parse(input);
+
+      expect(result.tool_calls).toBeDefined();
+      expect(result.tool_calls?.length).toBe(1);
+      expect(result.tool_calls?.[0].name).toBe("vim");
+      expect(result.tool_calls?.[0].arguments).toEqual({
+        file_path: "crc16.awk",
+        commands: [":e crc16.awk", ":%print"],
+      });
+    });
+
     it("should extract create_file from llama-server content-only format (parsed message)", () => {
       // Simulates the content field from llama-server parsed message:
       // Content-only format with optional prefix + tool call

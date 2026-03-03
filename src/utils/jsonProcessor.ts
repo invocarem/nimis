@@ -5,7 +5,10 @@ export class JsonProcessor {
    * Handles Python-style triple-quoted strings (""") and fixes common LLM JSON issues
    */
   static safeParse(jsonStr: string): any {
-    // First, fix cases where LLM outputs \"\" instead of """ for Python docstrings
+    // Convert \xXX (invalid in JSON) to \u00XX (valid) — LLMs often output \x1b for ESC
+    jsonStr = this.normalizeHexEscapes(jsonStr);
+
+    // Fix cases where LLM outputs \"\" instead of """ for Python docstrings
     jsonStr = this.fixEscapedDoubleQuotes(jsonStr);
 
     // Then, normalize triple-quoted strings to regular JSON strings
@@ -19,6 +22,17 @@ export class JsonProcessor {
       // Process character-by-character to fix it
       return this.fixAndParse(jsonStr);
     }
+  }
+
+  /**
+   * Converts \xXX (invalid in JSON) to \u00XX (valid). LLMs often output \x1b for ESC.
+   * Handles both: (1) escape sequence \x1b in source, (2) literal ESC character (0x1b).
+   * Only replaces \xXX when backslash is not already escaped (e.g. \\x1b stays as literal).
+   */
+  private static normalizeHexEscapes(jsonStr: string): string {
+    let s = jsonStr.replace(/(?<!\\)\\x([0-9a-fA-F]{2})/g, "\\u00$1");
+    s = s.replace(/\x1b/g, "\\u001b");
+    return s;
   }
 
   /**
@@ -237,7 +251,13 @@ export class JsonProcessor {
           result += char;
         }
       } else {
-        // Outside strings, just copy
+        // Outside strings: skip # line comments (LLMs sometimes output these)
+        if (char === '#') {
+          while (i < jsonStr.length && jsonStr[i] !== '\n') {
+            i++;
+          }
+          continue;
+        }
         result += char;
       }
 

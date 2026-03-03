@@ -9,6 +9,9 @@ import { JsonProcessor } from "./jsonProcessor";
 
 const HARMONY_MARKER = "to=tool_call code<|message|>";
 
+/** Matches OpenAI Harmony spec: "to=vim <|constrain|>json<|message|>{" */
+const HARMONY_CONSTRAIN_JSON_REGEX = /to=([\w.]+)\s+<\|constrain\|>json<\|message\|>\s*\{/;
+
 /** Matches Harmony variant: "commentary to=vim json{" or "to=vim json{" */
 const HARMONY_TO_JSON_REGEX = /(?:^|[\s"])to=(\w+)\s+json(?:<\|message\|>)?\s*\{/;
 
@@ -17,16 +20,21 @@ const HARMONY_TO_CODE_REGEX = /to=(\w+)\s+code(?:<\|message\|>)?\s*\{/;
 
 /**
  * Extracts a Harmony tool call from a response string.
- * Supports three formats:
+ * Supports four formats:
  * 1. Standard: to=tool_call code<|message|>{"name": "...", "arguments": {...}}
- * 2. Variant: to=<toolname> json{...} — tool name in "to=", JSON is args directly
- * 3. Variant: to=<toolname> code{...} — tool name in "to=", JSON is args directly (same as json)
+ * 2. OpenAI spec: to=<toolname> <|constrain|>json<|message|>{...}
+ * 3. Variant: to=<toolname> code{...} — tool name in "to=", JSON is args directly
+ * 4. Variant: to=<toolname> json{...} — tool name in "to=", JSON is args directly
  * Returns null if no valid tool call is found.
  */
 export function extractHarmonyToolCall(response: string): MCPToolCall | null {
   // Try standard format first
   const standard = extractStandardFormat(response);
   if (standard) return standard;
+
+  // Try OpenAI Harmony spec: to=<name> <|constrain|>json<|message|>{...}
+  const constrainFormat = extractConstrainJsonFormat(response);
+  if (constrainFormat) return constrainFormat;
 
   // Try "to=vim code{...}" format
   const codeFormat = extractToCodeFormat(response);
@@ -53,6 +61,28 @@ function extractStandardFormat(response: string): MCPToolCall | null {
     const args = parsed?.arguments;
     if (name == null) return null;
     return { name, arguments: args ?? {} };
+  } catch {
+    return null;
+  }
+}
+
+function extractConstrainJsonFormat(response: string): MCPToolCall | null {
+  const match = response.match(HARMONY_CONSTRAIN_JSON_REGEX);
+  if (!match) return null;
+
+  const toolNameRaw = match[1];
+  // Strip "functions." prefix if present (e.g. functions.vim -> vim)
+  const toolName = toolNameRaw.startsWith("functions.")
+    ? toolNameRaw.slice("functions.".length)
+    : toolNameRaw;
+
+  const jsonStartIdx = match.index! + match[0].length - 1; // index of "{"
+  const jsonStr = extractBalancedBraces(response, jsonStartIdx);
+  if (!jsonStr) return null;
+
+  try {
+    const args = JsonProcessor.safeParse(jsonStr);
+    return { name: toolName, arguments: args ?? {} };
   } catch {
     return null;
   }

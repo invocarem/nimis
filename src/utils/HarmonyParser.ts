@@ -176,6 +176,15 @@ export class HarmonyParser {
     const qwen3Calls = extractQwen3ToolCalls(response);
     if (qwen3Calls.length > 0) return qwen3Calls;
 
+    // Diagnostic: response looks like Harmony tool call but extraction returned nothing
+    if (/to=(?:tool_call|vim|\w+)\s+(?:code|json)(?:<\|message\|>)?\s*\{/.test(response)) {
+      console.warn(
+        "[HarmonyParser] Harmony tool call pattern detected but extraction returned 0. " +
+          "Response may be truncated or contain invalid JSON. First 300 chars:",
+        response.substring(0, 300)
+      );
+    }
+
     // Try XML format using XmlProcessor (preferred for robust JSON parsing)
     if (XmlProcessor.looksLikeXmlToolCall(response)) {
       const xmlToolCalls = XmlProcessor.extractToolCalls(response);
