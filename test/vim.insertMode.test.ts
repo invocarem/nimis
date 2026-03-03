@@ -188,6 +188,25 @@ describe("VimToolManager - Insert Mode Operations", () => {
     expect(updatedContent).toBe("line 1\nline 2\nNEW LINE\nline 3\n");
   });
 
+  it("should handle 'o' followed by text in same command string (o    if b == 0:)", async () => {
+    const content = "def foo():\n    pass\n";
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      file_path: testFile,
+      commands: [
+        "2G",              // Go to line 2 (pass)
+        "o    if b == 0:", // o + text in single string: open line below, then insert
+        "\x1b",            // Escape
+        ":w"               // Save
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+    const updatedContent = await readFile(testFile, "utf-8");
+    expect(updatedContent).toBe("def foo():\n    pass\n    if b == 0:\n");
+  });
+
   it("should handle O command (open line above)", async () => {
     const content = "line 1\nline 2\nline 3\n";
     await writeFile(testFile, content, "utf-8");
