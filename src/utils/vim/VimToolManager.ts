@@ -97,7 +97,7 @@ export class VimToolManager {
           "- '\\x1b' returns to normal mode; ':w' saves\n\n" +
           "Commands: :e :w :q :wq :q! :[range]s/pat/repl/[g|i] :[range]d :[range]y :p\n" +
           "  :%print (read file) :g/pat/cmd :v/pat/cmd :grep :cd :pwd :! :terminal :r :find :help\n" +
-          "Normal: i a A I o O dd yy p P gg G j k 0 $ ma 'a \"ayy\n" +
+          "Normal: i a A I o O dd yy p P gg G j k + - 0 $ ma 'a \"ayy\n" +
           "Ranges: % . $ N N,M 'a /pat/\n" +
           "Use :help or :help <topic> for detailed command reference.",
         inputSchema: {
@@ -151,10 +151,21 @@ export class VimToolManager {
           if (typeof cmds === "string") {
             cmds = cmds.split('\n');
           }
-          // Normalize literal \x1b (e.g. from XML/CDATA or LLM output) to actual ESC character
-          cmds = (cmds as string[]).map((c: string) =>
-            typeof c === "string" ? c.replace(/\\x1b/g, "\x1b") : c
-          );
+          // Normalize literal \xNN and "Ctrl+X" (e.g. from XML/CDATA or LLM output) to actual characters
+          cmds = (cmds as string[]).map((c: string) => {
+            if (typeof c !== "string") return c;
+            let s = c.replace(/\\x1b/g, "\x1b");
+            s = s.replace(/\\x06/g, "\x06");
+            s = s.replace(/\\x02/g, "\x02");
+            s = s.replace(/\\x04/g, "\x04");
+            s = s.replace(/\\x15/g, "\x15");
+            // Literal "Ctrl+f", "Ctrl+b", "Ctrl+d", "Ctrl+u" (case-insensitive)
+            s = s.replace(/\bCtrl\+f\b/gi, "\x06");
+            s = s.replace(/\bCtrl\+b\b/gi, "\x02");
+            s = s.replace(/\bCtrl\+d\b/gi, "\x04");
+            s = s.replace(/\bCtrl\+u\b/gi, "\x15");
+            return s;
+          });
           return await this.vimEdit(
             cmds,
             arguments_.file_path,
@@ -494,23 +505,33 @@ private async vimEdit(
     totalLines: number;
     list: boolean;
     tabstop: number;
+    viewportTop?: number;
   } | null {
     if (!this.currentBuffer) {
       return null;
     }
     const state = this.stateMachine.getState();
     const buf = this.currentBuffer;
+    const VIM_ROWS = 24;
+    const totalLines = buf.content.length;
+    const cursorLine = buf.currentLine;
+    const viewportTop =
+      buf.viewportTop !== undefined
+        ? buf.viewportTop
+        : Math.max(0, Math.min(cursorLine, Math.max(0, totalLines - VIM_ROWS)));
+
     return {
       fileName: require("path").basename(buf.path),
       filePath: buf.path,
       lines: buf.content,
-      cursorLine: buf.currentLine,
+      cursorLine,
       mode: state.mode,
       modified: buf.modified,
       commandBuffer: state.mode === "command-line" ? state.commandBuffer : "",
-      totalLines: buf.content.length,
+      totalLines,
       list: this.options.list,
       tabstop: this.options.tabstop,
+      viewportTop,
     };
   }
 

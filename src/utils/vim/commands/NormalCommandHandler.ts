@@ -322,6 +322,22 @@ export class NormalCommandHandler {
         this.cursorColumn = Math.min(this.cursorColumn, buffer.content[buffer.currentLine].length);
         return `Moved up ${count} line(s)`;
 
+      case '+':
+        // Move to first non-blank of next line(s) (like j then ^)
+        buffer.currentLine = Math.min(buffer.content.length - 1, buffer.currentLine + count);
+        const plusLine = buffer.content[buffer.currentLine];
+        const plusFirstNonBlank = plusLine.search(/\S/);
+        this.cursorColumn = plusFirstNonBlank >= 0 ? plusFirstNonBlank : 0;
+        return `Moved down ${count} line(s)`;
+
+      case '-':
+        // Move to first non-blank of previous line(s)
+        buffer.currentLine = Math.max(0, buffer.currentLine - count);
+        const minusLine = buffer.content[buffer.currentLine];
+        const minusFirstNonBlank = minusLine.search(/\S/);
+        this.cursorColumn = minusFirstNonBlank >= 0 ? minusFirstNonBlank : 0;
+        return `Moved up ${count} line(s)`;
+
       case 'gg':
         buffer.currentLine = 0;
         this.cursorColumn = 0;
@@ -428,6 +444,51 @@ export class NormalCommandHandler {
         buffer.modified = entry.modified;
         this.cursorColumn = 0;
         return 'Undone';
+      }
+
+      case '\x06': // Ctrl+F - page down
+      case '\x02': // Ctrl+B - page up
+      case '\x04': // Ctrl+D - half page down
+      case '\x15': { // Ctrl+U - half page up
+        const VIM_ROWS = 24;
+        const totalLines = buffer.content.length;
+        const maxViewportTop = Math.max(0, totalLines - VIM_ROWS);
+        const halfPage = Math.floor(VIM_ROWS / 2);
+        let delta: number;
+        switch (remainingCmd) {
+          case '\x06': delta = VIM_ROWS; break;   // Ctrl+F
+          case '\x02': delta = -VIM_ROWS; break;  // Ctrl+B
+          case '\x04': delta = halfPage; break;   // Ctrl+D
+          case '\x15': delta = -halfPage; break;  // Ctrl+U
+          default: return '';
+        }
+        const newViewportTop = Math.max(0, Math.min(maxViewportTop, (buffer.viewportTop ?? buffer.currentLine) + delta));
+        const newCursorLine = Math.max(0, Math.min(totalLines - 1, buffer.currentLine + delta));
+        buffer.viewportTop = newViewportTop;
+        buffer.currentLine = newCursorLine;
+        this.cursorColumn = Math.min(this.cursorColumn, buffer.content[buffer.currentLine]?.length || 0);
+        const action = remainingCmd === '\x06' ? 'Page down' : remainingCmd === '\x02' ? 'Page up' : remainingCmd === '\x04' ? 'Half page down' : 'Half page up';
+        return action;
+      }
+
+      case 'zt': {
+        // Scroll current line to top of viewport
+        buffer.viewportTop = buffer.currentLine;
+        return 'Scrolled to top';
+      }
+
+      case 'zz': {
+        // Scroll current line to middle of viewport (24 rows, so 12 lines above)
+        const VIM_ROWS = 24;
+        buffer.viewportTop = Math.max(0, buffer.currentLine - Math.floor(VIM_ROWS / 2));
+        return 'Scrolled to center';
+      }
+
+      case 'zb': {
+        // Scroll current line to bottom of viewport (24 rows, so 23 lines above)
+        const VIM_ROWS = 24;
+        buffer.viewportTop = Math.max(0, buffer.currentLine - (VIM_ROWS - 1));
+        return 'Scrolled to bottom';
       }
 
       case 'r': {

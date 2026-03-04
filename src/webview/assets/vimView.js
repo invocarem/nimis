@@ -140,7 +140,11 @@ var VimView = (function () {
     var listMode = state.list || false;
     var tabstop = state.tabstop || 8;
 
-    // Keep cursor within the viewport window
+    // Use explicit viewport from zt/zz/zb when provided, else keep cursor in view
+    if (state.viewportTop !== undefined) {
+      viewportTop = Math.max(0, Math.min(state.viewportTop, Math.max(0, totalLines - VIM_ROWS)));
+    }
+    // Always keep cursor within the viewport window
     if (cursorLine < viewportTop) {
       viewportTop = cursorLine;
     } else if (cursorLine >= viewportTop + VIM_ROWS) {

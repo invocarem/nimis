@@ -535,15 +535,15 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 );
               }
 
+              if (toolCall.name === "vim" || toolCall.name.startsWith("vim_")) {
+                this._sendVimStateToWebview();
+              }
+
               this._sendMessageToWebview({
                 type: "assistantMessageChunk",
                 chunk: toolText,
                 isFullContent: true,
               });
-
-              if (toolCall.name === "vim" || toolCall.name.startsWith("vim_")) {
-                this._sendVimStateToWebview();
-              }
 
               // If tool execution failed, stop processing remaining tool calls
               if (toolResult.isError) {

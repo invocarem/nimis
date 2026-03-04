@@ -140,6 +140,12 @@ export class VimStateMachine {
       return { output: `(pending: ${this.state.pendingCommand})`, stateChanged: false };
     }
 
+    // Scroll commands (zt, zz, zb) need one more character
+    if (key === 'z') {
+      this.state.pendingCommand = 'z';
+      return { output: `(pending: ${this.state.pendingCommand})`, stateChanged: false };
+    }
+
     // Mode switching commands
     switch (key) {
       case 'i':

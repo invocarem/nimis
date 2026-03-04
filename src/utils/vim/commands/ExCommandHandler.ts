@@ -176,7 +176,7 @@ const HELP_TOPICS: Record<string, string> = {
 
   "insert": "Insert Mode Commands (entered from normal mode):\n  i   Enter insert mode at cursor\n  a   Enter insert mode after cursor\n  A   Enter insert mode at end of line\n  I   Enter insert mode at beginning of line\n  o   Open new line below and enter insert mode\n  O   Open new line above and enter insert mode\n  <Esc>  Return to normal mode",
 
-  "normal": "Normal Mode Commands:\n  h/j/k/l     Move left/down/up/right\n  gg          Go to first line\n  G           Go to last line\n  0           Go to start of line\n  $           Go to end of line\n  dd          Delete current line\n  [count]dd   Delete [count] lines\n  yy          Yank (copy) current line\n  p           Put (paste) after cursor\n  P           Put (paste) before cursor\n  x           Delete character under cursor\n  ma          Set mark a\n  'a          Jump to mark a\n  \"ayy        Yank line into register a\n  \"ap         Put from register a\n  u           Undo",
+  "normal": "Normal Mode Commands:\n  h/j/k/l     Move left/down/up/right\n  gg          Go to first line\n  G           Go to last line\n  0           Go to start of line\n  $           Go to end of line\n  Ctrl+f      Page down (24 lines)\n  Ctrl+b      Page up (24 lines)\n  Ctrl+d      Half page down (12 lines)\n  Ctrl+u      Half page up (12 lines)\n  zt          Scroll current line to top of viewport\n  zz          Scroll current line to middle of viewport\n  zb          Scroll current line to bottom of viewport\n  dd          Delete current line\n  [count]dd   Delete [count] lines\n  yy          Yank (copy) current line\n  p           Put (paste) after cursor\n  P           Put (paste) before cursor\n  x           Delete character under cursor\n  ma          Set mark a\n  'a          Jump to mark a\n  \"ayy        Yank line into register a\n  \"ap         Put from register a\n  u           Undo",
 
   "range": "Range Formats:\n  (none)   Current line\n  %        Entire file\n  .        Current line (explicit)\n  $        Last line\n  N        Line N (e.g. 10)\n  N,M      Lines N through M (e.g. 10,20)\n  .,+N     Current line through N lines below\n  'a       Mark a\n  'a,'b    From mark a to mark b\n  /pat/    Next line matching pattern",
 };
@@ -854,6 +854,45 @@ export class ExCommandHandler {
       case "reg":
       case "registers":
         return formatRegisters(buffer);
+
+      case "zt":
+        buffer.viewportTop = buffer.currentLine;
+        return "Scrolled to top";
+
+      case "ctrl-f":
+      case "ctrl-b":
+      case "ctrl-d":
+      case "ctrl-u": {
+        const VIM_ROWS = 24;
+        const totalLines = buffer.content.length;
+        const maxViewportTop = Math.max(0, totalLines - VIM_ROWS);
+        const halfPage = Math.floor(VIM_ROWS / 2);
+        let delta: number;
+        switch (cmdName) {
+          case "ctrl-f": delta = VIM_ROWS; break;
+          case "ctrl-b": delta = -VIM_ROWS; break;
+          case "ctrl-d": delta = halfPage; break;
+          case "ctrl-u": delta = -halfPage; break;
+          default: return "";
+        }
+        const base = buffer.viewportTop ?? buffer.currentLine;
+        buffer.viewportTop = Math.max(0, Math.min(maxViewportTop, base + delta));
+        buffer.currentLine = Math.max(0, Math.min(totalLines - 1, buffer.currentLine + delta));
+        const action = cmdName === "ctrl-f" ? "Page down" : cmdName === "ctrl-b" ? "Page up" : cmdName === "ctrl-d" ? "Half page down" : "Half page up";
+        return action;
+      }
+
+      case "zz": {
+        const VIM_ROWS = 24;
+        buffer.viewportTop = Math.max(0, buffer.currentLine - Math.floor(VIM_ROWS / 2));
+        return "Scrolled to center";
+      }
+
+      case "zb": {
+        const VIM_ROWS = 24;
+        buffer.viewportTop = Math.max(0, buffer.currentLine - (VIM_ROWS - 1));
+        return "Scrolled to bottom";
+      }
 
       case "ma":
       case "mark":

@@ -108,6 +108,27 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       expect(content).toBe("line1\nline2\nline4\nline5\n");
     });
 
+    it("should handle '+' motion (move down to first non-blank)", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["+"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("Moved down");
+    });
+
+    it("should handle '+1dd' to move down and delete line", async () => {
+      await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["+1dd", ":w"]
+      });
+
+      const content = await readFile(testFile, "utf-8");
+      // + moves from line1 to line2, 1dd deletes line2
+      expect(content).toBe("line1\nline3\nline4\nline5\n");
+    });
+
     it("should handle bare number to go to line N", async () => {
       const result = await manager.callTool("vim", {
         file_path: testFile,

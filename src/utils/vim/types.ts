@@ -41,6 +41,8 @@ export interface VimBuffer {
   trailingNewline?: boolean;
   lastRegister?: string;
   undoStack?: UndoEntry[];
+  /** Viewport top line (0-based) when set by zt/zz/zb. Undefined = frontend auto-computes. */
+  viewportTop?: number;
 }
 
 export interface Range {

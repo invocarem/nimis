@@ -22,6 +22,8 @@ You can ONLY see 24 lines at once in VimView. To see other parts of the file, yo
 | \`:[line]\` | Go to specific line (e.g., \`:42\` shows lines 42-65) |
 | \`Ctrl+f\` | Page down (move viewport down 24 lines) |
 | \`Ctrl+b\` | Page up (move viewport up 24 lines) |
+| \`Ctrl+d\` | Half page down (move viewport down 12 lines) |
+| \`Ctrl+u\` | Half page up (move viewport up 12 lines) |
 | \`j\` / \`k\` | Move down/up one line (viewport scrolls when cursor reaches edge) |
 | \`zt\` | Scroll current line to top of viewport |
 | \`zz\` | Scroll current line to middle of viewport |
@@ -78,7 +80,6 @@ i
     if result is None:
         return []
 \\x1b
-:w
 :.,+24print       # verify the change in viewport
   ]]></commands>
 </tool_call>
@@ -102,5 +103,6 @@ Do not use substitute command instead use dd and o to replace existed code.
 - Always verify your position with \`:print\` commands before editing
 - After changes, show the affected area in the viewport
 - Use \`\\x1b\` to exit insert mode (never write "ESC")
+- You need to get user's approval before using \':w\` (saving the file)
 - One command per line in CDATA
 `;
