@@ -96,9 +96,9 @@ export class VimToolManager {
           "- 'i' (insert mode) must be separate from the text that follows\n" +
           "- '\\x1b' returns to normal mode; ':w' saves\n\n" +
           "Commands: :e :w :q :wq :q! :[range]s/pat/repl/[g|i] :[range]d :[range]y :p\n" +
-          "  :%print (read file) :g/pat/cmd :v/pat/cmd :grep :cd :pwd :! :terminal :r :find :help\n" +
+          "  :[range]print (e.g. :%print :+2,+2print) :g/pat/cmd :v/pat/cmd :grep :cd :pwd :! :terminal :r :find :help\n" +
           "Normal: i a A I o O dd yy p P >> << gg G j k + - 0 $ ma 'a \"ayy\n" +
-          "Ranges: % . $ N N,M 'a /pat/\n" +
+          "Ranges: % . $ N N,M +N -N 'a /pat/  (+N = N lines below, -N = N lines above current)\n" +
           "Use :help or :help <topic> for detailed command reference.",
         inputSchema: {
           type: "object",

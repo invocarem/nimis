@@ -100,4 +100,44 @@ describe("VimToolManager - Print Command", () => {
     expect(output).not.toContain("line1");
     expect(output).not.toContain("line5");
   });
+
+  it("should print line with offset range :+1,+1print after /UPRI/", async () => {
+    const content = "header\n<UPRI>\n  <version>1</version>\n  <other>x</other>\n";
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      file_path: testFile,
+      commands: [
+        ":e test.txt",
+        ":/UPRI/",
+        ":+1,+1print"
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+    const output = result.content[0].text;
+    expect(output).toContain("Jumped to line 2");
+    expect(output).toContain("  <version>1</version>");
+    expect(output).not.toContain("<other>");
+  });
+
+  it("should print line with offset range :+2,+2print (2 lines below current)", async () => {
+    const content = "L1\nL2\nL3\nL4\nL5\n";
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      file_path: testFile,
+      commands: [
+        ":e test.txt",
+        "1G",  // Go to line 1 (L1)
+        ":+2,+2print"
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+    const output = result.content[0].text;
+    expect(output).toContain("L3");  // 2 lines below L1
+    expect(output).not.toContain("L1");
+    expect(output).not.toContain("L2");
+  });
 });
