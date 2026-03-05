@@ -489,7 +489,7 @@ describe("ExCommandHandler", () => {
       
       const result = await handler.execute("norm dd", mockBuffer);
       
-      expect(normalMock).toHaveBeenCalledWith(null, "dd", mockBuffer);
+      expect(normalMock).toHaveBeenCalledWith(null, "dd", mockBuffer, mockContext.options);
       expect(result).toBe("Executed normal command");
       
       normalMock.mockRestore();
@@ -503,7 +503,8 @@ describe("ExCommandHandler", () => {
       expect(normalMock).toHaveBeenCalledWith(
         { start: 1, end: 3 },
         "dd",
-        mockBuffer
+        mockBuffer,
+        mockContext.options
       );
       
       normalMock.mockRestore();
