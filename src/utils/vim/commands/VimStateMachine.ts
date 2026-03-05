@@ -6,7 +6,7 @@ import { ExCommandHandler } from "./ExCommandHandler";
 import { CommandContext } from "../types";
 
 export class VimStateMachine {
-  private static readonly MULTI_KEY_PREFIXES = new Set(['d', 'g', 'y', 'c']);
+  private static readonly MULTI_KEY_PREFIXES = new Set(['d', 'g', 'y', 'c', '>', '<']);
 
   private state: VimState;
   private normalHandler: NormalCommandHandler;
@@ -114,7 +114,7 @@ export class VimStateMachine {
 
       this.syncCursorToHandler(buffer);
       try {
-        const result = this.normalHandler.execute(fullCommand, buffer);
+        const result = this.normalHandler.execute(fullCommand, buffer, this.ctx.options);
         this.syncCursorFromHandler(buffer);
         return { output: result, stateChanged: false };
       } catch (e) {
@@ -222,7 +222,7 @@ export class VimStateMachine {
       default:
         this.syncCursorToHandler(buffer);
         try {
-          const result = this.normalHandler.execute(key, buffer);
+          const result = this.normalHandler.execute(key, buffer, this.ctx.options);
           this.syncCursorFromHandler(buffer);
           return { output: result, stateChanged: false };
         } catch (e) {

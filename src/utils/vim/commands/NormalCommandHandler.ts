@@ -1,5 +1,6 @@
 // src/commands/NormalCommandHandler.ts
-import type { VimBuffer } from "../types";
+import type { VimBuffer, VimOptions } from "../types";
+import { VIM_OPTION_DEFAULTS } from "../types";
 import { deleteLines, yankLines, putLines } from "../operations/TextOperations";
 
 export function pushUndo(buffer: VimBuffer): void {
@@ -23,7 +24,7 @@ export class NormalCommandHandler {
     this.cursorColumn = column;
   }
 
-  execute(cmd: string, buffer: VimBuffer): string {
+  execute(cmd: string, buffer: VimBuffer, options?: Partial<VimOptions>): string {
     if (!cmd) {
       return '';
     }
@@ -495,6 +496,35 @@ export class NormalCommandHandler {
         // Replace character under cursor (needs another character)
         // This is handled by the state machine with a pending state
         return 'Ready to replace';
+      }
+
+      case '>>': {
+        pushUndo(buffer);
+        const sw = options?.shiftwidth ?? VIM_OPTION_DEFAULTS.shiftwidth;
+        const useSpaces = options?.expandtab ?? VIM_OPTION_DEFAULTS.expandtab;
+        const indent = useSpaces ? ' '.repeat(sw) : '\t';
+        const start = buffer.currentLine;
+        const end = Math.min(buffer.content.length - 1, buffer.currentLine + count - 1);
+        for (let i = start; i <= end; i++) {
+          buffer.content[i] = indent + buffer.content[i];
+        }
+        buffer.modified = true;
+        return `Indented ${end - start + 1} line(s) right`;
+      }
+
+      case '<<': {
+        pushUndo(buffer);
+        const sw = options?.shiftwidth ?? VIM_OPTION_DEFAULTS.shiftwidth;
+        const start = buffer.currentLine;
+        const end = Math.min(buffer.content.length - 1, buffer.currentLine + count - 1);
+        for (let i = start; i <= end; i++) {
+          const line = buffer.content[i];
+          const leading = line.match(/^\s*/)?.[0] ?? '';
+          const toRemove = Math.min(sw, leading.length);
+          buffer.content[i] = line.substring(toRemove);
+        }
+        buffer.modified = true;
+        return `Indented ${end - start + 1} line(s) left`;
       }
 
       default:

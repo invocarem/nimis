@@ -238,6 +238,62 @@ describe("Normal Mode Commands - Isolated Tests", () => {
     });
   });
 
+  describe("Indent commands (>> and <<)", () => {
+    beforeEach(async () => {
+      const content = "  foo\n    bar\n  baz\n";
+      await writeFile(testFile, content, "utf-8");
+      await manager.callTool("vim", { file_path: testFile, commands: [] });
+    });
+
+    it("should handle '>>' to indent current line right (prepend shiftwidth)", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["2G", ">>", ":w"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = await readFile(testFile, "utf-8");
+      // Default shiftwidth=8: "    bar" -> add 8 spaces -> "            bar"
+      expect(content).toBe("  foo\n            bar\n  baz\n");
+    });
+
+    it("should handle '<<' to indent current line left (remove shiftwidth)", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["2G", "<<", ":w"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = await readFile(testFile, "utf-8");
+      // shiftwidth=8: remove up to 8 from "    bar" (4 spaces) -> "bar"
+      expect(content).toBe("  foo\nbar\n  baz\n");
+    });
+
+    it("should handle '3>>' to indent 3 lines right", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["gg", "3>>", ":w"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = await readFile(testFile, "utf-8");
+      // Add 8 spaces to each: "  foo"->"          foo", "    bar"->"            bar", "  baz"->"          baz"
+      expect(content).toBe("          foo\n            bar\n          baz\n");
+    });
+
+    it("should respect :set shiftwidth for >>", async () => {
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [":set shiftwidth=4", "2G", ">>", ":w"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      const content = await readFile(testFile, "utf-8");
+      // shiftwidth=4: "    bar" -> add 4 spaces -> "        bar"
+      expect(content).toBe("  foo\n        bar\n  baz\n");
+    });
+  });
+
   describe("Yank and put commands", () => {
     beforeEach(async () => {
       const content = "line1\nline2\nline3\nline4\nline5\n";

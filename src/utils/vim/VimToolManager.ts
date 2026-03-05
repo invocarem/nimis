@@ -97,7 +97,7 @@ export class VimToolManager {
           "- '\\x1b' returns to normal mode; ':w' saves\n\n" +
           "Commands: :e :w :q :wq :q! :[range]s/pat/repl/[g|i] :[range]d :[range]y :p\n" +
           "  :%print (read file) :g/pat/cmd :v/pat/cmd :grep :cd :pwd :! :terminal :r :find :help\n" +
-          "Normal: i a A I o O dd yy p P gg G j k + - 0 $ ma 'a \"ayy\n" +
+          "Normal: i a A I o O dd yy p P >> << gg G j k + - 0 $ ma 'a \"ayy\n" +
           "Ranges: % . $ N N,M 'a /pat/\n" +
           "Use :help or :help <topic> for detailed command reference.",
         inputSchema: {
@@ -542,6 +542,6 @@ private async vimEdit(
     if (/^'[a-z],/.test(cmd)) {
       return this.exHandler.execute(cmd, buffer);
     }
-    return this.normalHandler.execute(cmd, buffer);
+    return this.normalHandler.execute(cmd, buffer, this.options);
   }
 }

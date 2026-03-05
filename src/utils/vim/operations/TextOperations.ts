@@ -1,4 +1,4 @@
-import type { VimBuffer, Range } from "../types";
+import type { VimBuffer, Range, VimOptions } from "../types";
 import { shiftDeleteRegisters } from "../models/VimRegister";
 import { NormalCommandHandler } from "../commands/NormalCommandHandler";
 
@@ -211,7 +211,8 @@ export function putLinesLegacy(
 export function normalExCommand(
   range: { start: number; end: number } | null,
   args: string | undefined,
-  buffer: VimBuffer
+  buffer: VimBuffer,
+  options?: Partial<VimOptions>
 ): string {
   if (!args) {
     throw new Error(':normal requires a command');
@@ -225,7 +226,7 @@ export function normalExCommand(
     if (i >= buffer.content.length) break;
     buffer.currentLine = i;
     handler.setCursorColumn(0);
-    handler.execute(args, buffer);
+    handler.execute(args, buffer, options);
     executedCount++;
   }
 
