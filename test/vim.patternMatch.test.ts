@@ -34,9 +34,42 @@ describe("VimToolManager - Pattern Search Commands", () => {
       if (fs.existsSync(helloFile)) {
         await unlink(helloFile);
       }
+      const csFile = path.join(testDir, "NodeConfigBufferBuilder.cs");
+      if (fs.existsSync(csFile)) {
+        await unlink(csFile);
+      }
     } catch (e) {
       // Ignore
     }
+  });
+
+  it("should handle :/pattern without closing slash - search then print range", async () => {
+    // Bug: :/private const int SIGNAL_SIZE (no closing /) failed with
+    // "Unsupported normal mode command: private const int SIGNAL_SIZE"
+    const content = [
+      "namespace Models {",
+      "  public class NodeConfigBufferBuilder {",
+      "    private const int SIGNAL_SIZE = 1024;",
+      "    private const int BUFFER_SIZE = 2048;",
+      "    public void Build() { }",
+      "    public void Reset() { }",
+      "  }",
+      "}"
+    ].join('\n');
+    const csFile = path.join(testDir, "NodeConfigBufferBuilder.cs");
+    await writeFile(csFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      file_path: csFile,
+      commands: [
+        ":/private const int SIGNAL_SIZE",
+        ":.,+5print"
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).toContain("private const int SIGNAL_SIZE");
+    expect(result.content[0].text).toContain("BUFFER_SIZE");
   });
 
   it("should find line with pattern and execute command", async () => {

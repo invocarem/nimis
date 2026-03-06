@@ -555,6 +555,24 @@ export class ExCommandHandler {
       }
     }
 
+    // Single search pattern without closing slash: /pattern (Vim accepts :/pattern without trailing /)
+    if (!range) {
+      const singlePatternNoCloseMatch = cmd.match(/^\/(.+)$/);
+      if (singlePatternNoCloseMatch) {
+        const pattern = singlePatternNoCloseMatch[1];
+        try {
+          range = parseRange("/" + pattern + "/", buffer);
+          buffer.currentLine = range.start;
+          return `Jumped to line ${range.start + 1}`;
+        } catch (e: any) {
+          if (e?.message?.includes?.("Pattern not found")) {
+            return "";
+          }
+          throw e;
+        }
+      }
+    }
+
     // Generic range prefix (numbers, marks, %, $, etc.)
     if (!range) {
       const rangeMatch = cmd.match(/^((?:[%$.0-9,/\\+-]|'[a-z])+)(.*)$/);
