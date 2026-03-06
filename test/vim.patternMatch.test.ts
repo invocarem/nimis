@@ -30,6 +30,10 @@ describe("VimToolManager - Pattern Search Commands", () => {
       if (fs.existsSync(testFile)) {
         await unlink(testFile);
       }
+      const helloFile = path.join(testDir, "hello.py");
+      if (fs.existsSync(helloFile)) {
+        await unlink(helloFile);
+      }
     } catch (e) {
       // Ignore
     }
@@ -91,6 +95,49 @@ describe("VimToolManager - Pattern Search Commands", () => {
     const updatedContent = await readFile(testFile, "utf-8");
     expect(updatedContent).toContain("output = operations[op](a, b)");
     expect(updatedContent).not.toContain("result = operations[op](a, b)");
+  });
+
+  it("should handle /^if __name__/ without colon - 'i' in pattern must not trigger insert mode", async () => {
+    // Bug: When /^if __name__/ is sent char-by-char (no leading :), the "i" in the pattern
+    // was incorrectly interpreted as "enter insert mode", causing "f __name__/" to be inserted.
+    const content = [
+      "def greet(name):",
+      "    print(f\"Hello, {name}!\")",
+      "",
+      "if __name__ == \"__main__\":",
+      "    greet(\"World\")"
+    ].join('\n');
+    const helloFile = path.join(testDir, "hello.py");
+    await writeFile(helloFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      file_path: helloFile,
+      commands: [
+        ":e hello.py",
+        "/^if __name__/",   // Search without colon - sent char-by-char; "i" must NOT enter insert mode
+        "i",
+        "import argparse",
+        "",
+        "parser = argparse.ArgumentParser()",
+        "parser.add_argument(\"--name\", default=\"World\", help=\"Name to greet\")",
+        "args = parser.parse_args()",
+        "",
+        "if __name__ == \"__main__\":",
+        "    greet(args.name)",
+        "\x1b",
+        ":w"
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+
+    const updatedContent = await readFile(helloFile, "utf-8");
+    // Must have "import argparse" (not "iimport argparse")
+    expect(updatedContent).toContain("import argparse");
+    expect(updatedContent).not.toContain("iimport");
+    // Must NOT have "f __name__/" inserted as text (bug: "i" triggered insert mode)
+    expect(updatedContent).not.toMatch(/f __name__\//);
+    expect(updatedContent).toContain("greet(args.name)");
   });
 
   it("should support :/pattern/ to jump to line then o to open new line below", async () => {

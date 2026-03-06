@@ -3,6 +3,7 @@ import { VimState, createVimState } from "../models/VimMode";
 import type { VimBuffer } from "../types";
 import { NormalCommandHandler, pushUndo } from "./NormalCommandHandler";
 import { ExCommandHandler } from "./ExCommandHandler";
+import { parseRange } from "../utils/RangeParser";
 import { CommandContext } from "../types";
 
 export class VimStateMachine {
@@ -219,6 +220,13 @@ export class VimStateMachine {
         this.state.pendingCommand = undefined;
         return { output: ':', stateChanged: true };
 
+      case '/':
+        // Forward search: enter command-line mode to collect pattern (avoids "i" in /^if/ triggering insert)
+        this.state.mode = 'command-line';
+        this.state.commandBuffer = '/';
+        this.state.pendingCommand = undefined;
+        return { output: '/', stateChanged: true };
+
       default:
         this.syncCursorToHandler(buffer);
         try {
@@ -349,8 +357,48 @@ export class VimStateMachine {
       return { output: '-- CANCELLED --', stateChanged: true };
     }
 
-    // Handle Enter to execute command
-    if (key === '\n' || key === '\r') {
+    const isSearchMode = this.state.commandBuffer.startsWith('/');
+
+    // Search mode: closing "/" or Enter executes search
+    if (isSearchMode) {
+      if (key === '/' && this.state.commandBuffer.length > 1) {
+        // Closing / with pattern — execute forward search
+        const pattern = this.state.commandBuffer.slice(1);
+        this.state.mode = 'normal';
+        this.state.commandBuffer = '';
+        try {
+          const range = parseRange('/' + pattern + '/', this.state.buffer!);
+          this.state.buffer!.currentLine = range.start;
+          this.state.cursorPosition.line = range.start;
+          this.state.cursorPosition.column = 0;
+          this.normalHandler.setCursorColumn(0);
+          return { output: `Jumped to line ${range.start + 1}`, stateChanged: true };
+        } catch (e: any) {
+          return { output: `Error: ${e?.message || e}`, stateChanged: true };
+        }
+      }
+      if (key === '\n' || key === '\r') {
+        const pattern = this.state.commandBuffer.slice(1);
+        this.state.mode = 'normal';
+        this.state.commandBuffer = '';
+        if (!pattern) {
+          return { output: '', stateChanged: true };
+        }
+        try {
+          const range = parseRange('/' + pattern + '/', this.state.buffer!);
+          this.state.buffer!.currentLine = range.start;
+          this.state.cursorPosition.line = range.start;
+          this.state.cursorPosition.column = 0;
+          this.normalHandler.setCursorColumn(0);
+          return { output: `Jumped to line ${range.start + 1}`, stateChanged: true };
+        } catch (e: any) {
+          return { output: `Error: ${e?.message || e}`, stateChanged: true };
+        }
+      }
+    }
+
+    // Ex mode: Enter executes command
+    if (!isSearchMode && (key === '\n' || key === '\r')) {
       const command = this.state.commandBuffer.substring(1); // Remove ':'
       this.state.mode = 'normal';
       this.state.commandBuffer = '';
@@ -360,13 +408,8 @@ export class VimStateMachine {
       }
 
       try {
-        // Sync cursor before executing command
         this.syncCursorToHandler(this.state.buffer!);
-        
-        // Execute the Ex command
         const result = await this.exHandler.execute(command, this.state.buffer!);
-        
-        // Sync cursor after execution
         this.syncCursorFromHandler(this.state.buffer!);
         return { output: result, stateChanged: true };
       } catch (e) {
