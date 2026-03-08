@@ -1,11 +1,6 @@
-<!-- vim_templates.xml -->
-<!-- Comprehensive Vim editing templates (all below are verified with test/vim/vimTemplates.test.ts). -->
-<!-- Removed: :pwd/:cd without file_path (need buffer); :g/norm multiline; refactor with \1 backref; :!mkdir + multi-file (use file_path + :e). -->
+<!-- vim_templates.xml - Basic Vim editing for coding. Keep minimal to avoid long system prompts. -->
 
-<!-- ==================== FILE OPERATIONS ==================== -->
-
-<!-- 1. LOCATE AND READ FILE -->
-<!-- Template: Read file content (use :%print to get full file in result) -->
+<!-- Read file -->
 <tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
@@ -14,262 +9,65 @@
 ]]></commands>
 </tool_call>
 
-<!-- Read file with line numbers for reference -->
+<!-- Insert after line number: :N then o (below) or O (above) -->
 <tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
-:%print #
-]]></commands>
-</tool_call>
-
-<!-- Read specific line range from file -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:10,20print
-]]></commands>
-</tool_call>
-
-<!-- Search for pattern and show surrounding lines -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:/function calculate/
-:.print  " Print the line containing the pattern
-:-5,+5print  " Print 5 lines before and after
-]]></commands>
-</tool_call>
-
-<!-- ==================== INSERT CONTENT ==================== -->
-
-<!-- 2. ADD CONTENT WITH INSERT -->
-<!-- Template: Insert at beginning of file -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-gg  " Go to first line
-O  " Open line above and enter insert mode
-import { useState } from 'react';
-import { useEffect } from 'react';
-\x1b
-:w
-:%print  " Verify the changes
-]]></commands>
-</tool_call>
-
-<!-- Template: Insert at end of file -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-G  " Go to last line
-o  " Open line below and enter insert mode
-export const VERSION = '1.0.0';
-export const API_BASE = 'https://api.example.com';
-\x1b
-:w
-]]></commands>
-</tool_call>
-
-<!-- Template: Insert after specific line number -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:15  " Go to line 15
-o  " Open line below and insert
-// TODO: Add validation here
-const validateInput = (input: string) => {
-  return input.length > 0;
-};
-\x1b
-:w
-]]></commands>
-</tool_call>
-
-<!-- Template: Insert after pattern match -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:/^export const config/  " Find the line with config export
-o  " Open line below
-  // New configuration options
-  debug: process.env.NODE_ENV === 'development',
-  retryAttempts: 3,
-\x1b
-:w
-]]></commands>
-</tool_call>
-
-<!-- Template: Insert multiple lines with proper indentation -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:/^class UserService/  " Find class definition
-o  " Open line below
-  private cache: Map<string, User> = new Map();
-  
-  constructor(private config: Config) {
-    this.initializeCache();
-  }
-  
-  private initializeCache(): void {
-    // Cache initialization logic
-  }
-\x1b
-:w
-]]></commands>
-</tool_call>
-
-<!-- ==================== SUBSTITUTE/REPLACE ==================== -->
-
-<!-- 3. CHANGE TEXT WITH MATCH AND SUBSTITUTE -->
-<!-- Template: Simple substitution on current line -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:/oldFunctionName/  " Find the line
-:s/oldFunctionName/newFunctionName/
-:w
-]]></commands>
-</tool_call>
-
-<!-- Template: Global substitution in entire file -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:%s/var/const/g  " Replace all 'var' with 'const'
-:w
-:%print  " Verify changes
-]]></commands>
-</tool_call>
-
-<!-- Template: Case-insensitive substitution -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:%s/User/USER/gi  " Replace all case-insensitive occurrences
-:w
-]]></commands>
-</tool_call>
-
-<!-- Template: Substitution in specific line range -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:10,20s/old/new/g  " Replace only in lines 10-20
-:w
-]]></commands>
-</tool_call>
-
-<!-- Template: Substitution between marks -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:/function start/  " Find start function
-ma  " Set mark a
-:/function end/  " Find end function
-mb  " Set mark b
-:'a,'bs/private/public/g  " Replace between marks
-:w
-]]></commands>
-</tool_call>
-
-<!-- Template: Delete lines matching pattern -->
-<tool_call name="vim">
-  <file_path>src/index.ts</file_path>
-  <commands><![CDATA[
-:e src/index.ts
-:g/console\.log/d  " Delete all lines with console.log
-:w
-]]></commands>
-</tool_call>
-
-<!-- ==================== COMBINED OPERATIONS ==================== -->
-
-<!-- 4. COMPLEX EDITS (LOCATE + INSERT + SUBSTITUTE) -->
-<!-- Template: Add import, modify function, and add new function -->
-<tool_call name="vim">
-  <file_path>src/utils/helpers.ts</file_path>
-  <commands><![CDATA[
-:e src/utils/helpers.ts
-
-" Step 1: Add import at top
-gg
-O
-import { useState, useEffect } from 'react';
-\x1b
-j  " Move down to original first line
-
-" Step 2: Find and modify existing function
-/^export function formatDate/
-:s/formatDate/formatDateTime/g
-A
-, includeTime?: boolean
-\x1b
-
-" Step 3: Add new function at end
-G
+:5
 o
-export const debounce = (fn: Function, delay: number) => {
-  let timeoutId: NodeJS.Timeout;
-  return (...args: any[]) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
-};
+  // new code
 \x1b
-
-" Step 4: Verify and save
-:%print
 :w
 ]]></commands>
 </tool_call>
 
-<!-- ==================== CREATE NEW FILES ==================== -->
-
-<!-- Create new file with boilerplate -->
+<!-- Insert after line or pattern -->
 <tool_call name="vim">
-  <file_path>src/components/Button.tsx</file_path>
+  <file_path>src/index.ts</file_path>
+  <commands><![CDATA[
+:e src/index.ts
+:/^export function/
+o
+  // new code
+\x1b
+:w
+]]></commands>
+</tool_call>
+
+<!-- Substitute: :s/old/new/ or :%s/old/new/g -->
+<tool_call name="vim">
+  <file_path>src/index.ts</file_path>
+  <commands><![CDATA[
+:e src/index.ts
+:%s/var/const/g
+:w
+]]></commands>
+</tool_call>
+
+<!-- Delete lines matching pattern -->
+<tool_call name="vim">
+  <file_path>src/index.ts</file_path>
+  <commands><![CDATA[
+:e src/index.ts
+:g/console\.log/d
+:w
+]]></commands>
+</tool_call>
+
+<!-- Diff two files -->
+<tool_call name="vim">
+  <commands><![CDATA[
+:diff src/old.ts src/new.ts
+]]></commands>
+</tool_call>
+
+<!-- Create new file -->
+<tool_call name="vim">
+  <file_path>src/Component.tsx</file_path>
   <commands><![CDATA[
 i
-import React from 'react';
-
-interface ButtonProps {
-  label: string;
-  onClick: () => void;
-  variant?: 'primary' | 'secondary';
-  disabled?: boolean;
-}
-
-export const Button: React.FC<ButtonProps> = ({
-  label,
-  onClick,
-  variant = 'primary',
-  disabled = false
-}) => {
-  return (
-    <button
-      className={`btn btn-${variant}`}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {label}
-    </button>
-  );
-};
-
+export const Component = () => <div>Hello</div>;
 \x1b
 :w
 ]]></commands>

@@ -130,6 +130,35 @@ describe("VimToolManager - Pattern Search Commands", () => {
     expect(updatedContent).not.toContain("result = operations[op](a, b)");
   });
 
+  it("should handle /pattern without trailing slash - Enter executes search", async () => {
+    // Search form (no leading :) with no trailing / - use Enter to execute
+    const content = [
+      "def add(a, b):",
+      "    return a + b",
+      "def multiply(x, y):",
+      "    return x * y"
+    ].join("\n");
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      file_path: testFile,
+      commands: [
+        ":e calc.py",
+        "/def multiply",   // No trailing slash
+        "\n",              // Enter executes search
+        "o",               // Open line below (after jumping to "def multiply")
+        "    pass",
+        "\x1b",
+        ":w"
+      ],
+    });
+
+    expect(result.isError).toBeFalsy();
+    const updatedContent = await readFile(testFile, "utf-8");
+    // Should have inserted "pass" after "def multiply" line, not after "def add"
+    expect(updatedContent).toContain("def multiply(x, y):\n    pass");
+  });
+
   it("should handle /^if __name__/ without colon - 'i' in pattern must not trigger insert mode", async () => {
     // Bug: When /^if __name__/ is sent char-by-char (no leading :), the "i" in the pattern
     // was incorrectly interpreted as "enter insert mode", causing "f __name__/" to be inserted.

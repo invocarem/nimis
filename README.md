@@ -51,6 +51,7 @@ The Vim subsystem is not a gimmick — it's a full implementation that the AI us
 | `:bn` / `:bp` / `:b <n>` / `:ls` | Buffer navigation |
 | `:reg` / `:marks` | Show registers / marks |
 | `:grep <pat> [path] [glob]` | Recursive grep |
+| `:diff <file1> [file2]` | Compare two files, or buffer vs file on disk |
 | `:pwd` / `:cd <dir>` | Working directory |
 | `:terminal [cmd]` / `:termal [cmd]` | Open VS Code terminal (optionally run command) |
 | `:!<cmd>` / `:[range]!<cmd>` | Shell command / filter through shell |

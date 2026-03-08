@@ -13,6 +13,7 @@ import { isExCommand, stripColonPrefix } from "./commands/CommandParser";
 import { editFile, writeBuffer } from "./operations/FileOperations";
 import { grepInDirectory } from "./operations/GrepOperations";
 import { listBuffers, showRegisters, showMarks } from "./operations/BufferOperations";
+import { createTwoFilesPatch } from "diff";
 import { VimStateMachine } from "./commands/VimStateMachine";
 import { createVimState } from "./models/VimMode";
 
@@ -96,7 +97,7 @@ export class VimToolManager {
           "- 'i' (insert mode) must be separate from the text that follows\n" +
           "- '\\x1b' returns to normal mode; ':w' saves\n\n" +
           "Commands: :e :w :q :wq :q! :[range]s/pat/repl/[g|i] :[range]d :[range]y :p\n" +
-          "  :[range]print (e.g. :%print :+2,+2print) :g/pat/cmd :v/pat/cmd :grep :cd :pwd :! :terminal :r :find :help\n" +
+          "  :[range]print (e.g. :%print :+2,+2print) :g/pat/cmd :v/pat/cmd :grep :cd :pwd :! :terminal :r :find :diff :help\n" +
           "Normal: i a A I o O dd yy p P >> << gg G j k + - 0 $ ma 'a \"ayy\n" +
           "Ranges: % . $ N N,M +N -N 'a /pat/  (+N = N lines below, -N = N lines above current)\n" +
           "Use :help or :help <topic> for detailed command reference.",
@@ -192,7 +193,18 @@ export class VimToolManager {
     }
   }
 
-  /** Run only :pwd, :cd, :! commands without opening a buffer or using the state machine. */
+  /** Commands that can run without an active buffer (no file open). */
+  private canRunWithoutBuffer(cmd: string): boolean {
+    if (/^:\s*(pwd|cd\s|!|grep(\s|$))/.test(cmd)) return true;
+    const diffMatch = cmd.match(/^:dif+f?\s+(.+)$/s);
+    if (diffMatch) {
+      const args = diffMatch[1].trim().split(/\s+/).filter(Boolean);
+      return args.length >= 2; // :diff file1 file2 can run without buffer
+    }
+    return false;
+  }
+
+  /** Run only :pwd, :cd, :!, :grep, :diff (two args) without opening a buffer or using the state machine. */
   private async runDirectoryCommandsOnly(commands: string[]): Promise<VimToolResult | null> {
     let wd = this.workingDir || this.pathResolver.workspaceRoot || process.cwd();
     if (!wd) {
@@ -288,6 +300,29 @@ export class VimToolManager {
         }
         continue;
       }
+      const diffMatch = c.match(/^:dif+f?\s+(.+)$/s);
+      if (diffMatch) {
+        const args = diffMatch[1].trim().split(/\s+/).filter(Boolean);
+        if (args.length < 2) {
+          return {
+            content: [{ type: "text", text: ":diff with one argument requires an active buffer. Use :e <file> first, then :diff <file>." }],
+            isError: true
+          };
+        }
+        const p1 = this.pathResolver.resolve(args[0]);
+        const p2 = this.pathResolver.resolve(args[1]);
+        try {
+          const oldStr = fs.readFileSync(p1, "utf-8");
+          const newStr = fs.readFileSync(p2, "utf-8");
+          const oldLabel = path.relative(wd, p1) || p1;
+          const newLabel = path.relative(wd, p2) || p2;
+          const patch = createTwoFilesPatch(oldLabel, newLabel, oldStr, newStr);
+          outputs.push((!patch || !patch.includes("@@")) ? "(no differences)" : patch);
+        } catch (err: any) {
+          return { content: [{ type: "text", text: `diff failed: ${err.message}` }], isError: true };
+        }
+        continue;
+      }
       outputs.push(`Unknown directory command: ${c}`);
     }
 
@@ -326,8 +361,8 @@ private async vimEdit(
       if (eMatch) {
         const filename = eMatch[1].trim();
         await editFile(filename, ctx);
-      } else if (commands.every((c) => /^:\s*(pwd|cd\s|!|grep(\s|$))/.test(String(c).trim()))) {
-        // Directory/shell-only: run without a buffer (no state machine)
+      } else if (commands.every((c) => this.canRunWithoutBuffer(String(c).trim()))) {
+        // Directory/shell-only or :diff: run without a buffer (no state machine)
         const result = await this.runDirectoryCommandsOnly(commands);
         if (result) return result;
       }

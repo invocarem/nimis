@@ -33,6 +33,7 @@ import { formatRegisters } from "../models/VimRegister";
 import { loadBufferFromFile } from "../models/VimBuffer";
 import { listDirectory } from "../operations/DirectoryOperations";
 import { grepInDirectory } from "../operations/GrepOperations";
+import { createTwoFilesPatch } from "diff";
 
 /** Parse s/pattern/replacement/flags with support for \delim escaping (e.g. \/ for literal /) */
 function parseSubstituteArgs(
@@ -170,6 +171,8 @@ const HELP_TOPICS: Record<string, string> = {
 
   "retab": ":[range]ret[ab][!] [new_tabstop]\n  Replace whitespace using the current or new tabstop value.\n\n  Without [new_tabstop]:\n    With 'expandtab' on: converts tabs to spaces.\n    With 'expandtab' off: keeps tabs. With [!]: converts spaces to tabs.\n\n  With [new_tabstop]:\n    Re-indents the file: interprets leading whitespace using the OLD\n    tabstop, then rebuilds it using [new_tabstop]. This changes\n    indentation width (e.g. 2-space → 4-space).\n    Set 'tabstop' to match current indentation first for best results.\n\n  Without a range, the entire file is retabbed.\n\n  Examples:\n    :retab              Convert tabs to spaces (expandtab on)\n    :set tabstop=2\n    :retab 4            Re-indent from 2-space to 4-space\n    :retab!             Convert space sequences to tabs (noexpandtab)\n    :10,20retab 2       Re-indent lines 10-20",
 
+  "diff": ":dif[f] [file1] [file2]\n  Show unified diff between two files, or between current buffer and a file.\n\n  With two arguments: compare file1 (old) vs file2 (new).\n  With one argument: compare [file] on disk (old) vs current buffer (new).\n  Useful to see unsaved changes.\n\n  Examples:\n    :diff a.ts b.ts     Diff between two files\n    :diff src/main.ts   Diff buffer vs disk (show unsaved changes)",
+
   "set": ":se[t] [{option}[={value}] ...]\n  Show or change editor options.\n\n  Boolean options:\n    :set expandtab      Enable option\n    :set noexpandtab    Disable option\n    :set invexpandtab   Toggle option\n\n  Numeric options:\n    :set tabstop=4      Set value\n    :set tabstop?       Query current value\n    :set tabstop&       Reset to default\n\n  Multiple options at once:\n    :set expandtab tabstop=4 shiftwidth=4\n\n  Show all options:\n    :set                Show all current values\n    :set all            Show all current values\n\n  Available options (aliases):\n    expandtab (et)      Use spaces instead of tabs\n    tabstop (ts)        Number of spaces a tab counts for\n    softtabstop (sts)   Number of spaces for Tab/Backspace\n    shiftwidth (sw)     Number of spaces for indent\n    autoindent (ai)     Copy indent from current line\n    number (nu)         Show line numbers\n    relativenumber (rnu) Show relative line numbers\n    wrapscan (ws)       Searches wrap around end of file\n    ignorecase (ic)     Ignore case in search\n    smartcase (scs)     Override ignorecase if pattern has uppercase\n    hlsearch (hls)      Highlight search matches",
 
   "setlocal": ":setl[ocal] [{option}[={value}] ...]\n  Same as :set. Set options for the current buffer.\n  In Nimis, options are shared across buffers, so :setlocal behaves like :set.",
@@ -244,6 +247,9 @@ export class ExCommandHandler {
         "  :grep {pat}      Search in files          :pwd         Working directory",
         "  :cd {dir}        Change directory",
         "",
+        "Diff:",
+        "  :diff {f1} {f2}  Compare two files        :diff {f}    Buffer vs file on disk",
+        "",
         "Settings & Info:",
         "  :set {opt}[=val] Set option               :set         Show all options",
         "  :retab [N]       Retab with tabstop        :retab!      Also convert spaces",
@@ -254,7 +260,7 @@ export class ExCommandHandler {
         "              p/P    Put after/before  gg/G  Top/bottom   0/$  Start/end",
         "",
         "Type :help {topic} for detailed help.  Topics:",
-        "  e w q wq s c d y p print g v bn bp ls b r saveas find grep",
+        "  e w q wq s c d y p print g v bn bp ls b r saveas find grep diff",
         "  cd pwd reg mark norm ! terminal termal set setlocal retab insert normal range",
       ].join("\n");
     }
@@ -1172,6 +1178,54 @@ export class ExCommandHandler {
       case "setlocal":
       case "setl":
         return this.setCommand(args?.trim() || '');
+
+      case "diff":
+      case "dif": {
+        const parts = args?.trim().split(/\s+/)?.filter(Boolean) ?? [];
+        if (parts.length === 0) {
+          throw new Error(":diff requires one or two file arguments");
+        }
+        const cwd = this.ctx.workingDir || process.cwd();
+        const toContent = (p: string) => {
+          const resolved = path.isAbsolute(p) ? p : path.resolve(cwd, p);
+          return fs.readFileSync(resolved, "utf-8");
+        };
+        let oldLabel: string;
+        let oldStr: string;
+        let newLabel: string;
+        let newStr: string;
+        if (parts.length === 1) {
+          const filePath = this.ctx.resolvePath(parts[0]);
+          oldLabel = path.relative(cwd, filePath) || filePath;
+          newLabel = buffer.path ? path.relative(cwd, buffer.path) || buffer.path : "buffer";
+          try {
+            oldStr = fs.readFileSync(filePath, "utf-8");
+          } catch (e: any) {
+            throw new Error(`Cannot read ${parts[0]}: ${e.message}`);
+          }
+          newStr = buffer.content.join(buffer.lineEnding || "\n");
+          if (buffer.trailingNewline !== false) {
+            newStr += buffer.lineEnding || "\n";
+          }
+        } else {
+          const p1 = this.ctx.resolvePath(parts[0]);
+          const p2 = this.ctx.resolvePath(parts[1]);
+          oldLabel = path.relative(cwd, p1) || p1;
+          newLabel = path.relative(cwd, p2) || p2;
+          try {
+            oldStr = fs.readFileSync(p1, "utf-8");
+          } catch (e: any) {
+            throw new Error(`Cannot read ${parts[0]}: ${e.message}`);
+          }
+          try {
+            newStr = fs.readFileSync(p2, "utf-8");
+          } catch (e: any) {
+            throw new Error(`Cannot read ${parts[1]}: ${e.message}`);
+          }
+        }
+        const patch = createTwoFilesPatch(oldLabel, newLabel, oldStr, newStr);
+        return (!patch || !patch.includes("@@")) ? "(no differences)" : patch;
+      }
 
       case "h":
       case "he":

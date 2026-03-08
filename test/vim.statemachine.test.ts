@@ -149,6 +149,46 @@ describe("VimStateMachine", () => {
       expect(stateMachine.getState().mode).toBe('command-line');
       expect(stateMachine.getState().commandBuffer).toBe(':');
     });
+
+    it("should switch to command-line mode on '/' (forward search)", async () => {
+      const result = await stateMachine.processKey('/');
+      
+      expect(result.stateChanged).toBe(true);
+      expect(result.output).toBe("/");
+      expect(stateMachine.getState().mode).toBe('command-line');
+      expect(stateMachine.getState().commandBuffer).toBe('/');
+    });
+  });
+
+  describe("Search mode (/) - execution", () => {
+    it("should execute search on Enter without trailing slash", async () => {
+      // Type /line two then Enter (no trailing /)
+      await stateMachine.processKey('/');
+      for (const char of "line two") {
+        await stateMachine.processKey(char);
+      }
+      const result = await stateMachine.processKey('\n');
+      
+      expect(result.stateChanged).toBe(true);
+      expect(result.output).toContain("Jumped to line");
+      expect(stateMachine.getState().mode).toBe('normal');
+      expect(stateMachine.getState().commandBuffer).toBe('');
+      expect(mockBuffer.currentLine).toBe(1); // "line two" is line 2 (0-indexed)
+    });
+
+    it("should execute search on closing slash", async () => {
+      // Type /line three/ (trailing / executes)
+      await stateMachine.processKey('/');
+      for (const char of "line three") {
+        await stateMachine.processKey(char);
+      }
+      const result = await stateMachine.processKey('/');
+      
+      expect(result.stateChanged).toBe(true);
+      expect(result.output).toContain("Jumped to line");
+      expect(stateMachine.getState().mode).toBe('normal');
+      expect(mockBuffer.currentLine).toBe(2); // "line three" is line 3 (0-indexed)
+    });
   });
 
   describe("Normal mode - Command execution", () => {
