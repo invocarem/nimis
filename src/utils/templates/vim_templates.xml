@@ -1,11 +1,11 @@
 <!-- vim_templates.xml - Basic Vim editing for coding. Keep minimal to avoid long system prompts. -->
 
-<!-- Read file -->
+<!-- Read file (use :%print # for line numbers - avoids off-by-one) -->
 <tool_call name="vim">
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
-:%print
+:%print #
 ]]></commands>
 </tool_call>
 
@@ -42,6 +42,28 @@ o
 :e src/index.ts
 :%s/var/const/g
 :w
+]]></commands>
+</tool_call>
+
+<!-- Delete line(s) by number: :Nd (single) or :N,Md (range). Delete bottom-to-top for non-contiguous -->
+<tool_call name="vim">
+  <file_path>src/index.ts</file_path>
+  <commands><![CDATA[
+:e src/index.ts
+:5d              # delete line 5 only
+:w
+:%print #        # verify
+]]></commands>
+</tool_call>
+
+<!-- Delete range :5,10d (lines 5–10 inclusive). Non-contiguous: delete higher line numbers first -->
+<tool_call name="vim">
+  <file_path>src/index.ts</file_path>
+  <commands><![CDATA[
+:e src/index.ts
+:5,10d           # delete lines 5 through 10
+:w
+:%print #
 ]]></commands>
 </tool_call>
 

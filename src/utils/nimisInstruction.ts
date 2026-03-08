@@ -58,7 +58,7 @@ command3
   <commands><![CDATA[
 :e processor.py
 :150          # go to line 150 (viewport now shows lines 150-173)
-:.,+24print   # verify you're at the right location
+:.,+24print #   # verify with line numbers
   ]]></commands>
 </tool_call>
 
@@ -67,7 +67,7 @@ command3
   <commands><![CDATA[
 /def process_data  # find the function
 zt                # scroll to put it at top of viewport
-:.,+24print       # see the full function in viewport
+:.,+24print #       # see with line numbers
   ]]></commands>
 </tool_call>
 
@@ -80,10 +80,12 @@ i
     if result is None:
         return []
 \\x1b
-:.,+24print       # verify the change in viewport
+:.,+24print #       # verify with line numbers
   ]]></commands>
 </tool_call>
 Do not use substitute command instead use dd and o to replace existed code.
+
+**Delete tips:** Use :Nd or :N,Md with line numbers from :%print #. When deleting multiple non-contiguous lines, delete from BOTTOM-TO-TOP (e.g. :7d then :3d).
 
 **Step 4 - Explain what you did:**
 "I navigated to line 150, found the process_data function, and added a null check before the return. You can see the modified code in your VimView - it's showing lines 150-173 with the function at the top."
@@ -94,8 +96,9 @@ Do not use substitute command instead use dd and o to replace existed code.
 - Use \`:[line]\` to jump directly to a specific line
 - Use \`/pattern\` to search and position cursor at the match
 - Use \`zt\` to put the current line at the top for maximum context below
-- Use \`:%print\` only when you need to see the ENTIRE buffer (use sparingly)
-- Use \`:.,+24print\` to see the next 24 lines from cursor
+- Use \`:%print #\` to see buffer with line numbers (avoids off-by-one when referencing lines)
+- Use \`:.,+24print #\` to see next 24 lines with line numbers
+- Delete: \`:Nd\` or \`:N,Md\`. For non-contiguous lines, delete higher numbers first (bottom-to-top)
 
 ## REMEMBER
 

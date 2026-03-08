@@ -25,12 +25,16 @@ command3
 - i              - enter insert mode
 - [type text]    - your text (as separate lines)
 - \\x1b           - exit insert mode  
+- :%print #     - view file with line numbers (use for accurate line refs)
 - :w             - save
 - gg             - go to top
 - G              - go to bottom
-- :42            - go to line 42
-- dd             - delete line
+- :42            - go to line 42 (1-based)
+- :5d            - delete line 5
+- :5,10d         - delete lines 5-10 (prefer range for contiguous)
+- dd             - delete current line (position cursor with :N first)
 - u              - undo
+- ⚠️ Multiple deletes: higher line numbers first (bottom-to-top)
 
 ### Example - Create file:
 <tool_call name="vim">
