@@ -22,10 +22,10 @@ command3
 
 ### Common Commands:
 - :e file.txt    - load file
-- i              - enter insert mode
+- o              - open new line below for insert
 - [type text]    - your text (as separate lines)
-- \\x1b           - exit insert mode  
-- :%print #     - view file with line numbers (use for accurate line refs)
+- \\x1b          - exit insert mode  
+- :%print #      - view file with line numbers (use for accurate line refs)
 - :w             - save
 - gg             - go to top
 - G              - go to bottom
@@ -41,7 +41,7 @@ command3
   <file_path>hello.py</file_path>
   <commands><![CDATA[
 :e hello.py
-i
+o
 print("Hello")
 print("World")
 \\x1b
@@ -54,7 +54,8 @@ print("World")
   <commands><![CDATA[
 gg/print
 o
-print("New line")
+print("New line 1")
+print("New line 2")
 \\x1b
 :w
   ]]></commands>

@@ -17,6 +17,7 @@
 :5
 o
   // new code
+  // new code 2
 \x1b
 :w
 ]]></commands>
@@ -30,6 +31,7 @@ o
 :/^export function/
 o
   // new code
+  // new code 2
 \x1b
 :w
 ]]></commands>
