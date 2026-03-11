@@ -1,10 +1,10 @@
 /**
  * @jest-environment jsdom
  */
-const {
+import {
   formatMarkdown,
   setupThinkingBlockHandlers,
-} = require("../src/webview/assets/markdownFormatter.js");
+} from "../src/webview/assets/markdownFormatter";
 
 describe("Thinking block expand/collapse", () => {
   it("should toggle expanded class when header is clicked", () => {
@@ -16,14 +16,14 @@ describe("Thinking block expand/collapse", () => {
     const block = container.querySelector(".thinking-block-container");
     const header = container.querySelector(".thinking-header");
 
-    expect(block.classList.contains("expanded")).toBe(false);
+    expect(block?.classList.contains("expanded")).toBe(false);
 
     setupThinkingBlockHandlers(container);
-    header.click();
-    expect(block.classList.contains("expanded")).toBe(true);
+    (header as HTMLElement)?.click();
+    expect(block?.classList.contains("expanded")).toBe(true);
 
-    header.click();
-    expect(block.classList.contains("expanded")).toBe(false);
+    (header as HTMLElement)?.click();
+    expect(block?.classList.contains("expanded")).toBe(false);
   });
 
   it("should update aria-expanded attribute on toggle", () => {
@@ -33,14 +33,14 @@ describe("Thinking block expand/collapse", () => {
     container.innerHTML = html;
 
     const header = container.querySelector(".thinking-header");
-    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(header?.getAttribute("aria-expanded")).toBe("false");
 
     setupThinkingBlockHandlers(container);
-    header.click();
-    expect(header.getAttribute("aria-expanded")).toBe("true");
+    (header as HTMLElement)?.click();
+    expect(header?.getAttribute("aria-expanded")).toBe("true");
 
-    header.click();
-    expect(header.getAttribute("aria-expanded")).toBe("false");
+    (header as HTMLElement)?.click();
+    expect(header?.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("should handle multiple thinking blocks independently", () => {
@@ -57,11 +57,11 @@ describe("Thinking block expand/collapse", () => {
 
     setupThinkingBlockHandlers(container);
 
-    headers[0].click();
+    (headers[0] as HTMLElement).click();
     expect(blocks[0].classList.contains("expanded")).toBe(true);
     expect(blocks[1].classList.contains("expanded")).toBe(false);
 
-    headers[1].click();
+    (headers[1] as HTMLElement).click();
     expect(blocks[0].classList.contains("expanded")).toBe(true);
     expect(blocks[1].classList.contains("expanded")).toBe(true);
   });

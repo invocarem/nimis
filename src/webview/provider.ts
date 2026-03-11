@@ -755,34 +755,6 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         "main.js"
       )
     );
-    const formatterScriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "dist",
-        "webview",
-        "assets",
-        "markdownFormatter.js"
-      )
-    );
-
-    const vimViewScriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "dist",
-        "webview",
-        "assets",
-        "vimView.js"
-      )
-    );
-    const benchScriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "dist",
-        "webview",
-        "assets",
-        "bench.js"
-      )
-    );
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -861,10 +833,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         <div class="bench-idle-status" id="bench-idle-status">No bench running. Click Run All or Run Test to start.</div>
         <div class="bench-log" id="bench-log"></div>
     </div>
-    <script nonce="${nonce}" src="${formatterScriptUri}"></script>
-    <script nonce="${nonce}" src="${vimViewScriptUri}"></script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
-    <script nonce="${nonce}" src="${benchScriptUri}"></script>
 </body>
 </html>`;
   }

@@ -2,10 +2,16 @@
  * Markdown formatting utilities for the webview
  */
 
+export interface HarmonyParseResult {
+  finalMessage: string;
+  channels: string[];
+  metadata: Record<string, string>;
+}
+
 /**
  * Parse Harmony protocol messages and extract the final message
  */
-function parseHarmonyMessage(input) {
+export function parseHarmonyMessage(input: string): HarmonyParseResult {
   // If no Harmony start tag, return as-is
   if (!input.includes("<|start|>")) {
     return {
@@ -15,8 +21,8 @@ function parseHarmonyMessage(input) {
     };
   }
 
-  const channels = [];
-  const metadata = {};
+  const channels: string[] = [];
+  const metadata: Record<string, string> = {};
   let finalMessage = "";
 
   // Parse each block (split by <|start|>); last block may be partial (streaming, no <|end|>)
@@ -27,7 +33,6 @@ function parseHarmonyMessage(input) {
       : block;
     const tagRegex = /<\|(\w+)\|>(.*?)(?=<\|[\w]+\|>|$)/gs;
     let match;
-    let currentChannel = "";
     let blockMessage = "";
 
     while ((match = tagRegex.exec(blockContent)) !== null) {
@@ -36,7 +41,6 @@ function parseHarmonyMessage(input) {
 
       switch (tag) {
         case "channel":
-          currentChannel = content;
           if (!channels.includes(content)) {
             channels.push(content);
           }
@@ -46,7 +50,6 @@ function parseHarmonyMessage(input) {
           blockMessage += content + " ";
           break;
         case "assistant":
-          break;
         case "end":
           break;
         default:
@@ -80,14 +83,20 @@ function parseHarmonyMessage(input) {
  * Preprocess markdown text to fix common LLM formatting issues
  * Code blocks are only recognized by ``` fences - no heuristic wrapping.
  */
-function preprocessMarkdown(text) {
+export function preprocessMarkdown(text: string): string {
   return text;
+}
+
+interface CodeBlock {
+  language: string;
+  code: string;
+  unclosed?: boolean;
 }
 
 /**
  * Format markdown text to HTML
  */
-function formatMarkdown(text) {
+export function formatMarkdown(text: string): string {
   console.log("Raw input:", text);
 
   // First, parse Harmony protocol if present
@@ -98,10 +107,10 @@ function formatMarkdown(text) {
   html = preprocessMarkdown(html);
 
   // Extract thinking blocks BEFORE escaping HTML (use placeholders)
-  const thinkingBlocks = [];
+  const thinkingBlocks: string[] = [];
   html = html.replace(
     /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/g,
-    (match, content) => {
+    (_match, content) => {
       const placeholder =
         "PLACEHOLDERTHINKINGBLOCK" + thinkingBlocks.length + "PLACEHOLDER";
       thinkingBlocks.push(content);
@@ -110,20 +119,17 @@ function formatMarkdown(text) {
   );
 
   // Extract code blocks BEFORE escaping HTML (use placeholders)
-  // Supports: ```lang\ncode```, ```lang\n\ncode```, ```\ncode```
-  const codeBlocks = [];
-  html = html.replace(/```(\w*)\s*\n([\s\S]*?)```/g, (match, language, code) => {
+  const codeBlocks: CodeBlock[] = [];
+  html = html.replace(/```(\w*)\s*\n([\s\S]*?)```/g, (_match, language, code) => {
     const placeholder =
       "PLACEHOLDERCODEBLOCK" + codeBlocks.length + "PLACEHOLDER";
-    // Only trim leading/trailing newlines; preserve spaces for alignment (e.g. line numbers)
     const trimmedCode = code.replace(/^\n+/, "").replace(/\n+$/, "");
     codeBlocks.push({ language: language.trim(), code: trimmedCode });
     return placeholder;
   });
 
-  // Handle unclosed code blocks (e.g. during streaming) so their content
-  // isn't processed as markdown (headings, lists, etc.)
-  html = html.replace(/```(\w*)\s*\n([\s\S]*)$/, (match, language, code) => {
+  // Handle unclosed code blocks (e.g. during streaming)
+  html = html.replace(/```(\w*)\s*\n([\s\S]*)$/, (_match, language, code) => {
     const placeholder =
       "PLACEHOLDERCODEBLOCK" + codeBlocks.length + "PLACEHOLDER";
     const trimmedCode = code.replace(/^\n+/, "");
@@ -131,7 +137,6 @@ function formatMarkdown(text) {
     return placeholder;
   });
 
-  // Log extracted code blocks for debugging
   if (codeBlocks.length > 0) {
     console.log("Found", codeBlocks.length, "code block(s):");
     codeBlocks.forEach((block, i) => {
@@ -150,7 +155,6 @@ function formatMarkdown(text) {
   html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
 
   // Process italic (*text* or _text_)
-  // Updated regex for processing italic text to avoid trimming underscores
   html = html.replace(/(?<!\w)\*([^\*]+?)\*(?!\w)/g, "<em>$1</em>");
   html = html.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, "<em>$1</em>");
 
@@ -159,7 +163,7 @@ function formatMarkdown(text) {
   html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
   html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
 
-  // Process lists (ordered and unordered) - proper handling of multiple lists
+  // Process lists (ordered and unordered)
   html = processLists(html);
 
   // Process links [text](url)
@@ -171,10 +175,10 @@ function formatMarkdown(text) {
   // Process line breaks (double newline = paragraph)
   const lines = html.split("\n");
   let inBlock = false;
-  let result = [];
-  let paragraph = [];
+  const result: string[] = [];
+  let paragraph: string[] = [];
 
-  for (let line of lines) {
+  for (const line of lines) {
     if (
       line.includes('<pre class="code-block"') ||
       line.includes('<div class="code-block-container"')
@@ -223,12 +227,11 @@ function formatMarkdown(text) {
     let { language, code } = codeBlocks[i];
     const lang = language.toLowerCase();
 
-    // Format and detect JSON
     if (lang === "json" || isJSON(code)) {
       try {
         const formatted = JSON.stringify(JSON.parse(code), null, 2);
         code = formatted;
-      } catch (e) {
+      } catch {
         // Keep original if JSON parse fails
       }
     }
@@ -244,7 +247,6 @@ function formatMarkdown(text) {
         escapeAttribute(code) +
         '">Copy</button></div>';
 
-    // Escape code content to prevent XSS (e.g. <script> in LLM output)
     const escapedCode = escapeHtml(code);
     const codeBlockHtml =
       '<div class="code-block-container">' +
@@ -259,7 +261,7 @@ function formatMarkdown(text) {
     html = html.replace(placeholder, codeBlockHtml);
   }
 
-  // Process thinking block placeholders at the end
+  // Process thinking block placeholders
   for (let i = 0; i < thinkingBlocks.length; i++) {
     const placeholder = "PLACEHOLDERTHINKINGBLOCK" + i + "PLACEHOLDER";
     const content = thinkingBlocks[i].trim();
@@ -278,7 +280,6 @@ function formatMarkdown(text) {
     html = html.replace(placeholder, thinkingHtml);
   }
 
-  // Convert HTML to readable text for logging
   const readableOutput = html
     .replace(/<p>/g, "")
     .replace(/<\/p>/g, "\n\n")
@@ -299,10 +300,10 @@ function formatMarkdown(text) {
 /**
  * Process markdown lists (ordered and unordered)
  */
-function processLists(text) {
+export function processLists(text: string): string {
   const lines = text.split("\n");
   let out = "";
-  let currentListType = null;
+  let currentListType: string | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -312,8 +313,8 @@ function processLists(text) {
     if (ulMatch || olMatch) {
       const isOl = !!olMatch;
       const match = ulMatch || olMatch;
-      const indent = match[1] || "";
-      const content = match[2] || "";
+      const indent = match![1] || "";
+      const content = match![2] || "";
       const listTag = isOl ? "ol" : "ul";
 
       if (currentListType !== listTag) {
@@ -352,21 +353,14 @@ function processLists(text) {
 /**
  * Format content inside thinking blocks
  */
-function formatThinkingContent(text) {
+export function formatThinkingContent(text: string): string {
   let html = escapeHtml(text);
 
-  // Process inline code
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-
-  // Process bold
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
-
-  // Process italic
   html = html.replace(/(?<!\w)\*([^\*]+?)\*(?!\w)/g, "<em>$1</em>");
   html = html.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, "<em>$1</em>");
-
-  // Process line breaks
   html = html.replace(/\n/g, "<br>");
 
   return html;
@@ -374,17 +368,16 @@ function formatThinkingContent(text) {
 
 /**
  * Attach click handlers to thinking block headers for expand/collapse toggle.
- * Call this on a container element after injecting formatted HTML that includes thinking blocks.
  */
-function setupThinkingBlockHandlers(container) {
-  if (!container || !container.querySelectorAll) return;
+export function setupThinkingBlockHandlers(container: Element | null | undefined): void {
+  if (!container?.querySelectorAll) return;
   container.querySelectorAll(".thinking-header").forEach((header) => {
-    header.addEventListener("click", function () {
+    header.addEventListener("click", function (this: HTMLElement) {
       const block = this.closest(".thinking-block-container");
       if (block) {
         block.classList.toggle("expanded");
         const isExpanded = block.classList.contains("expanded");
-        this.setAttribute("aria-expanded", isExpanded);
+        this.setAttribute("aria-expanded", String(isExpanded));
       }
     });
   });
@@ -393,14 +386,13 @@ function setupThinkingBlockHandlers(container) {
 /**
  * Process code blocks with language-specific formatting
  */
-function processCodeBlocks(text) {
+export function processCodeBlocks(text: string): string {
   const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
 
-  return text.replace(codeBlockRegex, (match, language, code) => {
-    const lang = language.trim().toLowerCase();
-    const trimmedCode = code.trim();
+  return text.replace(codeBlockRegex, (_match, language, code) => {
+    const lang = (language as string).trim().toLowerCase();
+    const trimmedCode = (code as string).trim();
 
-    // Check if it's JSON and format it
     if (lang === "json" || isJSON(trimmedCode)) {
       try {
         const parsed = JSON.parse(trimmedCode);
@@ -416,7 +408,7 @@ function processCodeBlocks(text) {
           formatted +
           "</code></pre></div>"
         );
-      } catch (e) {
+      } catch {
         // If JSON parsing fails, treat as regular code
       }
     }
@@ -446,39 +438,21 @@ function processCodeBlocks(text) {
   });
 }
 
-/**
- * Utility functions
- */
-function isJSON(str) {
+export function isJSON(str: string): boolean {
   try {
     JSON.parse(str);
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
 
-function escapeHtml(text) {
+export function escapeHtml(text: string): string {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }
 
-function escapeAttribute(text) {
+export function escapeAttribute(text: string): string {
   return text.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-// Export functions for testing
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    formatMarkdown,
-    parseHarmonyMessage,
-    formatThinkingContent,
-    setupThinkingBlockHandlers,
-    processLists,
-    preprocessMarkdown,
-    isJSON,
-    escapeHtml,
-    escapeAttribute,
-  };
 }

@@ -250,7 +250,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "webpack --mode production",
+    "compile": "webpack --mode production && webpack --config webpack.webview.config.js --mode production",
     "watch": "webpack --mode development --watch",
     "pretest": "npm run compile",
     "test": "jest",

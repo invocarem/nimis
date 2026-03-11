@@ -1,7 +1,10 @@
-const {
+/**
+ * @jest-environment jsdom
+ */
+import {
   formatMarkdown,
   parseHarmonyMessage,
-} = require("../src/webview/assets/markdownFormatter.js");
+} from "../src/webview/assets/markdownFormatter";
 
 describe("Client-side Markdown Formatting", () => {
   describe("parseHarmonyMessage", () => {
@@ -73,7 +76,6 @@ describe("Client-side Markdown Formatting", () => {
 
       expect(output).toContain('<div class="code-block-container">');
       expect(output).toContain('data-language="javascript"');
-      // Code is HTML-escaped for XSS safety (quotes become &#39;)
       expect(output).toContain("console.log(");
       expect(output).toContain("hello");
     });
@@ -105,6 +107,5 @@ if __name__ == "__main__":
       expect(output).toContain("def greet(name=");
       expect(output).toContain("if __name__ == ");
     });
-
-    });
+  });
 });

@@ -2,7 +2,7 @@ const path = require('path');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 /**@type {import('webpack').Configuration}*/
-const config = {
+const extensionConfig = {
   target: 'node', // VS Code extensions run in a Node.js-context
   mode: 'production', // This leaves the source code as close as possible to the original
 
@@ -18,7 +18,6 @@ const config = {
     vscode: 'commonjs vscode' // The vscode-module is created on-the-fly and must be excluded
   },
   resolve: {
-    // Support reading TypeScript and JavaScript files
     extensions: ['.ts', '.js']
   },
   module: {
@@ -26,22 +25,18 @@ const config = {
       {
         test: /\.ts$/,
         exclude: /node_modules/,
-        use: [
-          {
-            loader: 'ts-loader'
-          }
-        ]
+        use: [{ loader: 'ts-loader' }]
       }
     ]
   },
   plugins: [
-    // Copy webview assets to dist folder
     new CopyWebpackPlugin({
       patterns: [
         {
           from: path.resolve(__dirname, 'src/webview/assets'),
           to: path.resolve(__dirname, 'dist/webview/assets'),
-          noErrorOnMissing: true
+          noErrorOnMissing: true,
+          globOptions: { ignore: ['**/*.ts', '**/*.js'] } // Webview TS is compiled separately
         },
         {
           from: path.resolve(__dirname, 'src/utils/templates'),
@@ -52,9 +47,7 @@ const config = {
     })
   ],
   devtool: 'source-map',
-  infrastructureLogging: {
-    level: "log", // Enables logging required for problem matchers
-  },
+  infrastructureLogging: { level: "log" },
 };
 
-module.exports = config;
+module.exports = extensionConfig;

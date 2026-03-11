@@ -1,4 +1,7 @@
-const { formatMarkdown } = require("../src/webview/assets/markdownFormatter");
+/**
+ * @jest-environment jsdom
+ */
+import { formatMarkdown } from "../src/webview/assets/markdownFormatter";
 
 describe("formatMarkdown - Italic Text Handling", () => {
   test("should not trim underscores in code or variable names", () => {

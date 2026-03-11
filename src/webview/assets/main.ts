@@ -1,85 +1,66 @@
 /**
- * Webview JavaScript for Nimis AI Chat Interface
- * This file is injected into the webview and handles all UI interactions
- *
- * Script load order (provider.ts): markdownFormatter.js -> vimView.js -> main.js -> bench.js
- * formatMarkdown and setupThinkingBlockHandlers are in global scope from markdownFormatter.js.
- * Do NOT use require() - webviews run in a browser context where require may be undefined
- * or resolve paths incorrectly in packaged extensions.
+ * Webview entry for Nimis AI Chat Interface.
+ * Bundled by webpack; runs in browser context.
  */
 
-// Get VS Code API (must be called synchronously when script loads)
+declare function acquireVsCodeApi(): { postMessage: (msg: unknown) => void };
+
+// Must be called synchronously when script loads
 const vscode = acquireVsCodeApi();
 
-// Use formatMarkdown/setupThinkingBlockHandlers from global scope (loaded by markdownFormatter.js)
-// Provide no-op fallbacks if markdownFormatter.js failed to load (e.g. 404 in packaged extension)
-const formatMarkdownFn = typeof formatMarkdown === "function" ? formatMarkdown : function (text) { return escapeHtmlFallback(text); };
-const setupThinkingBlockHandlersFn = typeof setupThinkingBlockHandlers === "function" ? setupThinkingBlockHandlers : function () {};
+import { formatMarkdown, setupThinkingBlockHandlers } from "./markdownFormatter";
+import { initVimView } from "./vimView";
+import { initBench } from "./bench";
 
-function escapeHtmlFallback(text) {
-  if (!text) return "";
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML.replace(/\n/g, "<br>");
-}
+// Initialize VimView and Bench (expose on window for message handler)
+const VimView = initVimView(() => vscode);
+const Bench = initBench(() => vscode);
+(globalThis as unknown as { VimView: typeof VimView }).VimView = VimView;
+(globalThis as unknown as { Bench: typeof Bench }).Bench = Bench;
 
-// Get DOM elements
+const formatMarkdownFn = formatMarkdown;
+const setupThinkingBlockHandlersFn = setupThinkingBlockHandlers;
+
 const chatContainer = document.getElementById("chat-container");
-const messageInput = document.getElementById("message-input");
-const sendButton = document.getElementById("send-button");
-const stopButton = document.getElementById("stop-button");
-const continueButton = document.getElementById("continue-button");
-const questionButton = document.getElementById("question-button");
-const rejectButton = document.getElementById("reject-button");
-const clearButton = document.getElementById("clear-button");
+const messageInput = document.getElementById("message-input") as HTMLTextAreaElement | null;
+const sendButton = document.getElementById("send-button") as HTMLButtonElement | null;
+const stopButton = document.getElementById("stop-button") as HTMLButtonElement | null;
+const continueButton = document.getElementById("continue-button") as HTMLButtonElement | null;
+const questionButton = document.getElementById("question-button") as HTMLButtonElement | null;
+const rejectButton = document.getElementById("reject-button") as HTMLButtonElement | null;
+const clearButton = document.getElementById("clear-button") as HTMLButtonElement | null;
 const statusIndicator = document.getElementById("status-indicator");
 
-// State
-let currentAssistantMessage = null;
+let currentAssistantMessage: HTMLElement | null = null;
 let isGenerating = false;
 let isCancelling = false;
 let toolLimitReached = false;
 
-/**
- * Send a message to the extension (optionally with a specific text)
- */
-function sendMessage(overrideMessage) {
+function sendMessage(overrideMessage?: string): void {
   const message = overrideMessage ?? (messageInput ? messageInput.value.trim() : "");
   if (message && !isGenerating) {
-    vscode.postMessage({
-      type: "sendMessage",
-      message: message,
-    });
+    vscode.postMessage({ type: "sendMessage", message });
     if (!overrideMessage && messageInput) {
       messageInput.value = "";
     }
     isGenerating = true;
     if (sendButton) sendButton.disabled = true;
-    // Stop button will be shown when assistantMessageStart is received
     isCancelling = false;
   }
 }
 
-/**
- * Cancel the current operation
- */
-function cancelOperation() {
+function cancelOperation(): void {
   if (isGenerating && !isCancelling) {
     isCancelling = true;
     if (stopButton) {
       stopButton.disabled = true;
       stopButton.textContent = "Stopping...";
     }
-    vscode.postMessage({
-      type: "cancelRequest",
-    });
+    vscode.postMessage({ type: "cancelRequest" });
   }
 }
 
-/**
- * Add a message to the chat container
- */
-function addMessage(content, type) {
+function addMessage(content: string, type: string): HTMLElement | null {
   if (!chatContainer) return null;
   const messageDiv = document.createElement("div");
   messageDiv.className = `message message-${type}`;
@@ -89,38 +70,33 @@ function addMessage(content, type) {
   return messageDiv;
 }
 
-/**
- * Format message content with markdown
- */
-function formatMessageContent(messageDiv) {
-  const content = messageDiv.textContent;
+function formatMessageContent(messageDiv: HTMLElement): void {
+  const content = messageDiv.textContent ?? "";
   const formatted = formatMarkdownFn(content);
   messageDiv.innerHTML = formatted;
 
-  // Add copy button event listeners
   const copyButtons = messageDiv.querySelectorAll(".copy-button");
   copyButtons.forEach((button) => {
-    button.addEventListener("click", function () {
+    button.addEventListener("click", function (this: HTMLElement) {
       const code = this.getAttribute("data-code");
-      navigator.clipboard.writeText(code).then(() => {
-        const originalText = this.textContent;
-        this.textContent = "Copied!";
-        this.classList.add("copied");
-        setTimeout(() => {
-          this.textContent = originalText;
-          this.classList.remove("copied");
-        }, 2000);
-      });
+      if (code) {
+        navigator.clipboard.writeText(code).then(() => {
+          const originalText = this.textContent ?? "";
+          this.textContent = "Copied!";
+          this.classList.add("copied");
+          setTimeout(() => {
+            this.textContent = originalText;
+            this.classList.remove("copied");
+          }, 2000);
+        });
+      }
     });
   });
 
   setupThinkingBlockHandlersFn(messageDiv);
 }
 
-/**
- * Add insert button to code blocks
- */
-function addInsertButton(messageDiv) {
+function addInsertButton(messageDiv: HTMLElement): void {
   const codeContainers = messageDiv.querySelectorAll(".code-block-container");
 
   codeContainers.forEach((container) => {
@@ -130,13 +106,9 @@ function addInsertButton(messageDiv) {
       button.textContent = "Insert at Cursor";
       button.className = "insert-button";
       button.addEventListener("click", () => {
-        vscode.postMessage({
-          type: "insertCode",
-          code: codeBlock.textContent,
-        });
+        vscode.postMessage({ type: "insertCode", code: codeBlock.textContent });
       });
 
-      // Add to header if it exists, otherwise create one
       let header = container.querySelector(".code-block-header");
       if (header) {
         header.appendChild(button);
@@ -150,10 +122,7 @@ function addInsertButton(messageDiv) {
   });
 }
 
-/**
- * Event Listeners - guard against null elements (can happen if webview loads before DOM ready)
- */
-function initEventListeners() {
+function initEventListeners(): void {
   if (sendButton) sendButton.addEventListener("click", () => sendMessage());
   if (stopButton) stopButton.addEventListener("click", cancelOperation);
   if (continueButton) continueButton.addEventListener("click", () => sendMessage("Yes, please continue."));
@@ -178,21 +147,18 @@ function initEventListeners() {
 
 initEventListeners();
 
-/**
- * Tab switching: Chat | Bench
- */
-function initTabs() {
+function initTabs(): void {
   const tabBtns = document.querySelectorAll(".tab-btn");
   const tabPanels = document.querySelectorAll(".tab-panel");
-  tabBtns.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      const tab = btn.getAttribute("data-tab");
-      tabBtns.forEach(function (b) { b.classList.remove("active"); });
-      tabPanels.forEach(function (p) {
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", function (this: HTMLElement) {
+      const tab = this.getAttribute("data-tab");
+      tabBtns.forEach((b) => b.classList.remove("active"));
+      tabPanels.forEach((p) => {
         p.classList.toggle("active", p.id === tab + "-tab");
       });
-      btn.classList.add("active");
-      if (tab !== "bench" && typeof Bench !== "undefined") {
+      this.classList.add("active");
+      if (tab !== "bench") {
         Bench.hideTestsSection();
       }
     });
@@ -200,15 +166,23 @@ function initTabs() {
 }
 initTabs();
 
-/**
- * Handle messages from the extension
- */
-window.addEventListener("message", (event) => {
+interface WebviewMessage {
+  type: string;
+  message?: string;
+  chunk?: string;
+  state?: unknown;
+  output?: string;
+  connected?: boolean;
+  tests?: unknown[];
+  [key: string]: unknown;
+}
+
+window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
   const message = event.data;
 
   switch (message.type) {
     case "userMessage":
-      addMessage(message.message, "user");
+      addMessage(message.message ?? "", "user");
       break;
 
     case "assistantMessageStart":
@@ -225,8 +199,7 @@ window.addEventListener("message", (event) => {
 
     case "assistantMessageChunk":
       if (currentAssistantMessage) {
-        // Server sends preprocessed full content each time (isFullContent: true)
-        currentAssistantMessage.textContent = message.chunk;
+        currentAssistantMessage.textContent = message.chunk ?? "";
         formatMessageContent(currentAssistantMessage);
         if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
       }
@@ -245,7 +218,7 @@ window.addEventListener("message", (event) => {
       break;
 
     case "error":
-      addMessage(message.message, "error");
+      addMessage(message.message ?? "", "error");
       isGenerating = false;
       if (sendButton) sendButton.disabled = false;
       if (stopButton) stopButton.style.display = "none";
@@ -254,7 +227,6 @@ window.addEventListener("message", (event) => {
       break;
 
     case "cancellationInProgress":
-      // Visual feedback that cancellation is in progress
       if (currentAssistantMessage && chatContainer) {
         const cancelIndicator = document.createElement("div");
         cancelIndicator.className = "message message-system";
@@ -279,13 +251,13 @@ window.addEventListener("message", (event) => {
 
     case "setInput":
       if (messageInput) {
-        messageInput.value = message.message;
+        messageInput.value = message.message ?? "";
         messageInput.focus();
       }
       break;
 
     case "requestFeedback":
-      addMessage(message.message, "system");
+      addMessage(message.message ?? "", "system");
       break;
 
     case "toolCallLimitReached":
@@ -293,15 +265,11 @@ window.addEventListener("message", (event) => {
       break;
 
     case "vimState":
-      if (typeof VimView !== "undefined") {
-        VimView.updateState(message.state);
-      }
+      VimView.updateState(message.state as Parameters<typeof VimView.updateState>[0]);
       break;
 
     case "vimCommandResult":
-      if (typeof VimView !== "undefined") {
-        VimView.setCommandOutput(message.output);
-      }
+      VimView.setCommandOutput(message.output ?? "");
       break;
 
     case "connectionStatus":
@@ -318,17 +286,11 @@ window.addEventListener("message", (event) => {
 
     case "benchProgress":
     case "benchConfig":
-      if (typeof Bench !== "undefined") {
-        Bench.handleMessage(message);
-      }
+      Bench.handleMessage(message as unknown as Parameters<typeof Bench.handleMessage>[0]);
       break;
   }
 });
 
-/**
- * Initialize: Check connection after message listener is set up
- * Also ensure Stop button is hidden by default
- */
 setTimeout(() => {
   vscode.postMessage({ type: "checkConnection" });
   if (stopButton) stopButton.style.display = "none";
