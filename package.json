@@ -58,6 +58,16 @@
         "command": "nimis.explainCode",
         "title": "Nimis: Explain Selected Code",
         "icon": "$(question)"
+      },
+      {
+        "command": "nimis.runBench",
+        "title": "Nimis: Run Bench",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "nimis.runBenchTest",
+        "title": "Nimis: Run Bench Test",
+        "icon": "$(flask)"
       }
     ],
     "menus": {
@@ -219,6 +229,16 @@
             ]
           },
           "default": []
+        },
+        "nimis.benchPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to bench.json (e.g. ~/bench/bench.json). Defines AI benchmark tests."
+        },
+        "nimis.bench": {
+          "type": "object",
+          "description": "Inline bench config (alternative to nimis.benchPath). Must have a 'tests' array.",
+          "default": null
         }
       }
     }

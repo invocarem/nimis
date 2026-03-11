@@ -6,6 +6,7 @@ import { registerVimToolServer } from "./api/vimToolServer";
 import { registerRuleServer } from "./api/ruleServer";
 import { MCPManager } from "./mcpManager";
 import { MCPToolServer } from "./api/mcpToolServer";
+import { runBench, loadBenchConfig } from "./utils/bench";
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Nimis extension is now active");
@@ -83,10 +84,104 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const runBenchCommand = vscode.commands.registerCommand(
+    "nimis.runBench",
+    async () => {
+      const loaded = loadBenchConfig();
+      if (!loaded) {
+        vscode.window.showInformationMessage(
+          "Bench not configured. Set nimis.benchPath to a bench.json file, or nimis.bench with inline config."
+        );
+        return;
+      }
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: "Nimis Bench",
+          cancellable: true,
+        },
+        async (progress, token) => {
+          try {
+            const results = await runBench(
+              { mcpManager },
+              token
+            );
+            const passed = results.filter((r) => r.success).length;
+            const total = results.length;
+            vscode.window.showInformationMessage(
+              `Nimis Bench: ${passed}/${total} passed. See Output for details.`
+            );
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Nimis Bench failed: ${msg}`);
+          }
+        }
+      );
+    }
+  );
+
+  const runBenchTestCommand = vscode.commands.registerCommand(
+    "nimis.runBenchTest",
+    async () => {
+      const loaded = loadBenchConfig();
+      if (!loaded) {
+        vscode.window.showInformationMessage(
+          "Bench not configured. Set nimis.benchPath to a bench.json file, or nimis.bench with inline config."
+        );
+        return;
+      }
+
+      const items = loaded.config.tests.map((t) => ({
+        label: t.id,
+        description: t.promptPath,
+        test: t,
+      }));
+
+      const picked = await vscode.window.showQuickPick(items, {
+        title: "Select bench test to run",
+        matchOnDescription: true,
+      });
+
+      if (!picked) return;
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Nimis Bench: ${picked.test.id}`,
+          cancellable: true,
+        },
+        async (progress, token) => {
+          try {
+            const results = await runBench(
+              { testIds: [picked.test.id], mcpManager },
+              token
+            );
+            const r = results[0];
+            if (r?.success) {
+              vscode.window.showInformationMessage(
+                `Nimis Bench: ${r.id} passed (${r.durationMs}ms)`
+              );
+            } else {
+              vscode.window.showErrorMessage(
+                `Nimis Bench: ${r?.id ?? picked.test.id} failed - ${r?.error ?? "unknown"}`
+              );
+            }
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            vscode.window.showErrorMessage(`Nimis Bench failed: ${msg}`);
+          }
+        }
+      );
+    }
+  );
+
   context.subscriptions.push(
     openChatCommand,
     insertCodeCommand,
-    explainCodeCommand
+    explainCodeCommand,
+    runBenchCommand,
+    runBenchTestCommand
   );
 }
 

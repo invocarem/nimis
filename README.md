@@ -122,6 +122,8 @@ All settings live under the `nimis.*` namespace in VS Code settings.
 | `nimis.mcpServers` | `[]` | MCP server configurations |
 | `nimis.rules` | `[]` | Inline rule definitions |
 | `nimis.rulesPaths` | `[]` | Paths to rule files |
+| `nimis.benchPath` | `""` | Absolute path to bench.json (e.g. ~/bench/bench.json) |
+| `nimis.bench` | `null` | Inline bench config (alternative to benchPath) |
 
 ## Commands
 
@@ -130,6 +132,26 @@ All settings live under the `nimis.*` namespace in VS Code settings.
 | `Nimis: Open Chat` | Open the chat sidebar |
 | `Nimis: Explain Selected Code` | Explain selected code in the editor |
 | `Nimis: Insert Code at Cursor` | Insert AI-generated code at cursor |
+| `Nimis: Run Bench` | Run all AI benchmark tests |
+| `Nimis: Run Bench Test` | Run a single bench test (pick from list) |
+
+### Bench
+
+Bench runs the AI against problem definitions (e.g. LeetCode-style). Each test has a `.md` prompt file and an output path. The AI uses Vim tool calls to solve and save the solution. Configure via `nimis.benchPath` (path to bench.json) or `nimis.bench` (inline JSON).
+
+**bench.json:**
+```json
+{
+  "tests": [
+    {
+      "id": "two_sum",
+      "promptPath": "two_sum/two_sum.md",
+      "outputPath": "outputs/two_sum/solution.py",
+      "timeout": 120000
+    }
+  ]
+}
+```
 
 ## Project Structure
 
@@ -157,6 +179,7 @@ nimis/
 │   │   ├── toolCallExtractor.ts    # XML tool call extraction
 │   │   ├── nativeToolManager.ts    # File and terminal tools
 │   │   ├── editFileHandler.ts      # Precise text replacement
+│   │   ├── bench/                  # Bench (types, loader, runner)
 │   │   └── vim/                    # Vim subsystem
 │   │       ├── VimToolManager.ts   # Singleton orchestrator
 │   │       ├── models/             # VimBuffer, VimMode, VimRegister

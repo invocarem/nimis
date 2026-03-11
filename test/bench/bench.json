@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "id": "two_sum",
+      "promptPath": "two_sum/two_sum.md",
+      "outputPath": "outputs/two_sum/solution.py",
+      "timeout": 60000
+    },
+    {
+      "id": "same_tree",
+      "promptPath": "same_tree/same_tree.md",
+      "outputPath": "outputs/same_tree/solution.py",
+      "expectedPath": "expected/same_tree/solution.py"
+    }
+  ],
+  "defaults": {
+    "timeout": 120000
+  }
+}
