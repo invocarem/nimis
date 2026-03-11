@@ -13,6 +13,7 @@ import type { RulesManager } from "../rulesManager";
 import * as path from "path";
 import { NativeToolsManager } from "../utils/nativeToolManager";
 import { VimToolManager } from "../utils/vim";
+import { loadBenchConfig } from "../utils/bench";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -28,6 +29,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   private mcpManager?: MCPManager;
   private cancellationToken?: AbortController;
   private isProcessing = false;
+  private _benchCancelHandler?: () => void;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -111,6 +113,21 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           break;
         case "requestVimState":
           this._sendVimStateToWebview();
+          break;
+        case "runBench":
+          vscode.commands.executeCommand("nimis.runBench");
+          break;
+        case "runBenchSelected":
+          vscode.commands.executeCommand("nimis.runBenchSelected", data.testIds || []);
+          break;
+        case "requestBenchConfig": {
+          const loaded = loadBenchConfig();
+          const tests = loaded?.config.tests.map((t) => ({ id: t.id, promptPath: t.promptPath })) ?? [];
+          this._sendMessageToWebview({ type: "benchConfig", tests });
+          break;
+        }
+        case "cancelBench":
+          this._benchCancelHandler?.();
           break;
       }
     });
@@ -697,6 +714,25 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** Set handler to cancel the current bench run. Called by extension when bench starts. */
+  public setBenchCancelHandler(handler: (() => void) | undefined) {
+    this._benchCancelHandler = handler;
+  }
+
+  /** Send bench progress to the webview (Bench tab). */
+  public sendBenchProgress(event: {
+    phase: string;
+    testId?: string;
+    testIndex?: number;
+    totalTests?: number;
+    status?: string;
+    elapsedMs?: number;
+    result?: { id: string; success: boolean; durationMs: number; error?: string };
+    results?: Array<{ id: string; success: boolean; durationMs: number; error?: string }>;
+  }) {
+    this._sendMessageToWebview({ type: "benchProgress", ...event });
+  }
+
   private _getHtmlForWebview(webview: vscode.Webview): string {
     const nonce = getNonce();
 
@@ -749,6 +785,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     <link rel="stylesheet" href="${stylesUri}">
 </head>
 <body>
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="chat">Chat</button>
+        <button class="tab-btn" data-tab="bench">Bench</button>
+    </div>
+    <div id="chat-tab" class="tab-panel active">
     <div id="vim-view" class="vim-view" style="display: none;">
         <div class="vim-titlebar">
             <span class="vim-filename" id="vim-filename">[No File]</span>
@@ -781,6 +822,35 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             <button id="clear-button" class="secondary-button">Clear Chat</button>
             <button id="vim-view-toggle" class="secondary-button">Vim</button>
         </div>
+    </div>
+    </div>
+    <div id="bench-tab" class="tab-panel">
+        <div class="bench-toolbar">
+            <button id="bench-run-all" class="bench-btn">Run All</button>
+            <button id="bench-run-test" class="bench-btn secondary-button">Run Test</button>
+            <button id="bench-cancel" class="bench-btn stop-button" style="display: none;">Cancel</button>
+        </div>
+        <div class="bench-tests-section" id="bench-tests-section" style="display: none;">
+            <div class="bench-tests-header">
+                <span>Select tests to run</span>
+                <div class="bench-tests-actions">
+                    <button id="bench-tests-ok" class="bench-btn">OK</button>
+                    <button id="bench-tests-cancel" class="bench-btn secondary-button">Cancel</button>
+                </div>
+            </div>
+            <div class="bench-tests-list" id="bench-tests-list"></div>
+        </div>
+        <div class="bench-progress-area" id="bench-progress-area" style="display: none;">
+            <div class="bench-progress-bar">
+                <div class="bench-progress-fill" id="bench-progress-fill"></div>
+            </div>
+            <div class="bench-status-row">
+                <span class="bench-status" id="bench-status">Starting...</span>
+                <span class="bench-elapsed" id="bench-elapsed">0:00</span>
+            </div>
+        </div>
+        <div class="bench-idle-status" id="bench-idle-status">No bench running. Click Run All or Run Test to start.</div>
+        <div class="bench-log" id="bench-log"></div>
     </div>
     <script nonce="${nonce}" src="${formatterScriptUri}"></script>
     <script nonce="${nonce}" src="${vimViewScriptUri}"></script>

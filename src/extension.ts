@@ -95,29 +95,25 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Nimis Bench",
-          cancellable: true,
-        },
-        async (progress, token) => {
-          try {
-            const results = await runBench(
-              { mcpManager },
-              token
-            );
-            const passed = results.filter((r) => r.success).length;
-            const total = results.length;
-            vscode.window.showInformationMessage(
-              `Nimis Bench: ${passed}/${total} passed. See Output for details.`
-            );
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            vscode.window.showErrorMessage(`Nimis Bench failed: ${msg}`);
-          }
-        }
-      );
+      await vscode.commands.executeCommand("nimis.chatView.focus");
+      const tokenSource = new vscode.CancellationTokenSource();
+      provider.setBenchCancelHandler(() => tokenSource.cancel());
+      try {
+        const results = await runBench(
+          { mcpManager, onProgress: (e) => provider.sendBenchProgress(e) },
+          tokenSource.token
+        );
+        const passed = results.filter((r) => r.success).length;
+        const total = results.length;
+        vscode.window.showInformationMessage(
+          `Nimis Bench: ${passed}/${total} passed. See Bench tab for details.`
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Nimis Bench failed: ${msg}`);
+      } finally {
+        provider.setBenchCancelHandler(undefined);
+      }
     }
   );
 
@@ -145,34 +141,68 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (!picked) return;
 
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: `Nimis Bench: ${picked.test.id}`,
-          cancellable: true,
-        },
-        async (progress, token) => {
-          try {
-            const results = await runBench(
-              { testIds: [picked.test.id], mcpManager },
-              token
-            );
-            const r = results[0];
-            if (r?.success) {
-              vscode.window.showInformationMessage(
-                `Nimis Bench: ${r.id} passed (${r.durationMs}ms)`
-              );
-            } else {
-              vscode.window.showErrorMessage(
-                `Nimis Bench: ${r?.id ?? picked.test.id} failed - ${r?.error ?? "unknown"}`
-              );
-            }
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            vscode.window.showErrorMessage(`Nimis Bench failed: ${msg}`);
-          }
+      await vscode.commands.executeCommand("nimis.chatView.focus");
+      const tokenSource = new vscode.CancellationTokenSource();
+      provider.setBenchCancelHandler(() => tokenSource.cancel());
+      try {
+        const results = await runBench(
+          { testIds: [picked.test.id], mcpManager, onProgress: (e) => provider.sendBenchProgress(e) },
+          tokenSource.token
+        );
+        const r = results[0];
+        if (r?.success) {
+          vscode.window.showInformationMessage(
+            `Nimis Bench: ${r.id} passed (${r.durationMs}ms)`
+          );
+        } else {
+          vscode.window.showErrorMessage(
+            `Nimis Bench: ${r?.id ?? picked.test.id} failed - ${r?.error ?? "unknown"}`
+          );
         }
-      );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Nimis Bench failed: ${msg}`);
+      } finally {
+        provider.setBenchCancelHandler(undefined);
+      }
+    }
+  );
+
+  const runBenchSelectedCommand = vscode.commands.registerCommand(
+    "nimis.runBenchSelected",
+    async (testIds: string[]) => {
+      if (!testIds || testIds.length === 0) {
+        vscode.window.showInformationMessage("No tests selected. Check one or more tests in the Bench tab.");
+        return;
+      }
+
+      const loaded = loadBenchConfig();
+      if (!loaded) {
+        vscode.window.showInformationMessage(
+          "Bench not configured. Set nimis.benchPath to a bench.json file, or nimis.bench with inline config."
+        );
+        return;
+      }
+
+      await vscode.commands.executeCommand("nimis.chatView.focus");
+      const tokenSource = new vscode.CancellationTokenSource();
+      provider.setBenchCancelHandler(() => tokenSource.cancel());
+      try {
+        const results = await runBench(
+          { testIds, mcpManager, onProgress: (e) => provider.sendBenchProgress(e) },
+          tokenSource.token
+        );
+        const passed = results.filter((r) => r.success).length;
+        const total = results.length;
+        vscode.window.showInformationMessage(
+          `Nimis Bench: ${passed}/${total} passed. See Bench tab for details.`
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Nimis Bench failed: ${msg}`);
+      } finally {
+        provider.setBenchCancelHandler(undefined);
+      }
     }
   );
 
@@ -181,7 +211,8 @@ export function activate(context: vscode.ExtensionContext) {
     insertCodeCommand,
     explainCodeCommand,
     runBenchCommand,
-    runBenchTestCommand
+    runBenchTestCommand,
+    runBenchSelectedCommand
   );
 }
 

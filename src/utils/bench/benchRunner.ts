@@ -12,7 +12,7 @@ import { NimisStateTracker, TOOL_CALL_LIMIT_PER_TURN } from "../nimisStateTracke
 import { VimToolManager } from "../vim";
 import { NativeToolsManager } from "../nativeToolManager";
 import type { MCPManager } from "../../mcpManager";
-import type { BenchTest, BenchResult } from "./types";
+import type { BenchTest, BenchResult, BenchProgressEvent } from "./types";
 import { loadBenchConfig } from "./benchLoader";
 
 function toAbortSignal(token?: vscode.CancellationToken): AbortSignal | undefined {
@@ -70,7 +70,8 @@ export async function runSingleTest(
   llmClient: ILLMClient,
   mcpManager: MCPManager | undefined,
   outputChannel: vscode.OutputChannel,
-  cancellationToken?: vscode.CancellationToken
+  cancellationToken?: vscode.CancellationToken,
+  onProgress?: (event: BenchProgressEvent) => void
 ): Promise<BenchResult> {
   const start = Date.now();
   const timeout = test.timeout ?? 120_000;
@@ -120,6 +121,11 @@ export async function runSingleTest(
 
   try {
     stateTracker.startNewTurn();
+    onProgress?.({
+      phase: "testStart",
+      testId: test.id,
+      elapsedMs: Date.now() - start,
+    });
 
     while (continueLoop) {
       if (cancellationToken?.isCancellationRequested) {
@@ -137,6 +143,13 @@ export async function runSingleTest(
 
       const prompt = nimisManager.buildConversationPrompt(conversationHistory);
       let fullResponse = "";
+
+      onProgress?.({
+        phase: "progress",
+        testId: test.id,
+        status: "Streaming LLM response...",
+        elapsedMs: Date.now() - start,
+      });
 
       await llmClient.streamComplete(
         {
@@ -169,6 +182,13 @@ export async function runSingleTest(
           if (cancellationToken?.isCancellationRequested) break;
 
           stateTracker.recordToolCall(toolCall.name, toolCall.arguments);
+
+          onProgress?.({
+            phase: "progress",
+            testId: test.id,
+            status: `Executing tool: ${toolCall.name}`,
+            elapsedMs: Date.now() - start,
+          });
 
           try {
             const toolResult = await toolExecutor(toolCall, {
@@ -220,7 +240,7 @@ export async function runSingleTest(
     const outputExists = fs.existsSync(test.outputPath);
     const durationMs = Date.now() - start;
 
-    return {
+    const result: BenchResult = {
       id: test.id,
       success: outputExists,
       durationMs,
@@ -228,14 +248,18 @@ export async function runSingleTest(
       outputExists,
       error: outputExists ? undefined : "Output file was not created",
     };
+    onProgress?.({ phase: "testComplete", testId: test.id, result, elapsedMs: durationMs });
+    return result;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return {
+    const failResult: BenchResult = {
       id: test.id,
       success: false,
       durationMs: Date.now() - start,
       error: msg,
     };
+    onProgress?.({ phase: "testComplete", testId: test.id, result: failResult, elapsedMs: failResult.durationMs });
+    return failResult;
   }
 }
 
@@ -243,7 +267,11 @@ export async function runSingleTest(
  * Run all bench tests (or a subset by id).
  */
 export async function runBench(
-  options?: { testIds?: string[]; mcpManager?: MCPManager },
+  options?: {
+    testIds?: string[];
+    mcpManager?: MCPManager;
+    onProgress?: (event: BenchProgressEvent) => void;
+  },
   cancellationToken?: vscode.CancellationToken
 ): Promise<BenchResult[]> {
   const loaded = loadBenchConfig();
@@ -267,6 +295,17 @@ export async function runBench(
   }
 
   const outputChannel = vscode.window.createOutputChannel("Nimis Bench");
+  outputChannel.show();
+
+  const startTime = new Date().toISOString();
+
+  outputChannel.clear();
+  outputChannel.appendLine("Nimis Bench");
+  outputChannel.appendLine("===========");
+  outputChannel.appendLine(`Started: ${startTime}`);
+  outputChannel.appendLine(`Bench dir: ${benchDir}`);
+  outputChannel.appendLine(`Tests: ${tests.length}`);
+  outputChannel.appendLine("");
 
   const nativeMgr = NativeToolsManager.getInstance();
   const vimMgr = VimToolManager.getInstance();
@@ -276,30 +315,58 @@ export async function runBench(
   vimMgr.setWorkingDir(benchDir);
 
   const mcpManager = options?.mcpManager;
+  const onProgress = options?.onProgress;
+
+  const report = (event: BenchProgressEvent) => {
+    onProgress?.({ ...event, testIndex: event.testIndex ?? 0, totalTests: tests.length });
+  };
+
+  report({ phase: "start" });
 
   try {
     const results: BenchResult[] = [];
     for (let i = 0; i < tests.length; i++) {
+      if (cancellationToken?.isCancellationRequested) break;
       const test = tests[i];
-      outputChannel.appendLine(`[${i + 1}/${tests.length}] Running: ${test.id}`);
+      outputChannel.appendLine(`[${i + 1}/${tests.length}] ${test.id}`);
       const result = await runSingleTest(
         test,
         benchDir,
         llmClient,
         mcpManager,
         outputChannel,
-        cancellationToken
+        cancellationToken,
+        (ev) => report({ ...ev, testIndex: i + 1, totalTests: tests.length })
       );
       results.push(result);
-      const status = result.success ? "✓" : "✗";
-      outputChannel.appendLine(`  ${status} ${result.id} (${result.durationMs}ms)${result.error ? ` - ${result.error}` : ""}`);
+      const status = result.success ? "PASS" : "FAIL";
+      const duration = `${(result.durationMs / 1000).toFixed(2)}s`;
+      outputChannel.appendLine(`  ${status}  ${duration}  ${result.id}`);
+      if (result.success && result.outputPath) {
+        outputChannel.appendLine(`    → ${result.outputPath}`);
+      }
+      if (result.error) {
+        outputChannel.appendLine(`    ${result.error}`);
+      }
+      outputChannel.appendLine("");
     }
 
     const passed = results.filter((r) => r.success).length;
     const total = results.length;
     const totalMs = results.reduce((s, r) => s + r.durationMs, 0);
-    outputChannel.appendLine(`\n--- Summary: ${passed}/${total} passed, ${totalMs}ms total ---`);
+    const totalSec = (totalMs / 1000).toFixed(2);
 
+    outputChannel.appendLine("Summary");
+    outputChannel.appendLine("-------");
+    outputChannel.appendLine(`Passed: ${passed}/${total}`);
+    outputChannel.appendLine(`Total time: ${totalSec}s`);
+    outputChannel.appendLine("");
+    results.forEach((r) => {
+      const s = r.success ? "PASS" : "FAIL";
+      outputChannel.appendLine(`  ${s}  ${r.id}`);
+    });
+
+    report({ phase: "complete", results });
     return results;
   } finally {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;

@@ -26,3 +26,16 @@ export interface BenchResult {
   error?: string;
   outputExists?: boolean;
 }
+
+export type BenchProgressPhase = "start" | "testStart" | "progress" | "testComplete" | "complete";
+
+export interface BenchProgressEvent {
+  phase: BenchProgressPhase;
+  testId?: string;
+  testIndex?: number;
+  totalTests?: number;
+  status?: string;
+  elapsedMs?: number;
+  result?: BenchResult;
+  results?: BenchResult[];
+}

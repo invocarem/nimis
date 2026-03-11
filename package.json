@@ -68,6 +68,11 @@
         "command": "nimis.runBenchTest",
         "title": "Nimis: Run Bench Test",
         "icon": "$(flask)"
+      },
+      {
+        "command": "nimis.runBenchSelected",
+        "title": "Nimis: Run Bench Selected",
+        "icon": "$(beaker)"
       }
     ],
     "menus": {
