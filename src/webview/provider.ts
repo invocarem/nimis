@@ -774,6 +774,15 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         "vimView.js"
       )
     );
+    const benchScriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this._extensionUri,
+        "dist",
+        "webview",
+        "assets",
+        "bench.js"
+      )
+    );
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -855,6 +864,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     <script nonce="${nonce}" src="${formatterScriptUri}"></script>
     <script nonce="${nonce}" src="${vimViewScriptUri}"></script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
+    <script nonce="${nonce}" src="${benchScriptUri}"></script>
 </body>
 </html>`;
   }
