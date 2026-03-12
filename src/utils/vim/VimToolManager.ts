@@ -167,6 +167,9 @@ export class VimToolManager {
             s = s.replace(/\bCtrl\+u\b/gi, "\x15");
             return s;
           });
+          // Skip space/tab-only commands (LLMs sometimes add " "; triggers "Unsupported normal mode command")
+          // Keep "" (blank lines in insert mode), "\n"/"\r" (Enter key)
+          cmds = (cmds as string[]).filter((c: string) => typeof c !== "string" || c.length === 0 || c.replace(/[\t ]/g, "").length > 0);
           return await this.vimEdit(
             cmds,
             arguments_.file_path,

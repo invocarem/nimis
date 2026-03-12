@@ -89,6 +89,35 @@ describe("creating a new file from scratch", () => {
       expect(actualLines[index]).toBe(line);
     });
   });
+
+  it("should keep empty string for blank lines and filter space-only commands", async () => {
+    const filePath = path.join(testDir, "empty_test.py");
+
+    // Empty string "" creates blank lines; " " (space) is filtered (avoids "Unsupported normal mode command")
+    const result = await manager.callTool("vim", {
+      file_path: filePath,
+      commands: [
+        "i",
+        "line1",
+        "",   // blank line - kept
+        "line2",
+        " ",  // space-only - filtered, no warning
+        "line3",
+        "\x1b",
+        ":w",
+      ],
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(result.content[0].text).not.toContain("Unsupported normal mode command");
+
+    const content = await readFile(filePath, "utf-8");
+    const lines = content.split("\n");
+    expect(lines[0]).toBe("line1");
+    expect(lines[1]).toBe("");   // blank from ""
+    expect(lines[2]).toBe("line2");
+    expect(lines[3]).toBe("line3");
+  });
 });
 
 describe("commands as a newline-separated string", () => {
