@@ -1,5 +1,6 @@
 // test/vim.substitute.test.ts
 import { VimToolManager } from "../src/utils/vim";
+import { XmlProcessor } from "../src/utils/xmlProcessor";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
@@ -419,6 +420,127 @@ def main():
 
       const updatedContent = await readFile(testFile, "utf-8");
       expect(updatedContent).toBe("no matches here\n");
+    });
+
+    it("should match literal | in pattern (Vim magic: | is literal, not alternation)", async () => {
+      // Pattern "GLTX"| "ULRI"| "ULTX"| "UPRI" should match the full string literally.
+      // Without fix: vimPatternToJs treats | as JS alternation -> only "GLTX" replaced -> FAIL.
+      // With fix: unescaped | becomes \| in JS -> literal pipe -> full string replaced -> PASS.
+      const content = [
+        'const [activeNode, setActiveNode] = useState<',
+        '    "GLTX"| "ULRI"| "ULTX"| "UPRI"',
+        '  >("GLTX");',
+      ].join("\n");
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: ["2G", ':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/', ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      const updatedContent = await readFile(testFile, "utf-8");
+      const expected = [
+        'const [activeNode, setActiveNode] = useState<',
+        '    "UPRI" | "GLTX"',
+        '  >("GLTX");',
+      ].join("\n");
+      expect(updatedContent).toBe(expected);
+    });
+
+    it("should report 0 substitutions when pattern does not match on target line (e.g. s on line 2 of useState snippet)", async () => {
+      // Realistic case: LLM uses :s on line 2 with substitute input "GLTX" | "ULRI" | "ULTX" | "UPRI".
+      // When | is used as delimiter, the pattern becomes "GLTX" (with trailing space). If the line
+      // has no space before | (e.g. "GLTX"|), the pattern fails to match.
+      const content = [
+        'const [activeNode, setActiveNode] = useState<',
+        '    "GLTX"| "ULRI"| "ULTX"| "UPRI"',
+        '  >("GLTX");',
+      ].join("\n");
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        file_path: testFile,
+        commands: [ ':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/', ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain('"UPRI" | "GLTX"');
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe(content);
+    });
+
+    it("should work when substitute comes through XML (LLM path) - no newline in command", async () => {
+      // Simulate real flow: LLM sends tool call via XML, XmlProcessor extracts commands (split by newline).
+      // If the substitute is on ONE line in CDATA, it must stay intact.
+      const content = [
+        'const [activeNode, setActiveNode] = useState<',
+        '    "GLTX"| "ULRI"| "ULTX"| "UPRI"',
+        '  >("GLTX");',
+      ].join("\n");
+      await writeFile(testFile, content, "utf-8");
+
+      const toolCallXml = `<tool_call name="vim">
+  <file_path>${testFile}</file_path>
+  <commands><![CDATA[
+:s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/
+:w
+]]></commands>
+</tool_call>`;
+
+      const toolCalls = XmlProcessor.extractToolCalls(toolCallXml);
+      expect(toolCalls).toHaveLength(1);
+      expect(toolCalls[0].args.commands).toContain(':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/');
+
+      const result = await manager.callTool("vim", {
+        file_path: toolCalls[0].args.file_path,
+        commands: toolCalls[0].args.commands,
+      });
+
+      expect(result.isError).toBeFalsy();
+      const updatedContent = await readFile(testFile, "utf-8");
+      // Substitute runs on current line (line 0) - no match, file unchanged
+      expect(updatedContent).toBe(content);
+    });
+
+    it("REGRESSION: LLM may put newline in substitute for readability - breaks command split", async () => {
+      // When LLM formats the substitute with a newline after | (for readability), xmlProcessor
+      // splits commands by newline, breaking the substitute into invalid pieces.
+      // :s/"GLTX"| becomes one "command", " "ULRI"|..." becomes another - substitute fails.
+      const content = [
+        'const [activeNode, setActiveNode] = useState<',
+        '    "GLTX"| "ULRI"| "ULTX"| "UPRI"',
+        '  >("GLTX");',
+      ].join("\n");
+      await writeFile(testFile, content, "utf-8");
+
+      // LLM might format like this (newline after first |):
+      const toolCallXml = `<tool_call name="vim">
+  <file_path>${testFile}</file_path>
+  <commands><![CDATA[
+:s/"GLTX"|
+ "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/
+:w
+]]></commands>
+</tool_call>`;
+
+      const toolCalls = XmlProcessor.extractToolCalls(toolCallXml);
+      expect(toolCalls).toHaveLength(1);
+      // Commands get split by newline - substitute is BROKEN into 2 commands
+      const commands = toolCalls[0].args.commands;
+      expect(commands).toContain(':s/"GLTX"|');
+      expect(commands).toContain(' "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/');
+
+      const result = await manager.callTool("vim", {
+        file_path: toolCalls[0].args.file_path,
+        commands: toolCalls[0].args.commands,
+      });
+
+      // First command :s/"GLTX"| is incomplete - substitute fails
+      // File should remain unchanged (this is why "in reality it always fails")
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe(content);
     });
 
     it("should handle invalid range gracefully", async () => {

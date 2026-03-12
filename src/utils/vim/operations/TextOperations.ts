@@ -65,6 +65,14 @@ export function vimPatternToJs(pattern: string): string {
       continue;
     }
 
+    // In Vim magic mode, | is literal; \| is alternation. In JS regex it's reversed.
+    // Unescaped | in pattern -> literal pipe in JS -> output \|
+    if (ch === '|') {
+      result += '\\|';
+      i++;
+      continue;
+    }
+
     result += ch;
     i++;
   }
