@@ -52,9 +52,9 @@ o
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
-:5d              # delete line 5 only
+:5d
 :w
-:%print #        # verify
+:%print #        
 ]]></commands>
 </tool_call>
 
@@ -63,7 +63,7 @@ o
   <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
-:5,10d           # delete lines 5 through 10
+:5,10d
 :w
 :%print #
 ]]></commands>
