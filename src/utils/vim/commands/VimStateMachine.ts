@@ -242,6 +242,16 @@ export class VimStateMachine {
   private processInsertMode(key: string): { output: string; stateChanged: boolean } {
     const buffer = this.state.buffer!;
 
+    // Ensure current line exists (e.g. after :0a on empty buffer)
+    while (this.state.cursorPosition.line >= buffer.content.length) {
+      buffer.content.push("");
+    }
+    let currentLine = buffer.content[this.state.cursorPosition.line];
+    if (currentLine === undefined) {
+      buffer.content[this.state.cursorPosition.line] = "";
+      currentLine = "";
+    }
+
     // Handle Escape to return to normal mode
     if (key === '\x1b' || key === 'Esc') {
       this.state.mode = 'normal';
@@ -400,10 +410,10 @@ export class VimStateMachine {
     // Ex mode: Enter executes command
     if (!isSearchMode && (key === '\n' || key === '\r')) {
       const command = this.state.commandBuffer.substring(1); // Remove ':'
-      this.state.mode = 'normal';
       this.state.commandBuffer = '';
 
       if (!command.trim()) {
+        this.state.mode = 'normal';
         return { output: '', stateChanged: true };
       }
 
@@ -411,8 +421,22 @@ export class VimStateMachine {
         this.syncCursorToHandler(this.state.buffer!);
         const result = await this.exHandler.execute(command, this.state.buffer!);
         this.syncCursorFromHandler(this.state.buffer!);
+
+        // Honor :[range]a(ppend) request to switch to insert mode
+        const ctx = this.ctx as { modeAfterExCommand?: 'insert' | 'normal'; appendCursorPosition?: { line: number; column: number } };
+        if (ctx.modeAfterExCommand === 'insert' && ctx.appendCursorPosition) {
+          this.state.mode = 'insert';
+          this.state.cursorPosition.line = ctx.appendCursorPosition.line;
+          this.state.cursorPosition.column = ctx.appendCursorPosition.column;
+          this.normalHandler.setCursorColumn(ctx.appendCursorPosition.column);
+          ctx.modeAfterExCommand = undefined;
+          ctx.appendCursorPosition = undefined;
+        } else {
+          this.state.mode = 'normal';
+        }
         return { output: result, stateChanged: true };
       } catch (e) {
+        this.state.mode = 'normal';
         return { output: `Error: ${e}`, stateChanged: true };
       }
     }

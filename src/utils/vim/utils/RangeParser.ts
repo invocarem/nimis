@@ -91,8 +91,13 @@ function parseLineRef(ref: string, buffer: VimBuffer): number {
     return Math.max(0, buffer.currentLine - offset);
   }
 
+  // Line 0: virtual line before first line (for :0put, :0a, etc.)
+  if (ref === '0') {
+    return -1;
+  }
+
   const num = parseInt(ref, 10);
-  if (isNaN(num) || num < 1) {
+  if (isNaN(num) || num < 0) {
     throw new Error(`Invalid line number: ${ref}`);
   }
   return num - 1;

@@ -454,12 +454,41 @@ export async function globalCommand(
   }
 }
 
+/** Parse :put ='expr' or :put ="expr" — returns the expression content or null if not expression form. */
+function parsePutExpression(args: string | undefined): string[] | null {
+  if (!args || !args.trim().startsWith("=")) return null;
+  const s = args.trim().slice(1).trim();
+  if (!s.length) return null;
+  if (s.startsWith("'")) {
+    // Single-quoted: '' escapes to '
+    const m = s.match(/^'((?:[^']|'')*)'$/);
+    if (!m) throw new Error("Invalid :put = expression (unclosed single-quoted string)");
+    return m[1].replace(/''/g, "'").split(/\\n|\n/);
+  }
+  if (s.startsWith('"')) {
+    // Double-quoted: \" escapes ", \\ escapes \
+    const m = s.match(/^"((?:[^"\\]|\\.)*)"$/);
+    if (!m) throw new Error("Invalid :put = expression (unclosed double-quoted string)");
+    return m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').split(/\n/);
+  }
+  return null;
+}
+
 // In TextOperations.ts - fix putLines to handle multiple puts correctly
 export function putLines(
   before: boolean,
   register: string | undefined,
   buffer: VimBuffer
 ): string {
+  const exprLines = parsePutExpression(register);
+  if (exprLines !== null) {
+    const insertPos = Math.max(0, before ? buffer.currentLine : buffer.currentLine + 1);
+    buffer.content.splice(insertPos, 0, ...exprLines);
+    buffer.currentLine = before ? insertPos : insertPos + exprLines.length - 1;
+    buffer.modified = true;
+    return `Put ${exprLines.length} line(s) from expression`;
+  }
+
   const regName = register || '"';
   const reg = buffer.registers.get(regName);
 
@@ -468,7 +497,7 @@ export function putLines(
   }
 
   const linesToPut = Array.isArray(reg.content) ? reg.content : [reg.content];
-  const insertPos = before ? buffer.currentLine : buffer.currentLine + 1;
+  const insertPos = Math.max(0, before ? buffer.currentLine : buffer.currentLine + 1);
 
   buffer.content.splice(insertPos, 0, ...linesToPut);
   

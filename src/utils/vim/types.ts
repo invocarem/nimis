@@ -110,4 +110,8 @@ export interface CommandContext {
   resolvePath(filePath: string): string;
   readonly workingDir?: string;
   readonly options: VimOptions;
+  /** Set by ExCommandHandler for :[range]a(ppend) — requests switch to insert mode. Cleared after use. */
+  modeAfterExCommand?: "insert" | "normal";
+  /** Cursor position when switching to insert via :a(ppend). */
+  appendCursorPosition?: { line: number; column: number };
 }

@@ -973,6 +973,10 @@ export class ExCommandHandler {
 
       case "p":
       case "pu":
+      case "put":
+        if (range !== null) {
+          buffer.currentLine = range.start;
+        }
         return putLines(
           false,
           args || buffer.lastRegister || undefined,
@@ -980,10 +984,42 @@ export class ExCommandHandler {
         );
 
       case "pu!":
+        if (range !== null) {
+          buffer.currentLine = range.start;
+        }
         return putLines(true, args || buffer.lastRegister || undefined, buffer);
 
       case "P":
+        if (range !== null) {
+          buffer.currentLine = range.start;
+        }
         return putLines(true, args || buffer.lastRegister || undefined, buffer);
+
+      case "a":
+      case "ap":
+      case "app":
+      case "appe":
+      case "appen":
+      case "append": {
+        const appendRange = range || { start: buffer.currentLine, end: buffer.currentLine };
+        buffer.currentLine = appendRange.start;
+        // For line 0 (index -1), append means insert at start: add empty line and prepare for insert
+        const line0 = appendRange.start === -1;
+        if (line0) {
+          buffer.content.splice(0, 0, "");
+          buffer.currentLine = 0;
+        } else {
+          buffer.content.splice(buffer.currentLine + 1, 0, "");
+          buffer.currentLine = buffer.currentLine + 1;
+        }
+        buffer.modified = true;
+        (this.ctx as { modeAfterExCommand?: "insert" | "normal"; appendCursorPosition?: { line: number; column: number } }).modeAfterExCommand = "insert";
+        (this.ctx as { modeAfterExCommand?: "insert" | "normal"; appendCursorPosition?: { line: number; column: number } }).appendCursorPosition = {
+          line: buffer.currentLine,
+          column: 0,
+        };
+        return "Enter insert mode (append)";
+      }
 
       case "g":
         return await globalCommand(args, false, buffer);
