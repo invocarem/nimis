@@ -11,7 +11,7 @@ export const VIM_TOOL_ESSENTIALS = `
    </tool_call>
 
 2. **Commands:** One per line in CDATA
-3. **Insert mode:** Use 'i' then your text, then **\\x1b** (ESCAPE) to return to NORMAL mode
+3. **Insert mode:** Use \`i\` (insert at cursor) or \`o\` (new line below), then your text, then **\\x1b** (ESCAPE) to return to NORMAL mode
    - ⚠️ **CRITICAL:** You MUST include \\x1b after typing text, or you'll stay in insert mode forever!
    - ⚠️ NEVER write "ESC" or "Escape" - use \\x1b exactly
 
@@ -21,7 +21,7 @@ export const VIM_TOOL_ESSENTIALS = `
 
 ### COMMAND EXAMPLES:
 
-**Create new file:**
+**Edit file (creates on :w if new):**
 <tool_call name="vim">
   <file_path>hello.py</file_path>
   <commands><![CDATA[
@@ -29,9 +29,9 @@ export const VIM_TOOL_ESSENTIALS = `
 i
 def main():
     print("hello")
-\\x1b           # ← MUST exit insert mode!
+\\x1b
 :w
-:%print #      # ← verify with line numbers (1-based, matches :N)
+:%print #
   ]]></commands>
 </tool_call>
 
@@ -41,18 +41,18 @@ def main():
 gg/def
 o
     print("new line")
-\\x1b           # ← MUST exit insert mode!
+\\x1b
 :w
-:%print #      # ← verify with line numbers
+:%print #
   ]]></commands>
 </tool_call>
 
 **Substitute (search/replace):**
 <tool_call name="vim">
   <commands><![CDATA[
-:%s/foo/bar/g     # replace all 'foo' with 'bar'
+:%s/foo/bar/g
 :w
-:%print #          # ← verify with line numbers
+:%print #
   ]]></commands>
 </tool_call>
 
@@ -61,8 +61,8 @@ o
   <file_path>existing.py</file_path>
   <commands><![CDATA[
 :e existing.py
-:%print #          # ← view with line numbers
-:q                # ← quit without saving
+:%print #
+:q
   ]]></commands>
 </tool_call>
 
