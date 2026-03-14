@@ -21,7 +21,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
 
-const writeFile = promisify(fs.writeFile);
 const unlink = promisify(fs.unlink);
 const mkdir = promisify(fs.mkdir);
 
@@ -54,11 +53,9 @@ describe("VimToolManager - :terminal command", () => {
   });
 
   describe(":terminal", () => {
-    it("should open a terminal with no command", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
-
+    it("should open a terminal with no command (no buffer needed)", async () => {
       const result = await manager.callTool("vim", {
-      commands: [":e foo.txt", ":terminal"],
+        commands: [":terminal"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -68,10 +65,8 @@ describe("VimToolManager - :terminal command", () => {
     });
 
     it("should open a terminal and run command when args provided", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
-
       const result = await manager.callTool("vim", {
-      commands: [":e foo.txt", ":terminal npm run dev"],
+        commands: [":terminal npm run dev"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -82,12 +77,11 @@ describe("VimToolManager - :terminal command", () => {
     });
 
     it("should use working directory from :cd", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
       const subDir = path.join(testDir, "subdir");
       await mkdir(subDir, { recursive: true });
 
       await manager.callTool("vim", {
-      commands: [":e foo.txt", ":cd subdir", ":terminal pwd"],
+        commands: [":cd subdir", ":terminal pwd"],
       });
 
       expect(mockSendText).toHaveBeenCalledWith("pwd");
@@ -103,10 +97,8 @@ describe("VimToolManager - :terminal command", () => {
 
   describe(":termal alias", () => {
     it("should work as alias for :terminal", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
-
       const result = await manager.callTool("vim", {
-      commands: [":e foo.txt", ":termal"],
+        commands: [":termal"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -115,10 +107,8 @@ describe("VimToolManager - :terminal command", () => {
     });
 
     it("should accept command args like :terminal", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
-
       const result = await manager.callTool("vim", {
-      commands: [":e foo.txt", ":termal echo hello"],
+        commands: [":termal echo hello"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -127,11 +117,9 @@ describe("VimToolManager - :terminal command", () => {
   });
 
   describe(":term abbreviation", () => {
-    it("should work with :term abbreviation", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
-
+    it("should work with :term abbreviation (no buffer needed)", async () => {
       const result = await manager.callTool("vim", {
-      commands: [":term"],
+        commands: [":term"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -141,11 +129,19 @@ describe("VimToolManager - :terminal command", () => {
   });
 
   describe("help", () => {
-    it("should show help for :help terminal", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
-
+    it("should show help for :help terminal (no buffer needed)", async () => {
       const result = await manager.callTool("vim", {
-      commands: [":e foo.txt", ":help terminal"],
+        commands: [":help terminal"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain(":ter[minal]");
+      expect(result.content[0].text).toContain("VS Code terminal");
+    });
+
+    it("should show help for :help term", async () => {
+      const result = await manager.callTool("vim", {
+        commands: [":help term"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -154,10 +150,8 @@ describe("VimToolManager - :terminal command", () => {
     });
 
     it("should show help for :help termal", async () => {
-      await writeFile(testFile, "hello\n", "utf-8");
-
       const result = await manager.callTool("vim", {
-      commands: [":e foo.txt", ":help termal"],
+        commands: [":help termal"],
       });
 
       expect(result.isError).toBeFalsy();

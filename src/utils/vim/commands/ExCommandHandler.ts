@@ -182,7 +182,73 @@ const HELP_TOPICS: Record<string, string> = {
   "normal": "Normal Mode Commands:\n  h/j/k/l     Move left/down/up/right\n  gg          Go to first line\n  G           Go to last line\n  0           Go to start of line\n  $           Go to end of line\n  Ctrl+f      Page down (24 lines)\n  Ctrl+b      Page up (24 lines)\n  Ctrl+d      Half page down (12 lines)\n  Ctrl+u      Half page up (12 lines)\n  zt          Scroll current line to top of viewport\n  zz          Scroll current line to middle of viewport\n  zb          Scroll current line to bottom of viewport\n  dd          Delete current line\n  [count]dd   Delete [count] lines\n  yy          Yank (copy) current line\n  p           Put (paste) after cursor\n  P           Put (paste) before cursor\n  >>          Indent line right (shiftwidth)\n  <<          Indent line left (shiftwidth)\n  [count]>>   Indent [count] lines right\n  x           Delete character under cursor\n  ma          Set mark a\n  'a          Jump to mark a\n  \"ayy        Yank line into register a\n  \"ap         Put from register a\n  u           Undo",
 
   "range": "Range Formats:\n  (none)   Current line\n  %        Entire file\n  .        Current line (explicit)\n  $        Last line\n  N        Line N (e.g. 10)\n  N,M      Lines N through M (e.g. 10,20)\n  +N       N lines below current (e.g. :+2,+2print)\n  -N       N lines above current\n  .,+N     Current line through N lines below\n  'a       Mark a\n  'a,'b    From mark a to mark b\n  /pat/    Next line matching pattern",
+  "term": ":ter[minal] [cmd]\n  Open a VS Code terminal. With [cmd], runs the command in the new terminal.\n  Uses the current working directory.\n\n  Examples:\n    :terminal         Open new terminal\n    :terminal npm run dev   Run command in terminal",
 };
+
+/** Get help text for a topic. Can be used without an active buffer (e.g. from runDirectoryCommandsOnly). */
+export function getHelpForTopic(topic?: string): string {
+  if (!topic) {
+    return [
+      "Nimis Vim — Quick Reference",
+      "═══════════════════════════",
+      "",
+      "File Operations:",
+      "  :e {file}        Edit/open file          :w           Write (save)",
+      "  :q               Quit buffer             :wq          Write and quit",
+      "  :q!              Force quit               :saveas {f}  Save as new file",
+      "  :r {file}        Read file into buffer   :find {file} Search & open file",
+      "",
+      "Navigation & Buffers:",
+      "  :ls              List buffers             :b {n}       Switch to buffer",
+      "  :bn / :bp        Next / previous buffer",
+      "  :{number}        Jump to line number",
+      "",
+      "Editing:",
+      "  :[range]s/p/r/g  Substitute               :[range]c    Change lines",
+      "  :[range]d        Delete lines",
+      "  :[range]y        Yank lines               :p / :P      Put after/before",
+      "  :g/pat/cmd       Global command           :v/pat/cmd   Inverse global",
+      "  :[range]norm     Normal-mode on range     :[range]!    Shell filter",
+      "",
+      "Search & Directory:",
+      "  :grep {pat}      Search in files          :pwd         Working directory",
+      "  :cd {dir}        Change directory",
+      "",
+      "Diff:",
+      "  :diff {f1} {f2}  Compare two files        :diff {f}    Buffer vs file on disk",
+      "",
+      "Settings & Info:",
+      "  :set {opt}[=val] Set option               :set         Show all options",
+      "  :retab [N]       Retab with tabstop        :retab!      Also convert spaces",
+      "  :reg             Show registers           :mark {a-z}  Set mark",
+      "  :[range]print    Print lines              :[range]print # With numbers",
+      "",
+      "Normal Mode:  i/a/o  Enter insert    dd  Delete line    yy  Yank line",
+      "              p/P    Put after/before  gg/G  Top/bottom   0/$  Start/end",
+      "",
+      "Type :help {topic} for detailed help.  Topics:",
+      "  e w q wq s c d y p print g v bn bp ls b r saveas find grep diff",
+      "  cd pwd reg mark norm ! terminal termal set setlocal retab insert normal range",
+    ].join("\n");
+  }
+
+  const key = topic.replace(/^:/, "");
+  const entry = HELP_TOPICS[key];
+  if (entry) {
+    return entry;
+  }
+
+  const keys = Object.keys(HELP_TOPICS);
+  const fuzzy = keys.filter((k) => k.startsWith(key));
+  if (fuzzy.length === 1) {
+    return HELP_TOPICS[fuzzy[0]];
+  }
+  if (fuzzy.length > 1) {
+    return `Multiple matches: ${fuzzy.join(", ")}\nTry :help {topic} with a more specific topic.`;
+  }
+
+  return `No help found for "${topic}".\nAvailable topics: ${keys.join(", ")}`;
+}
 
 export class ExCommandHandler {
   constructor(
@@ -220,67 +286,7 @@ export class ExCommandHandler {
   }
 
   private helpCommand(topic?: string): string {
-    if (!topic) {
-      return [
-        "Nimis Vim — Quick Reference",
-        "═══════════════════════════",
-        "",
-        "File Operations:",
-        "  :e {file}        Edit/open file          :w           Write (save)",
-        "  :q               Quit buffer             :wq          Write and quit",
-        "  :q!              Force quit               :saveas {f}  Save as new file",
-        "  :r {file}        Read file into buffer   :find {file} Search & open file",
-        "",
-        "Navigation & Buffers:",
-        "  :ls              List buffers             :b {n}       Switch to buffer",
-        "  :bn / :bp        Next / previous buffer",
-        "  :{number}        Jump to line number",
-        "",
-        "Editing:",
-        "  :[range]s/p/r/g  Substitute               :[range]c    Change lines",
-        "  :[range]d        Delete lines",
-        "  :[range]y        Yank lines               :p / :P      Put after/before",
-        "  :g/pat/cmd       Global command           :v/pat/cmd   Inverse global",
-        "  :[range]norm     Normal-mode on range     :[range]!    Shell filter",
-        "",
-        "Search & Directory:",
-        "  :grep {pat}      Search in files          :pwd         Working directory",
-        "  :cd {dir}        Change directory",
-        "",
-        "Diff:",
-        "  :diff {f1} {f2}  Compare two files        :diff {f}    Buffer vs file on disk",
-        "",
-        "Settings & Info:",
-        "  :set {opt}[=val] Set option               :set         Show all options",
-        "  :retab [N]       Retab with tabstop        :retab!      Also convert spaces",
-        "  :reg             Show registers           :mark {a-z}  Set mark",
-        "  :[range]print    Print lines              :[range]print # With numbers",
-        "",
-        "Normal Mode:  i/a/o  Enter insert    dd  Delete line    yy  Yank line",
-        "              p/P    Put after/before  gg/G  Top/bottom   0/$  Start/end",
-        "",
-        "Type :help {topic} for detailed help.  Topics:",
-        "  e w q wq s c d y p print g v bn bp ls b r saveas find grep diff",
-        "  cd pwd reg mark norm ! terminal termal set setlocal retab insert normal range",
-      ].join("\n");
-    }
-
-    const key = topic.replace(/^:/, "");
-    const entry = HELP_TOPICS[key];
-    if (entry) {
-      return entry;
-    }
-
-    const keys = Object.keys(HELP_TOPICS);
-    const fuzzy = keys.filter(k => k.startsWith(key));
-    if (fuzzy.length === 1) {
-      return HELP_TOPICS[fuzzy[0]];
-    }
-    if (fuzzy.length > 1) {
-      return `Multiple matches: ${fuzzy.join(", ")}\nTry :help {topic} with a more specific topic.`;
-    }
-
-    return `No help found for "${topic}".\nAvailable topics: ${keys.join(", ")}`;
+    return getHelpForTopic(topic);
   }
 
   private resolveOptionName(name: string): keyof VimOptions | null {

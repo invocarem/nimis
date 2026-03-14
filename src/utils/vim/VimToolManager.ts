@@ -16,6 +16,7 @@ import { grepInDirectory } from "./operations/GrepOperations";
 import { listBuffers, showRegisters, showMarks } from "./operations/BufferOperations";
 import { createTwoFilesPatch } from "diff";
 import { VimStateMachine } from "./commands/VimStateMachine";
+import { getHelpForTopic } from "./commands/ExCommandHandler";
 import { createVimState } from "./models/VimMode";
 import { validateVimToolCall } from "./VimToolCallValidator";
 
@@ -202,6 +203,7 @@ export class VimToolManager {
   /** Commands that can run without an active buffer (no file open). */
   private canRunWithoutBuffer(cmd: string): boolean {
     if (/^:\s*(pwd|cd\s|!|grep(\s|$))/.test(cmd)) return true;
+    if (/^:\s*(term(?:inal|al)?|help)(\s|$)/.test(cmd)) return true;
     const diffMatch = cmd.match(/^:dif+f?\s+(.+)$/s);
     if (diffMatch) {
       const args = diffMatch[1].trim().split(/\s+/).filter(Boolean);
@@ -329,6 +331,26 @@ export class VimToolManager {
         }
         continue;
       }
+      const helpMatch = c.match(/^:help\s*(.*)$/s);
+      if (helpMatch) {
+        const topic = helpMatch[1].trim();
+        outputs.push(getHelpForTopic(topic || undefined));
+        continue;
+      }
+      const termMatch = c.match(/^:term(?:inal|al)?\s*(.*)$/s);
+      if (termMatch) {
+        const args = termMatch[1].trim();
+        const term = vscode.window.createTerminal({
+          cwd: wd,
+          name: "Vim :terminal",
+        });
+        term.show();
+        if (args) {
+          term.sendText(args);
+        }
+        outputs.push(`Opened terminal${args ? `: ${args}` : ""}`);
+        continue;
+      }
       outputs.push(`Unknown directory command: ${c}`);
     }
 
@@ -393,7 +415,7 @@ private async vimEdit(
       return {
         content: [{
           type: "text",
-          text: "No file specified and no active buffer. Use :e <file> to edit a file or :pwd/:cd/:!/:grep for directory/shell."
+          text: "No file specified and no active buffer. Use :e <file> to edit a file or :pwd/:cd/:!/:grep/:terminal/:help for directory/shell/terminal/help."
         }],
         isError: true
       };

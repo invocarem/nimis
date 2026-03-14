@@ -135,6 +135,7 @@ function validateRetab(cmd: string): string[] {
 /** Commands that can run without an active buffer (no file open). */
 function canRunWithoutBuffer(cmd: string): boolean {
   if (/^:\s*(pwd|cd\s|!|grep(\s|$))/.test(cmd)) return true;
+  if (/^:\s*(term(?:inal|al)?|help)(\s|$)/.test(cmd)) return true;
   const diffMatch = cmd.match(/^:dif+f?\s+(.+)$/s);
   if (diffMatch) {
     const args = diffMatch[1].trim().split(/\s+/).filter(Boolean);
@@ -185,7 +186,7 @@ export function validateVimToolCall(
     });
     const preview = String(first ?? cmdList[0] ?? "").substring(0, 40);
     errors.push(
-      `No buffer open. Use :e <file> first to open a file (paths are relative to current working directory), or :e . to list current folder, or use :pwd/:cd/:!/:grep/:diff for directory/shell. First command was: "${preview}${preview.length >= 40 ? "..." : ""}"`
+      `No buffer open. Use :e <file> first to open a file (paths are relative to current working directory), or :e . to list current folder, or use :pwd/:cd/:!/:grep/:diff/:terminal/:help for directory/shell/terminal/help. First command was: "${preview}${preview.length >= 40 ? "..." : ""}"`
     );
   }
 

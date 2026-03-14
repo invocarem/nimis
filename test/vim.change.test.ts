@@ -255,11 +255,7 @@ describe("VimToolManager - :c (change) integration", () => {
 
   it("should change a range of lines using numeric range + c\\", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
-      commands:[
-        ":3,4c\\def add(a, b): return a + b\\ndef subtract(a, b): return a - b\\ndef multiply(a, b): return a * b",
-        ":w",
-      ],
+      commands: [":e calc.py", ":3,4c\\def add(a, b): return a + b\\ndef subtract(a, b): return a - b\\ndef multiply(a, b): return a * b", ":w"],
     });
     expect(result.isError).toBeFalsy();
 
