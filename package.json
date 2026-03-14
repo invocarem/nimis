@@ -2,7 +2,7 @@
   "name": "nimis",
   "displayName": "Nimis - AI Prototyping",
   "description": "AI prototyping assistant powered by llama.cpp / vLLM / Mistral",
-  "version": "0.0.49",
+  "version": "0.0.50",
   "publisher": "dashtotherock",
   "repository": {
     "type": "git",
