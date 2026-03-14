@@ -40,8 +40,8 @@ describe("VimToolManager - Marks", () => {
 
   it("should set marks in normal mode", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",
         "ma",
         "4G",
@@ -58,8 +58,8 @@ describe("VimToolManager - Marks", () => {
 
   it("should jump to marks", async () => {
     await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",
         "ma",
         "4G",
@@ -68,8 +68,8 @@ describe("VimToolManager - Marks", () => {
     });
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "'a",
         "dd",
         "'b",
@@ -86,8 +86,8 @@ describe("VimToolManager - Marks", () => {
 
   it("should yank between marks", async () => {
     await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",
         "ma",
         "4G",
@@ -96,8 +96,8 @@ describe("VimToolManager - Marks", () => {
     });
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "'a,'by c",
         "G",
         "\"cp",

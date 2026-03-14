@@ -47,7 +47,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "dd", "u", ":w"],
     });
 
@@ -63,7 +62,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "dd", "dd", "u", "u", ":w"],
     });
 
@@ -79,7 +77,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "dG", "u", ":w"],
     });
 
@@ -95,7 +92,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "x", "u", ":w"],
     });
 
@@ -110,7 +106,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "yy", "p", "u", ":w"],
     });
 
@@ -126,7 +121,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "i", "INSERTED ", "\x1b", "u", ":w"],
     });
 
@@ -141,7 +135,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "o", "new line", "\x1b", "u", ":w"],
     });
 
@@ -157,7 +150,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "O", "new line", "\x1b", "u", ":w"],
     });
 
@@ -173,7 +165,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "u"],
     });
 
@@ -187,7 +178,6 @@ describe("VimToolManager - Undo (u) command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "2dd", "u", ":w"],
     });
 
@@ -204,7 +194,6 @@ describe("VimToolManager - Undo (u) command", () => {
 
     // dd marks buffer modified, undo should restore unmodified state
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", "dd", "u", ":w"],
     });
 

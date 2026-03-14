@@ -58,8 +58,7 @@ describe("VimToolManager - :terminal command", () => {
       await writeFile(testFile, "hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":terminal"],
+      commands: [":e foo.txt", ":terminal"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -72,8 +71,7 @@ describe("VimToolManager - :terminal command", () => {
       await writeFile(testFile, "hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":terminal npm run dev"],
+      commands: [":e foo.txt", ":terminal npm run dev"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -89,8 +87,7 @@ describe("VimToolManager - :terminal command", () => {
       await mkdir(subDir, { recursive: true });
 
       await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":cd subdir", ":terminal pwd"],
+      commands: [":e foo.txt", ":cd subdir", ":terminal pwd"],
       });
 
       expect(mockSendText).toHaveBeenCalledWith("pwd");
@@ -109,8 +106,7 @@ describe("VimToolManager - :terminal command", () => {
       await writeFile(testFile, "hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":termal"],
+      commands: [":e foo.txt", ":termal"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -122,8 +118,7 @@ describe("VimToolManager - :terminal command", () => {
       await writeFile(testFile, "hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":termal echo hello"],
+      commands: [":e foo.txt", ":termal echo hello"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -136,8 +131,7 @@ describe("VimToolManager - :terminal command", () => {
       await writeFile(testFile, "hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":term"],
+      commands: [":term"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -151,8 +145,7 @@ describe("VimToolManager - :terminal command", () => {
       await writeFile(testFile, "hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":help terminal"],
+      commands: [":e foo.txt", ":help terminal"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -164,8 +157,7 @@ describe("VimToolManager - :terminal command", () => {
       await writeFile(testFile, "hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":help termal"],
+      commands: [":e foo.txt", ":help termal"],
       });
 
       expect(result.isError).toBeFalsy();

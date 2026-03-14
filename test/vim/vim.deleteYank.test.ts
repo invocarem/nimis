@@ -40,8 +40,8 @@ describe("VimToolManager - Delete and Yank Operations", () => {
 
   it("should yank and put lines with register", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":2,3y a",
         "Go",
         "iPasted:",
@@ -60,8 +60,7 @@ describe("VimToolManager - Delete and Yank Operations", () => {
 
   it("should delete multiple lines with range :3,7d", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
-      commands: [":3,7d", ":w"]
+      commands: [":e test.txt", ":3,7d", ":w"]
     });
 
     expect(result.isError).toBeFalsy();
@@ -72,8 +71,8 @@ describe("VimToolManager - Delete and Yank Operations", () => {
 
   it("should delete lines to register and put elsewhere", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":2d a",
         "G",
         "'ap",
@@ -91,8 +90,7 @@ describe("VimToolManager - Delete and Yank Operations", () => {
 
   it("should verify register contents after yank", async () => {
     await manager.callTool("vim", {
-      file_path: testFile,
-      commands: [":2,3y a"]
+      commands: [":e test.txt", ":2,3y a"]
     });
 
     const registers = await manager.callTool("vim_show_registers", {});

@@ -220,14 +220,18 @@ describe("VimToolManager - :e (edit) command", () => {
       expect(result.content[0].text).toContain("requires a filename");
     });
 
-    it("should handle trying to edit a directory", async () => {
-      // Try to edit a directory instead of a file
+    it("should list directory when :e <directory> (relative to cwd)", async () => {
+      // :e <directory> lists directory contents (resolved relative to current working dir)
+      await writeFile(testFile1, "content1\n", "utf-8");
+      await writeFile(path.join(subDir, "nested.txt"), "nested\n", "utf-8");
+
       const result = await manager.callTool("vim", {
-        commands: [`:e ${path.basename(testDir)}`],
+        commands: [`:e subdir`, ":%print"],
       });
 
-      // Should error appropriately
-      expect(result.isError).toBeTruthy();
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("nested.txt");
+      expect(result.content[0].text).toContain("Directory:");
     });
   });
 
@@ -287,30 +291,23 @@ describe("VimToolManager - :e (edit) command", () => {
     });
   });
 
-  describe("Directory listing with :e (if implemented)", () => {
-    it("should list directory contents when :e . is supported", async () => {
-      // This test assumes the implementation might support directory listing
-      // Create some files and subdirectories
+  describe("Directory listing with :e", () => {
+    it("should list current directory with :e .", async () => {
       await writeFile(testFile1, "content1\n", "utf-8");
       await writeFile(testFile2, "content2\n", "utf-8");
       const nestedFile = path.join(subDir, "nested.txt");
       await writeFile(nestedFile, "nested\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        commands: [":e ."],
+        commands: [":e .", ":%print"],
       });
 
-      // If directory listing is supported, it shouldn't error
-      if (!result.isError) {
-        const output = result.content[0].text;
-        expect(output).toContain("file1.txt");
-        expect(output).toContain("file2.txt");
-        expect(output).toContain("subdir");
-        expect(output).toContain(".."); // Parent directory link
-      } else {
-        // If not supported, skip this test
-        console.log("Directory listing not supported, skipping");
-      }
+      expect(result.isError).toBeFalsy();
+      const output = result.content[0].text;
+      expect(output).toContain("file1.txt");
+      expect(output).toContain("file2.txt");
+      expect(output).toContain("subdir");
+      expect(output).toContain("Directory:");
     });
   });
 

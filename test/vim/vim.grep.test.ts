@@ -107,7 +107,6 @@ describe("VimToolManager - :grep command", () => {
       await writeFile(file2, "alpha\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: file1,
         commands: [":e a.txt", ":grep alpha"],
       });
 

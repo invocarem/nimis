@@ -185,7 +185,7 @@ export function validateVimToolCall(
     });
     const preview = String(first ?? cmdList[0] ?? "").substring(0, 40);
     errors.push(
-      `No buffer open. Use :e <file> first to open a file, or use :pwd/:cd/:!/:grep/:diff for directory/shell. First command was: "${preview}${preview.length >= 40 ? "..." : ""}"`
+      `No buffer open. Use :e <file> first to open a file (paths are relative to current working directory), or :e . to list current folder, or use :pwd/:cd/:!/:grep/:diff for directory/shell. First command was: "${preview}${preview.length >= 40 ? "..." : ""}"`
     );
   }
 

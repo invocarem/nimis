@@ -68,7 +68,6 @@ describe("VimToolManager - :diff command", () => {
     await writeFile(file1, "original\ncontent\n", "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: "old.ts",
       commands: [
         ":e old.ts",
         "gg",

@@ -380,9 +380,9 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       const content = "line1\nline2\nline3\n";
       await writeFile(testFile, content, "utf-8");
 
-      // First call: yank to register a
+      // First call: open file and yank to register a
       await manager.callTool("vim", {
-        commands: ["2G", '"a', "yy"]
+        commands: [":e test.txt", "2G", '"a', "yy"]
       });
 
       // Second call: use register a
@@ -399,7 +399,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       await writeFile(testFile, "test\n", "utf-8");
 
       await manager.callTool("vim", {
-        commands: ["yy"]  // Yank to unnamed register
+        commands: [":e test.txt", "yy"]  // Yank to unnamed register
       });
 
       await manager.callTool("vim", {
@@ -417,7 +417,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       await manager.callTool("vim", {
-        commands: ["2Gdd", ":w"]
+        commands: [":e test.txt", "2Gdd", ":w"]
       });
 
       const updatedContent = await readFile(testFile, "utf-8");
@@ -429,7 +429,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       await manager.callTool("vim", {
-        commands: ["3G2dd", ":w"]
+        commands: [":e test.txt", "3G2dd", ":w"]
       });
 
       const updatedContent = await readFile(testFile, "utf-8");
@@ -443,7 +443,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        commands: ["2G", ":normal o", ":w"]
+        commands: [":e test.txt", "2G", ":normal o", ":w"]
       });
 
       expect(result.isError).toBeFalsy();
@@ -458,7 +458,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        commands: ["G", "5dd", ":w"]
+        commands: [":e test.txt", "G", "5dd", ":w"]
       });
 
       expect(result.isError).toBeFalsy(); // Should delete only existing lines
@@ -471,7 +471,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        commands: ["10j", "dd", ":w"]
+        commands: [":e test.txt", "10j", "dd", ":w"]
       });
 
       expect(result.isError).toBeFalsy(); // Should stay at last line

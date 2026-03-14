@@ -55,8 +55,8 @@ describe("line 0, :0a, and :put = expression", () => {
       const filePath = path.join(testDir, "calc.py");
 
       const result = await manager.callTool("vim", {
-        file_path: filePath,
         commands: [
+          ":e calc.py",
           ":%d",
           ":0put ='# calc.py - Simple Calculator Module'",
           ":put =''",
@@ -79,8 +79,8 @@ describe("line 0, :0a, and :put = expression", () => {
       const filePath = path.join(testDir, "dbl.py");
 
       const result = await manager.callTool("vim", {
-        file_path: filePath,
         commands: [
+          ":e dbl.py",
           ":%d",
           ':0put ="# double quoted"',
           ":w",
@@ -99,8 +99,8 @@ describe("line 0, :0a, and :put = expression", () => {
       await fs.promises.writeFile(filePath, "old line\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: filePath,
         commands: [
+          ":e prepend.py",
           ":%d",
           ":0a",
           "# prepended header",

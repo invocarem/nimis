@@ -162,8 +162,8 @@ describe("Vim scroll commands", () => {
 
     it('should handle literal "Ctrl+b" as page up', async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["30G", "Ctrl+b"],
+        commands: [
+          ":e test.txt","30G", "Ctrl+b"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Page up");
@@ -171,8 +171,8 @@ describe("Vim scroll commands", () => {
 
     it('should handle literal "Ctrl+f" as page down', async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["Ctrl+f"],
+        commands: [
+          ":e test.txt","Ctrl+f"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Page down");
@@ -180,8 +180,8 @@ describe("Vim scroll commands", () => {
 
     it('should handle literal "Ctrl+d" as half page down', async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["Ctrl+d"],
+        commands: [
+          ":e test.txt","Ctrl+d"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Half page down");
@@ -189,8 +189,8 @@ describe("Vim scroll commands", () => {
 
     it('should handle literal "Ctrl+u" as half page up', async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["20G", "Ctrl+u"],
+        commands: [
+          ":e test.txt","20G", "Ctrl+u"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Half page up");
@@ -230,8 +230,8 @@ describe("Vim scroll commands", () => {
 
     it("zt should report Scrolled to top", async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["25G", "zt"],
+        commands: [
+          ":e test.txt","25G", "zt"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Scrolled to top");
@@ -239,8 +239,8 @@ describe("Vim scroll commands", () => {
 
     it("zz should report Scrolled to center", async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["25G", "zz"],
+        commands: [
+          ":e test.txt","25G", "zz"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Scrolled to center");
@@ -248,8 +248,8 @@ describe("Vim scroll commands", () => {
 
     it("zb should report Scrolled to bottom", async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["25G", "zb"],
+        commands: [
+          ":e test.txt","25G", "zb"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Scrolled to bottom");
@@ -289,8 +289,8 @@ describe("Vim scroll commands", () => {
 
     it(":zt should work from command input", async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":25", ":zt"],
+        commands: [
+          ":e test.txt",":25", ":zt"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Scrolled to top");
@@ -298,8 +298,8 @@ describe("Vim scroll commands", () => {
 
     it(":ctrl-f should work from command input", async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":ctrl-f"],
+        commands: [
+          ":e test.txt",":ctrl-f"],
       });
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain("Page down");

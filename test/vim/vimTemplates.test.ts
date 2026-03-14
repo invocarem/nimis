@@ -346,7 +346,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(caseTestFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: caseTestFilePath,
         commands: [
           ":e src/case-test.ts",
           ":%s/user/person/gi",
@@ -365,7 +364,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(rangeTestFilePath, lines.join('\n'), "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: rangeTestFilePath,
         commands: [
           ":e src/range-test.ts",
           ":10,15s/line/LINE/g",
@@ -392,7 +390,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(marksTestFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: marksTestFilePath,
         commands: [
           ":e src/marks-test.ts",
           ":/public x/",
@@ -415,7 +412,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(globalTestFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: globalTestFilePath,
         commands: [
           ":e src/global-test.ts",
           ":g/apple/d",
@@ -529,7 +525,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(path.join(srcDir, "index.ts"), "// dummy\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: path.join(testDir, "src", "index.ts"),
         commands: [":e src/index.ts", ":pwd"]
       });
 
@@ -560,7 +555,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(path.join(pagesDir, "Home.tsx"), "// Home page\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: path.join(testDir, "src", "components", "Button.tsx"),
         commands: [
           ":e src/components/Button.tsx",
           ":cd src/components",
@@ -633,7 +627,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await fs.promises.mkdir(path.join(utilsDir, "helpers"), { recursive: true });
 
       const result = await manager.callTool("vim", {
-        file_path: path.join(testDir, "src", "index.ts"),
         commands: [
           ":e src/index.ts",
           ":cd src/utils/helpers",

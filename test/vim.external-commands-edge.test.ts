@@ -31,8 +31,8 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":2,5!sort -n",  // Sort lines 2-5 numerically
         ":w"
       ]
@@ -49,8 +49,8 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":%!tr '[:lower:]' '[:upper:]'",  // Convert to uppercase
         ":w"
       ]
@@ -67,8 +67,8 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":%!grep error",  // Keep only error lines
         ":w"
       ]
@@ -85,8 +85,8 @@ describe("VimToolManager - External Commands Edge Cases", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":%!sed 's/foo/FOO/g'",  // Replace foo with FOO
         ":w"
       ]

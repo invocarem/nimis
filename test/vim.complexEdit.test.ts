@@ -51,7 +51,6 @@ print(x)`;
 
     // Now run the complex edit
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
         ":e hello.py",
         "gg",           // Go to first line
@@ -100,7 +99,6 @@ print(x)`;
   it("should work even when file doesn't exist initially", async () => {
     // File doesn't exist yet
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
         ":e hello.py",
         "gg",           // Go to first line (no-op on empty file)

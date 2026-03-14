@@ -42,8 +42,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["2G", ":s/foo/baz/", ":w"],
+        commands: [":e test.txt", "2G", ":s/foo/baz/", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -57,8 +56,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["1G", ":s/foo/baz/g", ":w"],
+        commands: [":e test.txt", "1G", ":s/foo/baz/g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -72,8 +70,8 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           "1G",
           ":s/foo/baz/", // No 'g' flag - only first occurrence
           ":w",
@@ -93,8 +91,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s/apple/cherry/g", ":w"],
+        commands: [":e test.txt", ":%s/apple/cherry/g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -108,8 +105,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":1,2s/apple/orange/g", ":w"],
+        commands: [":e test.txt", ":1,2s/apple/orange/g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -125,8 +121,8 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           "3G", // Go to line 3
           ":.,$s/line/ROW/g",
           ":w",
@@ -144,8 +140,8 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           "3G", // Go to line 3
           ":1,.s/line/ROW/g",
           ":w",
@@ -165,8 +161,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s/\\/usr\\/local/\\/opt/g", ":w"],
+        commands: [":e test.txt", ":%s/\\/usr\\/local/\\/opt/g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -180,8 +175,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s#/usr/local#/opt#g", ":w"],
+        commands: [":e test.txt", ":%s#/usr/local#/opt#g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -195,8 +189,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s|/usr/local|/opt|g", ":w"],
+        commands: [":e test.txt", ":%s|/usr/local|/opt|g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -210,8 +203,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s@http://example.com@https://new.example.com@g", ":w"],
+        commands: [":e test.txt", ":%s@http://example.com@https://new.example.com@g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -225,8 +217,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["2G", ":s#second/path#replaced#", ":w"],
+        commands: [":e test.txt", "2G", ":s#second/path#replaced#", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -240,8 +231,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":1,2s|a/b|x/y|g", ":w"],
+        commands: [":e test.txt", ":1,2s|a/b|x/y|g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -256,8 +246,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
 
       // $ and . are regex special characters, need escaping
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s/\\$10\\.99/\\$15\\.99/g", ":w"],
+        commands: [":e test.txt", ":%s/\\$10\\.99/\\$15\\.99/g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -273,8 +262,8 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ":%s/hello/Hi/gi", // Case-insensitive, global
           ":w",
         ],
@@ -291,8 +280,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s/\\t/    /g", ":w"],
+        commands: [":e test.txt", ":%s/\\t/    /g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -332,8 +320,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       // Simulate JSON round-trip: "\\t" in JSON -> backslash+t in string
       const args = JSON.parse(
         JSON.stringify({
-          file_path: testFile,
-          commands: [":%s/^ /" + String.fromCharCode(92) + "t/g", ":w"],
+          commands: [":e test.txt", ":%s/^ /" + String.fromCharCode(92) + "t/g", ":w"],
         })
       );
       const result = await manager.callTool("vim", args);
@@ -355,8 +342,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":s/first/1/", ":s/second/2/", ":s/third/3/", ":w"],
+        commands: [":e test.txt", ":s/first/1/", ":s/second/2/", ":s/third/3/", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -370,8 +356,8 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ":s/ this//", // Remove " this"
           ":w",
         ],
@@ -388,8 +374,7 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%s/item\\d+/product/g", ":w"],
+        commands: [":e test.txt", ":%s/item\\d+/product/g", ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -410,8 +395,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ':%s/def greet[(][)]:/def greet(name="World"):/',
           ':%s/print[(]"Hello, World!"[)]/print(f"Hello, {name}")/',
           ":w",
@@ -437,8 +422,7 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":s/nonexistent/replacement/g", ":w"],
+        commands: [":e test.txt", ":s/nonexistent/replacement/g", ":w"],
       });
 
       // Should succeed but make no changes
@@ -460,8 +444,7 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["2G", ':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/', ":w"],
+        commands: [":e test.txt", "2G", ':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/', ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -486,8 +469,7 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [ ':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/', ":w"],
+        commands: [":e test.txt", ':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/', ":w"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -520,8 +502,7 @@ def main():
       expect(toolCalls[0].args.commands).toContain(':s/"GLTX"| "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/');
 
       const result = await manager.callTool("vim", {
-        file_path: toolCalls[0].args.file_path,
-        commands: toolCalls[0].args.commands,
+        commands: [":e test.txt", ...toolCalls[0].args.commands],
       });
 
       expect(result.isError).toBeFalsy();
@@ -559,8 +540,7 @@ def main():
       expect(commands).toContain(' "ULRI"| "ULTX"| "UPRI"/"UPRI" | "GLTX"/');
 
       const result = await manager.callTool("vim", {
-        file_path: toolCalls[0].args.file_path,
-        commands: toolCalls[0].args.commands,
+        commands: [":e test.txt", ...toolCalls[0].args.commands],
       });
 
       // First command :s/"GLTX"| is incomplete - substitute fails
@@ -574,8 +554,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ":999,1000s/test/dummy/g", // Range beyond file
           ":w",
         ],
@@ -595,8 +575,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ":s//dummy/", // Empty pattern
           ":w",
         ],
@@ -616,8 +596,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           "2G",
           "ma", // Set mark a at line 2
           "4G",
@@ -638,8 +618,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ":g/apple/s/apple/fruit/g", // On lines with apple, replace apple with fruit
           ":w",
         ],
@@ -656,8 +636,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ":s/implement/implement/", // No change, just to position
           "A",
           " (urgent)",
@@ -679,8 +659,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ':%s/^\\(.*\\)/    \\1/',
           ":w",
         ],
@@ -697,8 +677,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ':2,4s/^\\(.*\\)/  \\1/',
           ":w",
         ],
@@ -715,8 +695,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           "2,4s/^/  /",
           ":w",
         ],
@@ -733,8 +713,7 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: ["%print"],
+        commands: [":e test.txt", "%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -762,8 +741,8 @@ def main():
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e test.txt",
           ":/^def divide/,/^def \\|^if __/s/^  /    /g",
           ":w",
         ],

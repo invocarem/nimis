@@ -60,8 +60,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(csFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: csFile,
       commands: [
+        ":e NodeConfigBufferBuilder.cs",
         ":/private const int SIGNAL_SIZE",
         ":.,+5print"
       ]
@@ -88,8 +88,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
 
     // Search for the pattern and delete the line (using :g/pattern/d)
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":g/operations\\[op\\]/d",  // Delete line containing operations[op]
         ":w"
       ]
@@ -116,8 +116,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
 
     // Search for the pattern and substitute on that line (using :g/pattern/s/old/new/)
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":g/operations\\[op\\]/s/result = /output = /",
         ":w"
       ]
@@ -141,8 +141,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":e calc.py",
         "/def multiply",   // No trailing slash
         "\n",              // Enter executes search
@@ -173,8 +173,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(helloFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: helloFile,
       commands: [
+        ":e hello.py",
         ":e hello.py",
         "/^if __name__/",   // Search without colon - sent char-by-char; "i" must NOT enter insert mode
         "i",
@@ -213,8 +213,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":/^    if b == 0/",  // Jump to line matching pattern
         "o",                  // Open new line below
         "        raise ValueError(\"Cannot divide by zero\")",
@@ -241,8 +241,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ':/print\\(greet\\("Nimis"\\)/d',
         ":w"
       ]
@@ -267,8 +267,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
 
     // :3s/^ \{1\}/  /  — replace exactly 1 leading space with 2 spaces on line 3
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":3s/^ \\{1\\}/  /",
         ":w"
       ]
@@ -293,8 +293,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
 
     // :%s/a\{2,3\}/X/  — replace 2-3 consecutive 'a' with X
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":%s/a\\{2,3\\}/X/",
         ":w"
       ]
@@ -318,8 +318,8 @@ describe("VimToolManager - Pattern Search Commands", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":g/^nonexistent pattern/d",  // Pattern won't match - no-op
         ":w"
       ]

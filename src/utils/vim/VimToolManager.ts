@@ -11,6 +11,7 @@ import { ExCommandHandler } from "./commands/ExCommandHandler";
 import { NormalCommandHandler } from "./commands/NormalCommandHandler";
 import { isExCommand, stripColonPrefix } from "./commands/CommandParser";
 import { editFile, writeBuffer } from "./operations/FileOperations";
+import { listDirectory } from "./operations/DirectoryOperations";
 import { grepInDirectory } from "./operations/GrepOperations";
 import { listBuffers, showRegisters, showMarks } from "./operations/BufferOperations";
 import { createTwoFilesPatch } from "diff";
@@ -342,6 +343,7 @@ private async vimEdit(
 ): Promise<VimToolResult> {
 
   try {
+    const self = this;
     const ctx: CommandContext = {
       buffers: this.buffers,
       getCurrentBuffer: () => this.currentBuffer,
@@ -353,6 +355,9 @@ private async vimEdit(
       },
       resolvePath: (fp) => this.pathResolver.resolve(fp),
       options: this.options,
+      get workingDir() {
+        return self.workingDir;
+      },
     };
 
     if (!this.currentBuffer && commands.length > 0) {
@@ -360,7 +365,23 @@ private async vimEdit(
       const eMatch = firstCmd.match(/^:e\s+(.+)$/s);
       if (eMatch) {
         const filename = eMatch[1].trim();
-        await editFile(filename, ctx);
+        // :e . or :e <directory> — list directory (resolved relative to current working dir)
+        if (filename === "." || filename === "./" || filename === ".\\") {
+          const currentDir = this.workingDir || this.pathResolver.workspaceRoot || process.cwd();
+          await listDirectory(currentDir!, ctx);
+        } else {
+          const resolvedPath = this.pathResolver.resolve(filename);
+          try {
+            const stats = await fs.promises.stat(resolvedPath);
+            if (stats.isDirectory()) {
+              await listDirectory(resolvedPath, ctx);
+            } else {
+              await editFile(filename, ctx);
+            }
+          } catch {
+            await editFile(filename, ctx);
+          }
+        }
       } else if (commands.every((c) => this.canRunWithoutBuffer(String(c).trim()))) {
         // Directory/shell-only or :diff: run without a buffer (no state machine)
         const result = await this.runDirectoryCommandsOnly(commands);
@@ -391,7 +412,14 @@ private async vimEdit(
     }
 
     let backupPath: string | undefined;
-    if (createBackup && fs.existsSync(buffer.path)) {
+    const isDirBuffer = (() => {
+      try {
+        return fs.existsSync(buffer.path) && fs.statSync(buffer.path).isDirectory();
+      } catch {
+        return false;
+      }
+    })();
+    if (createBackup && fs.existsSync(buffer.path) && !isDirBuffer) {
       backupPath = buffer.path + '.bak';
       const onDiskContent = await readFile(buffer.path, 'utf-8');
       await writeFileAsync(backupPath, onDiskContent, 'utf-8');

@@ -236,8 +236,8 @@ describe("VimToolManager - :c (change) integration", () => {
 
   it("should change a single line using pattern search + c\\", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ":/op, a, b = sys.argv/c\\    op = sys.argv[1]\\n    a = float(sys.argv[2])\\n    b = float(sys.argv[3]) if len(sys.argv) > 3 else None",
         ":w",
       ],
@@ -269,8 +269,8 @@ describe("VimToolManager - :c (change) integration", () => {
 
   it("should work in combination with substitute commands", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e calc.py",
         ':%s/if len.sys\\.argv. != 4:/if len(sys.argv) < 3 or len(sys.argv) > 4:/',
         ":/op, a, b = sys.argv/c\\    op = sys.argv[1]\\n    a = float(sys.argv[2])\\n    b = float(sys.argv[3]) if len(sys.argv) > 3 else None",
         ":w",

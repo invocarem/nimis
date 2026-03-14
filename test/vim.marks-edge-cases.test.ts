@@ -29,8 +29,8 @@ describe("VimToolManager - Marks Edge Cases", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G", "ma",  // Set mark a at line 2
         "4G", "mb",  // Set mark b at line 4
         "'a",        // Jump to mark a
@@ -52,14 +52,12 @@ describe("VimToolManager - Marks Edge Cases", () => {
     await writeFile(testFile, content, "utf-8");
 
     await manager.callTool("vim", {
-      file_path: testFile,
-      commands: ["2G", "ma"]
+      commands: [":e test.txt", "2G", "ma"]
     });
 
     // Do some operations that shouldn't affect the mark
     await manager.callTool("vim", {
-      file_path: testFile,
-      commands: ["G", "iEND", ":w"]
+      commands: [":e test.txt", "G", "iEND", "\x1b", ":w"]
     });
 
     const marksResult = await manager.callTool("vim_show_marks", {});
@@ -72,8 +70,8 @@ describe("VimToolManager - Marks Edge Cases", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G", "ma",
         "4G", "mb",
         ":'a,'bd", // Delete from mark a to mark b

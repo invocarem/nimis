@@ -42,8 +42,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "line 1\nline 2\nline 3\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":!echo hello"],
+      commands: [":e test.txt", ":!echo hello"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -58,8 +57,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "unchanged\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":!echo -e 'alpha\\nbeta\\ngamma'"],
+      commands: [":e test.txt", ":!echo -e 'alpha\\nbeta\\ngamma'"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -73,8 +71,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "original\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":!echo test"],
+      commands: [":e test.txt", ":!echo test"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -97,8 +94,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "cherry\napple\nbanana\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%!sort", ":%print"],
+      commands: [":e test.txt", ":%!sort", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -120,8 +116,7 @@ describe("VimToolManager - :! (external command)", () => {
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":2,4!sort", ":%print"],
+      commands: [":e test.txt", ":2,4!sort", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -152,8 +147,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "b\na\nc\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%!sort"],
+      commands: [":e test.txt", ":%!sort"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -165,8 +159,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "3\n1\n2\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%!sort -n", ":w", ":%print"],
+      commands: [":e test.txt", ":%!sort -n", ":w", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -180,8 +173,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "content\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":!"],
+      commands: [":e test.txt", ":!"],
       });
 
       expect(result.isError).toBeTruthy();
@@ -192,8 +184,7 @@ describe("VimToolManager - :! (external command)", () => {
       await writeFile(testFile, "content\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":!nonexistent_command_xyz_12345"],
+      commands: [":e test.txt", ":!nonexistent_command_xyz_12345"],
       });
 
       expect(result.isError).toBeTruthy();

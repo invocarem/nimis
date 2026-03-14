@@ -46,8 +46,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "i",         // Enter insert mode
         "START",     // Text to insert
@@ -66,8 +66,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "$",         // Move to end of line
         "a",         // Enter insert mode after cursor
@@ -87,8 +87,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "gg",        // Go to line 1
         "i",         // Enter insert mode
         "START",     // Insert at beginning
@@ -111,8 +111,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "i",         // Enter insert mode
         "FIRST",     // First line to insert
@@ -133,8 +133,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "A",         // Enter insert mode at end of line
         " ADDED",    // Text to append
@@ -153,8 +153,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "I",         // Enter insert mode at beginning of line
         "START ",    // Text to insert
@@ -173,8 +173,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "o",         // Open line below and enter insert mode
         "NEW LINE",  // Text in new line
@@ -193,8 +193,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",              // Go to line 2 (pass)
         "o    if b == 0:", // o + text in single string: open line below, then insert
         "\x1b",            // Escape
@@ -212,8 +212,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "O",         // Open line above and enter insert mode
         "NEW LINE",  // Text in new line
@@ -232,8 +232,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2
         "i",         // Enter insert mode
         "EXTRA",     // Insert text
@@ -253,8 +253,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "2G",        // Go to line 2 (return statement)
         "O",         // Open line above and enter insert mode
         "    console.log('debug');",  // Insert debug line
