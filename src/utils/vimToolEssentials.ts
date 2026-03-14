@@ -11,13 +11,16 @@ export const VIM_TOOL_ESSENTIALS = `
    </tool_call>
 
 2. **Commands:** One per line in CDATA
-3. **Insert mode:** Use \`i\` (insert at cursor) or \`o\` (new line below), then your text, then **\\x1b** (ESCAPE) to return to NORMAL mode
+3. **Split long edits:** Do NOT cram everything into one tool call. Break work into multiple calls:
+   - Write one block (e.g. add a function), then use another tool call for the next block (e.g. add another function)
+   - Prefer several focused tool calls over one giant command list
+4. **Insert mode:** Use \`i\` (insert at cursor) or \`o\` (new line below), then your text, then **\\x1b** (ESCAPE) to return to NORMAL mode
    - ⚠️ **CRITICAL:** You MUST include \\x1b after typing text, or you'll stay in insert mode forever!
    - ⚠️ NEVER write "ESC" or "Escape" - use \\x1b exactly
 
-4. **Save:** Always :w after changes to save to disk
-5. **Verify:** Use **:%print #** to see buffer content WITH line numbers (avoids off-by-one when referencing lines)
-6. **NEVER** use JSON format or plain text - they WILL fail
+5. **Save:** Always :w after changes to save to disk
+6. **Verify:** Use **:%print #** to see buffer content WITH line numbers (avoids off-by-one when referencing lines)
+7. **NEVER** use JSON format or plain text - they WILL fail
 
 ### COMMAND EXAMPLES:
 
@@ -63,6 +66,27 @@ o
 :e existing.py
 :%print #
 :q
+  ]]></commands>
+</tool_call>
+
+**Adding multiple blocks:** Use separate tool calls — first call adds block A , second call adds block B (10 rows of code):
+<tool_call name="vim">
+  <commands><![CDATA[
+:e file.py
+/def main
+o
+    # block A
+\\x1b
+:%print #
+  ]]></commands>
+</tool_call>
+<tool_call name="vim">
+  <commands><![CDATA[
+/def main
+o
+    # block B
+\\x1b
+:%print #
   ]]></commands>
 </tool_call>
 

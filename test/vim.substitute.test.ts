@@ -321,6 +321,32 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       expect(updatedContent).toContain("        pass");
       expect(updatedContent).not.toContain("\t");
     });
+
+    it("should replace leading space with tab when replacement is \\t (from JSON)", async () => {
+      // Regression: :%s/^ /\t/g was inserting literal backslash-t instead of tab.
+      // When JSON has "\\t", it parses to the two chars \ + t. escapeReplacementForJs
+      // must convert that to actual tab.
+      const content = "  def foo():\n    pass\n";
+      await writeFile(testFile, content, "utf-8");
+
+      // Simulate JSON round-trip: "\\t" in JSON -> backslash+t in string
+      const args = JSON.parse(
+        JSON.stringify({
+          file_path: testFile,
+          commands: [":%s/^ /" + String.fromCharCode(92) + "t/g", ":w"],
+        })
+      );
+      const result = await manager.callTool("vim", args);
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content[0].text).toContain("Substituted");
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      // Pattern ^  replaces one leading space with tab; "  def" -> "\t def"
+      expect(updatedContent).toContain("\t def foo():");
+      expect(updatedContent).toContain("\t   pass");
+      expect(updatedContent).toContain("\t");
+    });
   });
 
   describe("Complex replacements", () => {

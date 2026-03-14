@@ -131,6 +131,24 @@ describe("substituteWithPattern - tab substitution", () => {
     expect(buffer.content[0]).toBe("    hello");
     expect(buffer.content[1]).toBe("        world");
   });
+
+  it("substitutes with tab when replacement is backslash-t (e.g. :%s/^ /\\t/g from JSON)", () => {
+    // When LLM sends ":%s/^ /\\t/g", JSON parses \\t as the two chars \ + t.
+    // escapeReplacementForJs must convert that to actual tab.
+    const buffer = createBuffer("/test/file.txt", ["  foo", " bar", "baz"], "\n");
+    const replacement = "\\" + "t"; // backslash + t - as from JSON "\\t"
+    const result = substituteWithPattern(
+      { start: 0, end: 2 },
+      "^ ", // leading space
+      replacement,
+      "g",
+      buffer
+    );
+    expect(result).toContain("Substituted 2 occurrence");
+    expect(buffer.content[0]).toBe("\t foo");
+    expect(buffer.content[1]).toBe("\tbar");
+    expect(buffer.content[2]).toBe("baz");
+  });
 });
 
 describe("substituteWithPattern - \\( \\) and \\1 in replacement", () => {

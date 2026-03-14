@@ -84,7 +84,12 @@ export function vimPatternToJs(pattern: string): string {
 function escapeReplacementForJs(replacement: string): string {
   // Normalize \1 as single character (SOH, from "\\1" in JS string) to $1 for backreference
   const s = replacement.replace(/\x01/g, "$1");
+  // Vim replacement: \t=tab, \r=newline. Preserve \\t (literal backslash-t) before converting \t.
+  const PLACEHOLDER_LITERAL_TAB = "\uE000";
   return s
+    .replace(/\\\\t/g, PLACEHOLDER_LITERAL_TAB)
+    .replace(/\\t/g, "\t")
+    .replace(PLACEHOLDER_LITERAL_TAB, "\\t")
     .replace(/\\\$/g, "$$")       // \$ -> $$ (literal $)
     .replace(/\\\./g, ".")        // \. -> . (literal .)
     .replace(/\\&/g, "$&")        // \& -> $& (whole match)

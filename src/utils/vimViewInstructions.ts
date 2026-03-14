@@ -4,6 +4,9 @@ export const VIM_VIEW_INSTRUCTIONS = `
 
 VimView shows a live 24x80 terminal of your current file. You control it with the \`vim\` tool.
 
+### Viewport (24 rows)
+You see 24 lines at a time. You can edit ANY line in the file — the view automatically scrolls to show the cursor after each command. No need to navigate first; e.g. \`:36d\` or \`:36\` + edit works even when the view shows lines 1–24.
+
 ### Basic Format (ALWAYS use this):
 <tool_call name="vim">
   <file_path>file.py</file_path>  <!-- optional -->
@@ -19,6 +22,7 @@ command3
 2. Use \\x1b to exit insert mode (NOT "ESC")
 3. Wait for result before next tool call
 4. VimView updates automatically
+5. The view auto-scrolls to show the cursor — you can edit any line directly (e.g. \`:36d\`, \`:42s/old/new/\`)
 
 ### Common Commands:
 - :e file.txt    - load file
@@ -57,6 +61,15 @@ o
 print("New line 1")
 print("New line 2")
 \\x1b
+:w
+  ]]></commands>
+</tool_call>
+
+### Example - Edit a specific line (view auto-scrolls to show it):
+<tool_call name="vim">
+  <commands><![CDATA[
+:36d            # delete line 36 (view scrolls to show result)
+:.,+24print #  # verify
 :w
   ]]></commands>
 </tool_call>
