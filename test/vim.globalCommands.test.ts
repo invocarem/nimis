@@ -40,8 +40,8 @@ describe("VimToolManager - Global Commands", () => {
 
   it("should delete lines matching pattern with :g", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":g/apple/d",
         ":w"
       ]
@@ -55,8 +55,8 @@ describe("VimToolManager - Global Commands", () => {
 
   it("should delete lines NOT matching pattern with :v", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":v/apple/d",
         ":w"
       ]
@@ -70,8 +70,8 @@ describe("VimToolManager - Global Commands", () => {
 
   it("should handle global with substitute", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":g/apple/s/apple/orange/g",
         ":w"
       ]

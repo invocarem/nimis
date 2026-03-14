@@ -132,18 +132,62 @@ function validateRetab(cmd: string): string[] {
   return errors;
 }
 
+/** Commands that can run without an active buffer (no file open). */
+function canRunWithoutBuffer(cmd: string): boolean {
+  if (/^:\s*(pwd|cd\s|!|grep(\s|$))/.test(cmd)) return true;
+  const diffMatch = cmd.match(/^:dif+f?\s+(.+)$/s);
+  if (diffMatch) {
+    const args = diffMatch[1].trim().split(/\s+/).filter(Boolean);
+    return args.length >= 2; // :diff file1 file2
+  }
+  return false;
+}
+
+/** Check if the first command opens a file (:e) or runs without a buffer. */
+function firstCommandOpensFileOrNeedsNoBuffer(commands: string[]): boolean {
+  for (const raw of commands) {
+    const c = String(raw).trim();
+    if (c === "" || c === "\n" || c === "\r") continue;
+    if (/^:e\s+/.test(c)) return true; // :e file
+    if (canRunWithoutBuffer(c)) return true;
+    return false; // First meaningful command needs a buffer
+  }
+  return false;
+}
+
+export interface ValidateOptions {
+  /** When false, first command must open a file (:e) or be buffer-less (:pwd, :cd, etc.). */
+  hasBuffer?: boolean;
+}
+
 /**
  * Validate the full vim tool call before execution.
  */
-export function validateVimToolCall(commands: string[]): ValidationResult {
+export function validateVimToolCall(
+  commands: string[],
+  options?: ValidateOptions
+): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const hasBuffer = options?.hasBuffer ?? true; // Default true for backward compat
 
   if (!Array.isArray(commands) || commands.length === 0) {
     return { valid: true, errors: [], warnings: [] };
   }
 
   const cmdList = commands as string[];
+
+  // 0. When no buffer: first command must open a file or be buffer-less
+  if (!hasBuffer && !firstCommandOpensFileOrNeedsNoBuffer(cmdList)) {
+    const first = cmdList.find((c) => {
+      const t = String(c).trim();
+      return t !== "" && t !== "\n" && t !== "\r";
+    });
+    const preview = String(first ?? cmdList[0] ?? "").substring(0, 40);
+    errors.push(
+      `No buffer open. Use :e <file> first to open a file, or use :pwd/:cd/:!/:grep/:diff for directory/shell. First command was: "${preview}${preview.length >= 40 ? "..." : ""}"`
+    );
+  }
 
   // 1. Insert mode Esc validation
   const insertErrors = validateInsertModeEsc(cmdList);

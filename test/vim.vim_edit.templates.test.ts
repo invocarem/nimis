@@ -49,15 +49,6 @@ describe("vim tool calls in vim_templates.xml", () => {
       }
     });
 
-    it("should have file_path as string when present", () => {
-      const toolCalls = XmlProcessor.extractToolCalls(xmlContent);
-      for (const tc of toolCalls) {
-        if (tc.args.file_path !== undefined) {
-          expect(typeof tc.args.file_path).toBe("string");
-          expect(tc.args.file_path.length).toBeGreaterThan(0);
-        }
-      }
-    });
   });
 
   describe("execution via VimToolManager", () => {
@@ -91,7 +82,6 @@ describe("vim tool calls in vim_templates.xml", () => {
     it("should execute a parsed tool call (read file) when args are passed to callTool", async () => {
       await fs.promises.writeFile(testFile, "const x = 1;\n", "utf-8");
       const args = {
-        file_path: testFile,
         commands: [":e index.ts", ":%print"],
       };
       const result = await manager.callTool("vim", args);
@@ -101,7 +91,6 @@ describe("vim tool calls in vim_templates.xml", () => {
 
     it("should execute a parsed tool call (insert and save) when args match template format", async () => {
       const args = {
-        file_path: testFile,
         commands: [
           ":e index.ts",
           "i",
@@ -128,7 +117,6 @@ describe("vim tool calls in vim_templates.xml", () => {
 
       await fs.promises.writeFile(testFile, "line1\nline2\n", "utf-8");
       const args = {
-        file_path: testFile,
         commands: (readTemplate!.args.commands as string[]).map((c: string) =>
           c.replace(/src\/index\.ts/g, "index.ts")
         ),

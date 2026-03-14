@@ -47,8 +47,8 @@ describe("VimToolManager - Insert at line (e.g. :11i)", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         ":11i",       // :[range]i = insert new line before line 11 (Vim Ex command)
         "PREFIX ",    // Text to insert on the new line
         "\x1b",       // Escape to normal mode

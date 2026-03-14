@@ -38,8 +38,7 @@ describe("VimToolManager - :retab command", () => {
       await writeFile(testFile, "\thello\n\t\tworld\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab", ":%print"],
+        commands: [":e retab.txt", ":retab", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -53,8 +52,7 @@ describe("VimToolManager - :retab command", () => {
       await writeFile(testFile, "\thello\n\t\tworld\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab 4", ":%print"],
+        commands: [":e retab.txt", ":retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -67,16 +65,14 @@ describe("VimToolManager - :retab command", () => {
       await writeFile(testFile, "\thello\n", "utf-8");
 
       await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab 2", ":%print"],
+        commands: [":e retab.txt", ":retab 2", ":%print"],
       });
 
       // Run retab again without argument — should use the updated tabstop=2
       await writeFile(testFile, "\tworld\n", "utf-8");
       const mgr2 = new VimToolManager(testDir);
       const result = await mgr2.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=2", ":retab", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=2", ":retab", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -87,8 +83,7 @@ describe("VimToolManager - :retab command", () => {
       await writeFile(testFile, "\t  hello\n  \tworld\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=4", ":retab", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=4", ":retab", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -103,8 +98,7 @@ describe("VimToolManager - :retab command", () => {
       await writeFile(testFile, "    hello\n    world\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab 4", ":%print"],
+        commands: [":e retab.txt", ":retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -124,8 +118,8 @@ def subtract(a, b):
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e retab.txt",
           ":set expandtab",
           ":set tabstop=4",
           ":set shiftwidth=4",
@@ -157,8 +151,8 @@ def subtract(a, b):
       await writeFile(testFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
         commands: [
+          ":e retab.txt",
           ":set expandtab",
           ":set tabstop=4",
           ":set shiftwidth=4",
@@ -179,8 +173,7 @@ def subtract(a, b):
       await writeFile(testFile, "\thello\nworld\n\tfoo\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab 4"],
+        commands: [":e retab.txt", ":retab 4"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -197,8 +190,7 @@ def subtract(a, b):
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=4", ":2,3retab", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=4", ":2,3retab", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -212,8 +204,7 @@ def subtract(a, b):
       await writeFile(testFile, "\ta\n\tb\n\tc\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=2", ":%retab", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=2", ":%retab", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -229,8 +220,7 @@ def subtract(a, b):
       await writeFile(testFile, "\thello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":ret 4", ":%print"],
+        commands: [":e retab.txt", ":ret 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -243,8 +233,7 @@ def subtract(a, b):
       await writeFile(testFile, "        hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set noexpandtab", ":set tabstop=4", ":retab!", ":%print"],
+        commands: [":e retab.txt", ":set noexpandtab", ":set tabstop=4", ":retab!", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -257,8 +246,7 @@ def subtract(a, b):
       await writeFile(testFile, "      hello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set noexpandtab", ":set tabstop=4", ":retab!", ":%print"],
+        commands: [":e retab.txt", ":set noexpandtab", ":set tabstop=4", ":retab!", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -276,8 +264,7 @@ def subtract(a, b):
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=2", ":retab 4", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=2", ":retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -296,8 +283,7 @@ def subtract(a, b):
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=4", ":retab 2", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=4", ":retab 2", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -316,8 +302,7 @@ def subtract(a, b):
       await writeFile(testFile, "  level1\n    level2\n   misaligned\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab 4", ":%print"],
+        commands: [":e retab.txt", ":retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -335,8 +320,7 @@ def subtract(a, b):
       await writeFile(testFile, "    hello\n    world\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=4", ":retab 4", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=4", ":retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -351,8 +335,7 @@ def subtract(a, b):
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=2", ":2,3retab 4", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=2", ":2,3retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -369,8 +352,7 @@ def subtract(a, b):
       await writeFile(testFile, "\thello\n\t\tworld\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":set tabstop=4", ":retab 2", ":%print"],
+        commands: [":e retab.txt", ":set tabstop=4", ":retab 2", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -392,8 +374,7 @@ def subtract(a, b):
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%retab 4", ":%print"],
+        commands: [":e retab.txt", ":%retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -413,8 +394,7 @@ def subtract(a, b):
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%retab 4", ":%print"],
+        commands: [":e retab.txt", ":%retab 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -432,8 +412,7 @@ def subtract(a, b):
       );
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":%retab! 4", ":%print"],
+        commands: [":e retab.txt", ":%retab! 4", ":%print"],
       });
 
       expect(result.isError).toBeFalsy();
@@ -449,8 +428,7 @@ def subtract(a, b):
       await writeFile(testFile, "\thello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab abc"],
+        commands: [":e retab.txt", ":retab abc"],
       });
 
       expect(result.isError).toBeTruthy();
@@ -461,8 +439,7 @@ def subtract(a, b):
       await writeFile(testFile, "\thello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab 0"],
+        commands: [":e retab.txt", ":retab 0"],
       });
 
       expect(result.isError).toBeTruthy();
@@ -477,8 +454,8 @@ def subtract(a, b):
       await writeFile(pyFile, content, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: pyFile,
         commands: [
+          ":e foo.py",
           ":setlocal expandtab",
           ":setlocal tabstop=4",
           ":setlocal shiftwidth=4",
@@ -526,8 +503,8 @@ def divide(a, b):
       await writeFile(calcFile, calcContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: calcFile,
         commands: [
+          ":e calc.py",
           ":set expandtab",
           ":set shiftwidth=4",
           ":set softtabstop=4",
@@ -567,8 +544,7 @@ def divide(a, b):
       await writeFile(testFile, "\thello\n", "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFile,
-        commands: [":retab 4"],
+        commands: [":e retab.txt", ":retab 4"],
       });
 
       expect(result.isError).toBeFalsy();

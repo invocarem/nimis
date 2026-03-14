@@ -9,7 +9,6 @@ You see 24 lines at a time. You can edit ANY line in the file — the view autom
 
 ### Basic Format (ALWAYS use this):
 <tool_call name="vim">
-  <file_path>file.py</file_path>  <!-- optional -->
   <commands><![CDATA[
 command1
 command2
@@ -42,7 +41,6 @@ command3
 
 ### Example - Create file:
 <tool_call name="vim">
-  <file_path>hello.py</file_path>
   <commands><![CDATA[
 :e hello.py
 o

@@ -43,8 +43,8 @@ describe("VimToolManager - Simple 3-line file creation", () => {
 
   it("should create a file with three lines: apple, banana, orange (separate i and lines)", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e fruits.txt",
         "i",           // Enter insert mode
         "apple",       // First line
         "banana",      // Second line
@@ -76,8 +76,8 @@ describe("VimToolManager - Simple 3-line file creation", () => {
 
   it("should create a file with three lines: apple, banana, orange (i combined with first line)", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e fruits.txt",
         "iapple",      // Enter insert mode AND type first line in one command
         "banana",      // Second line
         "orange",      // Third line

@@ -50,7 +50,6 @@ describe("VimToolManager - Line Specific Substitute", () => {
 
     // Run the substitute command on line 12
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
         ":e test.txt",
         ":12s/^ /    /",  // Replace leading space with 4 spaces
@@ -87,7 +86,6 @@ describe("VimToolManager - Line Specific Substitute", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
         ":e test.txt",
         ":12s/^ /    /",  // Should only affect line 12
@@ -116,7 +114,6 @@ describe("VimToolManager - Line Specific Substitute", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
         ":e test.txt",
         ":12s/^ /    /",  // Pattern won't match

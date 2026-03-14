@@ -43,8 +43,8 @@ describe("VimToolManager - Basic Operations", () => {
 
   it("should create a new file with :e and write with :w", async () => {
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [
+        ":e test.txt",
         "i",
         "# This is a test file",
         "def test_function():",
@@ -66,7 +66,6 @@ describe("VimToolManager - Basic Operations", () => {
 
   it("should handle file not found gracefully", async () => {
     const result = await manager.callTool("vim", {
-      file_path: path.join(testDir, "nonexistent.py"),
       commands: [
         ":e nonexistent.py", 
         "i# New file", 

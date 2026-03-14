@@ -110,10 +110,6 @@ export class VimToolManager {
               description: "Array of Vim commands to execute in sequence. Use 'i' to enter insert mode, then text as separate commands, and '\\x1b' to exit insert mode.",
               items: { type: "string" }
             },
-            file_path: {
-              type: "string",
-              description: "Optional file to edit. If not provided, uses current buffer or opens last edited file."
-            },
             create_backup: {
               type: "boolean",
               description: "Create .bak backup before modifications. Defaults to true."
@@ -172,7 +168,7 @@ export class VimToolManager {
           // Keep "" (blank lines in insert mode), "\n"/"\r" (Enter key)
           cmds = (cmds as string[]).filter((c: string) => typeof c !== "string" || c.length === 0 || c.replace(/[\t ]/g, "").length > 0);
 
-          const validation = validateVimToolCall(cmds);
+          const validation = validateVimToolCall(cmds, { hasBuffer: !!this.currentBuffer });
           if (!validation.valid && validation.errors.length > 0) {
             return {
               content: [{ type: "text", text: `Vim tool call validation failed:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}` }],
@@ -180,11 +176,7 @@ export class VimToolManager {
             };
           }
 
-          return await this.vimEdit(
-            cmds,
-            arguments_.file_path,
-            arguments_.create_backup !== false
-          );
+          return await this.vimEdit(cmds, arguments_.create_backup !== false);
         }
         case "vim_buffer_list":
           return listBuffers(this.buffers, this.currentBuffer);
@@ -346,7 +338,6 @@ export class VimToolManager {
 
 private async vimEdit(
   commands: string[],
-  filePath?: string,
   createBackup: boolean = true
 ): Promise<VimToolResult> {
 
@@ -364,11 +355,7 @@ private async vimEdit(
       options: this.options,
     };
 
-    let scratchPath: string | undefined;
-
-    if (filePath) {
-      await editFile(filePath, ctx);
-    } else if (!this.currentBuffer && commands.length > 0) {
+    if (!this.currentBuffer && commands.length > 0) {
       const firstCmd = typeof commands[0] === "string" ? commands[0].trim() : "";
       const eMatch = firstCmd.match(/^:e\s+(.+)$/s);
       if (eMatch) {

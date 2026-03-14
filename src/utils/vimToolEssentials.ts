@@ -20,13 +20,13 @@ export const VIM_TOOL_ESSENTIALS = `
 
 5. **Save:** Always :w after changes to save to disk
 6. **Verify:** Use **:%print #** to see buffer content WITH line numbers (avoids off-by-one when referencing lines)
-7. **NEVER** use JSON format or plain text - they WILL fail
+7. **Open file:** When no buffer is open, start with **:e &lt;file&gt;** to open a file (or use :pwd/:cd/:!/:grep for directory/shell)
+8. **NEVER** use JSON format or plain text - they WILL fail
 
 ### COMMAND EXAMPLES:
 
 **Edit file (creates on :w if new):**
 <tool_call name="vim">
-  <file_path>hello.py</file_path>
   <commands><![CDATA[
 :e hello.py
 i
@@ -61,7 +61,6 @@ o
 
 **Read file without editing:**
 <tool_call name="vim">
-  <file_path>existing.py</file_path>
   <commands><![CDATA[
 :e existing.py
 :%print #

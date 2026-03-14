@@ -46,7 +46,6 @@ export class NimisManager {
       "## VIM SPECIFIC REQUIREMENTS\n\n" +
       "**ALWAYS use FORMAT B with CDATA for vim:**\n" +
       '<tool_call name="vim">\n' +
-      "  <file_path>hello.py</file_path>\n" +
       "  <commands><![CDATA[\n" +
       ":e hello.py\n" +
       "i\n" +
@@ -66,7 +65,7 @@ export class NimisManager {
       "- Indentation in code must be maintained\n\n" +
       "## COMMON PITFALLS TO AVOID\n\n" +
       "❌ **DON'T use format A for vim:**\n" +
-      '<tool_call name="vim" args=\'{ "file_path": "hello.py", "commands": [":e hello.py", "i", "code"] }\' />\n' +
+      '<tool_call name="vim" args=\'{ "commands": [":e hello.py", "i", "code"] }\' />\n' +
       "   → This WILL corrupt multi-line content and escape sequences!\n\n" +
       "❌ **DON'T put commands in a single string:**\n" +
       "<commands>i\\nline1\\nline2</commands>\n" +
@@ -82,7 +81,7 @@ export class NimisManager {
       "## CDATA RULES SUMMARY\n\n" +
       "- Use `<![CDATA[` and `]]>` to wrap content\n" +
       "- One command per line inside CDATA for vim\n" +
-      "- Simple string arguments (file_path) use plain child elements, not CDATA\n" +
+      "- Use :e <file> to open a file when no buffer is open\n" +
       "- Content inside CDATA is preserved exactly — no escaping needed\n\n" +
 */      NimisManager.buildToolDocs(nativeToolManager, vimToolManager, mcpManager)
     );

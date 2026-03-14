@@ -47,7 +47,6 @@ describe("VimToolManager - :delete command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", ":1,$delete", ":w"],
     });
 
@@ -62,7 +61,6 @@ describe("VimToolManager - :delete command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", ":%delete", ":w"],
     });
 
@@ -77,7 +75,6 @@ describe("VimToolManager - :delete command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", ":1d", ":w"],
     });
 
@@ -93,7 +90,6 @@ describe("VimToolManager - :delete command", () => {
     await writeFile(testFile, content, "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: testFile,
       commands: [":e test.txt", ":2,4delete", ":w"],
     });
 

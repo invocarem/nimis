@@ -91,7 +91,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           ":%print"
@@ -109,7 +108,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           ":%print #"
@@ -129,7 +127,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, lines.join('\n'), "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           ":10,20print"
@@ -159,7 +156,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, lines.join('\n'), "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           ":/function calculate/",
@@ -181,7 +177,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, originalContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           "gg",
@@ -208,7 +203,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, originalContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           "G",
@@ -235,7 +229,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, lines.join('\n'), "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           ":15",
@@ -265,7 +258,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/config.ts",
           ":/^export const config/",
@@ -290,7 +282,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/styles.css",
           ":/^\\s*\\.container\\s*{/",
@@ -322,7 +313,6 @@ describe("VimToolManager - Template Verification Tests", () => {
 
     it("should do simple substitution on current line", async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           ":/var/",
@@ -338,7 +328,6 @@ describe("VimToolManager - Template Verification Tests", () => {
 
     it("should do global substitution in entire file with :%s", async () => {
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/index.ts",
           ":%s/var/const/g",
@@ -447,7 +436,6 @@ describe("VimToolManager - Template Verification Tests", () => {
       await writeFileAsync(testFilePath, fileContent, "utf-8");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/utils/helpers.ts",
           "gg",
@@ -490,7 +478,6 @@ describe("VimToolManager - Template Verification Tests", () => {
 
       // Use :%s with JS regex _(capture); \1 in replacement becomes $1
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/models/User.ts",
           ":%s/_([a-z]+)/\\1/g",
@@ -515,7 +502,6 @@ describe("VimToolManager - Template Verification Tests", () => {
 
       // :g/pattern/ and :norm run without error (norm does not yet execute keys per line)
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
           ":e src/services/api.ts",
           ":g/^async function /",
@@ -602,8 +588,8 @@ describe("VimToolManager - Template Verification Tests", () => {
       const testFilePath = path.join(componentsDir, "Button.tsx");
 
       const result = await manager.callTool("vim", {
-        file_path: testFilePath,
         commands: [
+          ":e src/components/Button.tsx",
           "i",
           "import React from 'react';",
           "",

@@ -43,8 +43,8 @@ describe("creating a new file from scratch", () => {
     const filePath = path.join(testDir, "hello.py");
 
     const result = await manager.callTool("vim", {
-      file_path: filePath,
       commands: [
+        ":e hello.py",
         "i",                         // Enter insert mode
         "#!/usr/bin/env python3",    // Line 1
         "",                        // Another new line
@@ -95,8 +95,8 @@ describe("creating a new file from scratch", () => {
 
     // Empty string "" creates blank lines; " " (space) is filtered (avoids "Unsupported normal mode command")
     const result = await manager.callTool("vim", {
-      file_path: filePath,
       commands: [
+        ":e empty_test.py",
         "i",
         "line1",
         "",   // blank line - kept
@@ -125,8 +125,7 @@ describe("commands as a newline-separated string", () => {
     const filePath = path.join(testDir, "from_string.txt");
 
     const result = await manager.callTool("vim", {
-      file_path: filePath,
-      commands: "iHello\nWorld\n\x1b\n:w",
+      commands: ":e from_string.txt\niHello\nWorld\n\x1b\n:w",
     });
 
     expect(result.isError).toBeFalsy();
@@ -143,8 +142,7 @@ describe("editing an existing file", () => {
     await writeFile(filePath, 'msg = "Hello"\nprint(msg)\n', "utf-8");
 
     const result = await manager.callTool("vim", {
-      file_path: filePath,
-      commands: [':%s/Hello/Goodbye/g', ":w"],
+      commands: [":e existing.py", ':%s/Hello/Goodbye/g', ":w"],
     });
 
     expect(result.isError).toBeFalsy();
@@ -162,8 +160,7 @@ describe("editing an existing file", () => {
     );
 
     const result = await manager.callTool("vim", {
-      file_path: filePath,
-      commands: [":g/console\\.log/d", ":w"],
+      commands: [":e cleanup.py", ":g/console\\.log/d", ":w"],
     });
 
     expect(result.isError).toBeFalsy();
@@ -180,8 +177,8 @@ describe("XML parsing round-trip", () => {
     const filePath = path.join(testDir, "mixed.py");
 
     const xml = `<tool_call name="vim">
-  <file_path>${filePath}</file_path>
   <commands><![CDATA[
+:e mixed.py
 i
 # Header
 
@@ -216,8 +213,8 @@ describe("multi-buffer workflow", () => {
 
     // Create file A with content
     const result1 = await manager.callTool("vim", {
-      file_path: fileA,
       commands: [
+        ":e a.txt",
         "i",              // Enter insert mode
         "Shared line",    // First line
         "\n",             // New line
@@ -230,15 +227,14 @@ describe("multi-buffer workflow", () => {
 
     // Yank the first line from file A
     const result2 = await manager.callTool("vim", {
-      file_path: fileA,
-      commands: ["gg", '"ayy'],
+      commands: [":e a.txt", "gg", '"ayy'],
     });
     expect(result2.isError).toBeFalsy();
 
     // Create file B with content
     const result3 = await manager.callTool("vim", {
-      file_path: fileB,
       commands: [
+        ":e b.txt",
         "i",              // Enter insert mode
         "File B content", // Content
         "\x1b",           // Exit insert mode
@@ -249,8 +245,8 @@ describe("multi-buffer workflow", () => {
 
     // Put the yanked line into file B
     const result4 = await manager.callTool("vim", {
-      file_path: fileB,
       commands: [
+        ":e b.txt",
         "G",              // Go to end of file
         '"ap',            // Put from register a
         "\x1b",           // Exit insert mode

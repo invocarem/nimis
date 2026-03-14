@@ -2,7 +2,6 @@
 
 <!-- Read file (use :%print # for line numbers - avoids off-by-one) -->
 <tool_call name="vim">
-  <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
 :%print #
@@ -11,7 +10,6 @@
 
 <!-- Insert after line number: :N then o (below) or O (above) -->
 <tool_call name="vim">
-  <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
 :5
@@ -25,7 +23,6 @@ o
 
 <!-- Insert after line or pattern -->
 <tool_call name="vim">
-  <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
 :/^export function/
@@ -39,7 +36,6 @@ o
 
 <!-- Substitute: :s/old/new/ or :%s/old/new/g -->
 <tool_call name="vim">
-  <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
 :%s/var/const/g
@@ -49,7 +45,6 @@ o
 
 <!-- Delete line(s) by number: :Nd (single) or :N,Md (range). Delete bottom-to-top for non-contiguous -->
 <tool_call name="vim">
-  <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
 :5d
@@ -60,7 +55,6 @@ o
 
 <!-- Delete range :5,10d (lines 5–10 inclusive). Non-contiguous: delete higher line numbers first -->
 <tool_call name="vim">
-  <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
 :5,10d
@@ -71,7 +65,6 @@ o
 
 <!-- Delete lines matching pattern -->
 <tool_call name="vim">
-  <file_path>src/index.ts</file_path>
   <commands><![CDATA[
 :e src/index.ts
 :g/console\.log/d
@@ -88,8 +81,8 @@ o
 
 <!-- Create new file -->
 <tool_call name="vim">
-  <file_path>src/Component.tsx</file_path>
   <commands><![CDATA[
+:e src/Component.tsx
 i
 export const Component = () => <div>Hello</div>;
 \x1b

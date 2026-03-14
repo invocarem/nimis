@@ -42,7 +42,6 @@ Optional navigation (when you want to browse):
 ## YOUR TOOL - THE ONLY ONE YOU NEED
 
 <tool_call name="vim">
-  <file_path>optional/file.py</file_path>  <!-- only for new files -->
   <commands><![CDATA[
 command1
 command2
@@ -56,7 +55,6 @@ command3
 
 **Step 1 - Open file and navigate to target:**
 <tool_call name="vim">
-  <file_path>processor.py</file_path>
   <commands><![CDATA[
 :e processor.py
 :150          # go to line 150 (viewport now shows lines 150-173)
