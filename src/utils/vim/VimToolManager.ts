@@ -16,6 +16,7 @@ import { listBuffers, showRegisters, showMarks } from "./operations/BufferOperat
 import { createTwoFilesPatch } from "diff";
 import { VimStateMachine } from "./commands/VimStateMachine";
 import { createVimState } from "./models/VimMode";
+import { validateVimToolCall } from "./VimToolCallValidator";
 
 const readFile = fs.promises.readFile;
 const writeFileAsync = fs.promises.writeFile;
@@ -170,6 +171,15 @@ export class VimToolManager {
           // Skip space/tab-only commands (LLMs sometimes add " "; triggers "Unsupported normal mode command")
           // Keep "" (blank lines in insert mode), "\n"/"\r" (Enter key)
           cmds = (cmds as string[]).filter((c: string) => typeof c !== "string" || c.length === 0 || c.replace(/[\t ]/g, "").length > 0);
+
+          const validation = validateVimToolCall(cmds);
+          if (!validation.valid && validation.errors.length > 0) {
+            return {
+              content: [{ type: "text", text: `Vim tool call validation failed:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}` }],
+              isError: true,
+            };
+          }
+
           return await this.vimEdit(
             cmds,
             arguments_.file_path,
@@ -402,15 +412,11 @@ private async vimEdit(
 
     let currentOutput = '';
 
-    // Expand :Nx (e.g. :21i) into :N + x for LLM-generated command compatibility
+    // Normalize range commands without leading colon (e.g. 1,$d -> :1,$d)
     const expandedCommands: string[] = [];
     for (const c of commands) {
       const trimmed = typeof c === "string" ? c.trim() : String(c);
-      const match = trimmed.match(/^:(\d+)([iaIAoO])$/);
-      if (match) {
-        expandedCommands.push(":" + match[1]);
-        expandedCommands.push(match[2]);
-      } else if (
+      if (
         !trimmed.startsWith(':') &&
         /^(\d+\s*[,;]\s*(\d+|\$|\.)\s*|%\s*)[a-z!]/i.test(trimmed)
       ) {

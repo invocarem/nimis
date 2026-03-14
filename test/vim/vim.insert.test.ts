@@ -41,7 +41,7 @@ describe("VimToolManager - Insert at line (e.g. :11i)", () => {
     }
   });
 
-  it("should insert text at line 11 using :11i", async () => {
+  it("should insert text before line 11 using :11i (Ex insert-before command)", async () => {
     const lines = Array.from({ length: 15 }, (_, i) => `line ${i + 1}`);
     const content = lines.join("\n") + "\n";
     await writeFile(testFile, content, "utf-8");
@@ -49,9 +49,9 @@ describe("VimToolManager - Insert at line (e.g. :11i)", () => {
     const result = await manager.callTool("vim", {
       file_path: testFile,
       commands: [
-        ":11i",       // Go to line 11 (Ex command) and enter insert mode
-        "PREFIX ",   // Text to insert
-        "\x1b",      // Escape to normal mode
+        ":11i",       // :[range]i = insert new line before line 11 (Vim Ex command)
+        "PREFIX ",    // Text to insert on the new line
+        "\x1b",       // Escape to normal mode
         ":w",
       ],
     });
@@ -60,7 +60,9 @@ describe("VimToolManager - Insert at line (e.g. :11i)", () => {
 
     const updated = await readFile(testFile, "utf-8");
     const resultLines = updated.trimEnd().split("\n");
-    expect(resultLines[10]).toBe("PREFIX line 11");
+    // :11i inserts a NEW line before line 11, so "PREFIX " is on the new line, "line 11" stays below
+    expect(resultLines[10]).toBe("PREFIX ");
+    expect(resultLines[11]).toBe("line 11");
   });
 
 });

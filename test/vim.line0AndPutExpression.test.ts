@@ -94,7 +94,7 @@ describe("line 0, :0a, and :put = expression", () => {
   });
 
   describe(":0a (append after line 0)", () => {
-    it.skip("should :0a and insert text at start (erase + prepend workflow)", async () => {
+    it("should :0a and insert text at start (erase + prepend workflow)", async () => {
       const filePath = path.join(testDir, "prepend.py");
       await fs.promises.writeFile(filePath, "old line\n", "utf-8");
 

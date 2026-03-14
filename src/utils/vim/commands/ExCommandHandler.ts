@@ -995,6 +995,25 @@ export class ExCommandHandler {
         }
         return putLines(true, args || buffer.lastRegister || undefined, buffer);
 
+      case "i":
+      case "ins":
+      case "inse":
+      case "inser":
+      case "insert": {
+        // Insert before line (Vim :[range]i)
+        const insertRange = range || { start: buffer.currentLine, end: buffer.currentLine };
+        const line = Math.max(0, insertRange.start);
+        buffer.content.splice(line, 0, "");
+        buffer.currentLine = line;
+        buffer.modified = true;
+        (this.ctx as { modeAfterExCommand?: "insert" | "normal"; appendCursorPosition?: { line: number; column: number } }).modeAfterExCommand = "insert";
+        (this.ctx as { modeAfterExCommand?: "insert" | "normal"; appendCursorPosition?: { line: number; column: number } }).appendCursorPosition = {
+          line: buffer.currentLine,
+          column: 0,
+        };
+        return "Enter insert mode (insert)";
+      }
+
       case "a":
       case "ap":
       case "app":
