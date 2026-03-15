@@ -24,6 +24,22 @@ function isEscape(cmd: string): boolean {
 const INSERT_MODE_COMMANDS = new Set(["i", "a", "A", "I", "o", "O"]);
 
 /**
+ * Check if a command deletes one or more lines (row delete).
+ * Multiple deletes in one tool call are error-prone: after the first delete,
+ * line numbers shift, so the second/third delete may target wrong lines.
+ */
+function isLineDeleteCommand(cmd: string): boolean {
+  const c = cmd.trim();
+  // Ex: :d, :5d, :5,10d, :%d, :1,$d, :delete, :5delete, etc.
+  if (/^:[\s\d%.,'$+\-]*\s*d(?:elete)?\s*$/i.test(c)) return true;
+  // Normal: dd, 5dd
+  if (/^\d*dd\s*$/.test(c)) return true;
+  // Complex: 2Gdd, 3G2dd (go to line N, then delete)
+  if (/^\d+G\d*dd\s*$/.test(c)) return true;
+  return false;
+}
+
+/**
  * Count unescaped / in string. \/ is escaped.
  */
 function countUnescapedSlashes(s: string): number {
@@ -195,6 +211,14 @@ export function validateVimToolCall(
   if (escapeCount > 1) {
     errors.push(
       `Commands contain ${escapeCount} escape(s) (\\x1b). Only 1 escape allowed per tool call. Split into separate tool calls for multiple edits.`
+    );
+  }
+
+  // 1b. At most one line delete per tool call (row numbers shift after delete, so 2nd/3rd delete may be wrong)
+  const deleteCount = cmdList.filter((c) => isLineDeleteCommand(String(c))).length;
+  if (deleteCount > 1) {
+    errors.push(
+      `Commands contain ${deleteCount} line delete(s) (:d, dd, etc.). Only 1 delete allowed per tool call. After a delete, line numbers shift—split into separate tool calls for multiple deletes.`
     );
   }
 

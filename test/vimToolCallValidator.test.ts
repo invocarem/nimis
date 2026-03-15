@@ -38,6 +38,28 @@ describe("VimToolCallValidator", () => {
       expect(r.errors.some((e) => e.includes("Only 1 escape allowed"))).toBe(true);
     });
 
+    it("rejects multiple line deletes (row numbers shift after first delete)", () => {
+      const r = validateVimToolCall([":e file.txt", ":5d", ":10d", ":w"]);
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("delete") && e.includes("Only 1"))).toBe(true);
+    });
+
+    it("rejects dd followed by :Nd", () => {
+      const r = validateVimToolCall([":e file.txt", "dd", ":3d", ":w"]);
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("delete"))).toBe(true);
+    });
+
+    it("passes single delete", () => {
+      const r = validateVimToolCall([":e file.txt", ":5d", ":w"]);
+      expect(r.valid).toBe(true);
+    });
+
+    it("passes single dd", () => {
+      const r = validateVimToolCall([":e file.txt", "dd", ":w"]);
+      expect(r.valid).toBe(true);
+    });
+
     it("rejects call log with 4 escapes (multiple edits)", () => {
       const commands = [
         ":28",
