@@ -190,11 +190,19 @@ export function validateVimToolCall(
     );
   }
 
-  // 1. Insert mode Esc validation
+  // 1. At most one escape per tool call (no multiple changes in one tool_call)
+  const escapeCount = cmdList.filter((c) => isEscape(String(c).trim())).length;
+  if (escapeCount > 1) {
+    errors.push(
+      `Commands contain ${escapeCount} escape(s) (\\x1b). Only 1 escape allowed per tool call. Split into separate tool calls for multiple edits.`
+    );
+  }
+
+  // 2. Insert mode Esc validation
   const insertErrors = validateInsertModeEsc(cmdList);
   errors.push(...insertErrors);
 
-  // 2. Substitute delimiter validation (Ex commands)
+  // 3. Substitute delimiter validation (Ex commands)
   for (let i = 0; i < cmdList.length; i++) {
     const c = String(cmdList[i]).trim();
     if (c.startsWith(":") && (c.includes("s/") || c.match(/\bs\s*\//))) {

@@ -271,6 +271,42 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       // shiftwidth=4: "    bar" -> add 4 spaces -> "        bar"
       expect(content).toBe("  foo\n        bar\n  baz\n");
     });
+
+    it("should handle '=G' to reindent from current line to end of file", async () => {
+      const content = "function foo() {\n  return {\n  a: 1,\n  b: 2\n};\n}\n";
+      await writeFile(testFile, content, "utf-8");
+      await manager.callTool("vim", { commands: [":e! test.txt", ":set shiftwidth=2"] });
+
+      const result = await manager.callTool("vim", {
+        commands: ["2G", "=G", ":w"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      const out = await readFile(testFile, "utf-8");
+      // From line 2 onward: reindent with bracket nesting. "  return {" stays, "  a: 1" gets +2, "  b: 2" same, "};" outdents, "}" outdents
+      expect(out).toContain("function foo() {");
+      expect(out).toContain("  return {");
+      expect(out).toContain("    a: 1");
+      expect(out).toContain("    b: 2");
+      expect(out).toContain("  };");
+      expect(out).toContain("}");
+    });
+
+    it("should handle '=gg' to reindent from top to current line", async () => {
+      const content = "if (x) {\n  y();\n}\n";
+      await writeFile(testFile, content, "utf-8");
+      await manager.callTool("vim", { commands: [":e! test.txt", ":set shiftwidth=2"] });
+
+      const result = await manager.callTool("vim", {
+        commands: ["G", "=gg", ":w"]
+      });
+
+      expect(result.isError).toBeFalsy();
+      const out = await readFile(testFile, "utf-8");
+      expect(out).toContain("if (x) {");
+      expect(out).toContain("  y();");
+      expect(out).toContain("}");
+    });
   });
 
   describe("Yank and put commands", () => {

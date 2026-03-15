@@ -17,7 +17,6 @@ o
   // new code
   // new code 2
 \x1b
-:w
 ]]></commands>
 </tool_call>
 
@@ -30,16 +29,19 @@ o
   // new code
   // new code 2
 \x1b
-:w
 ]]></commands>
 </tool_call>
 
-<!-- Substitute: :s/old/new/ or :%s/old/new/g -->
+<!-- Replace line: use :Nd (delete) then o (insert). Do NOT use substitute. -->
 <tool_call name="vim">
   <commands><![CDATA[
 :e src/index.ts
-:%s/var/const/g
-:w
+:5
+dd
+o
+  const x = 1;
+\x1b
+:%print #
 ]]></commands>
 </tool_call>
 
@@ -48,7 +50,6 @@ o
   <commands><![CDATA[
 :e src/index.ts
 :5d
-:w
 :%print #        
 ]]></commands>
 </tool_call>
@@ -58,7 +59,6 @@ o
   <commands><![CDATA[
 :e src/index.ts
 :5,10d
-:w
 :%print #
 ]]></commands>
 </tool_call>
@@ -68,7 +68,6 @@ o
   <commands><![CDATA[
 :e src/index.ts
 :g/console\.log/d
-:w
 ]]></commands>
 </tool_call>
 

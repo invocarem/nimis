@@ -7,7 +7,7 @@ import { parseRange } from "../utils/RangeParser";
 import { CommandContext } from "../types";
 
 export class VimStateMachine {
-  private static readonly MULTI_KEY_PREFIXES = new Set(['d', 'g', 'y', 'c', '>', '<']);
+  private static readonly MULTI_KEY_PREFIXES = new Set(['d', 'g', 'y', 'c', '>', '<', '=']);
 
   private state: VimState;
   private normalHandler: NormalCommandHandler;

@@ -32,9 +32,38 @@ describe("VimToolCallValidator", () => {
       expect(r.valid).toBe(true);
     });
 
-    it("allows multiple insert blocks each with their own \\x1b", () => {
+    it("rejects multiple escapes (multiple changes in one tool call)", () => {
       const r = validateVimToolCall(["i", "a", "\x1b", "o", "b", "\x1b", ":w"]);
-      expect(r.valid).toBe(true);
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("Only 1 escape allowed"))).toBe(true);
+    });
+
+    it("rejects call log with 4 escapes (multiple edits)", () => {
+      const commands = [
+        ":28",
+        "o",
+        "",
+        "def power(a, b):",
+        '    """Return a raised to the power of b."""',
+        "    return a ** b",
+        "\\x1b",
+        ":59",
+        "a",
+        '    "power": power,',
+        "\\x1b",
+        ":46",
+        "s",
+        'print("Operations: add, subtract, multiply, divide, sine, cosine, power")',
+        "\\x1b",
+        ":36",
+        "s",
+        'two_arg_ops = ["add", "subtract", "multiply", "divide", "power"]',
+        "\\x1b",
+        ":%print #",
+      ];
+      const r = validateVimToolCall(commands);
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("4 escape") && e.includes("Only 1 escape allowed"))).toBe(true);
     });
   });
 

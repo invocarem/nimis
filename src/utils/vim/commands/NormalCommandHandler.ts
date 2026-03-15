@@ -150,6 +150,15 @@ export class NormalCommandHandler {
       return this.execute(remainingCmd.slice(1), buffer);
     }
 
+    // =G reindent from current line to end of file
+    if (remainingCmd === '=G') {
+      return this.reindentRange(buffer, buffer.currentLine, buffer.content.length - 1, options);
+    }
+    // =gg reindent from current line to top of file
+    if (remainingCmd === '=gg') {
+      return this.reindentRange(buffer, 0, buffer.currentLine, options);
+    }
+
     // Note: The following insert mode commands are kept for backward compatibility
     // but in the state machine approach, they should be handled by the VimStateMachine
     
@@ -535,5 +544,65 @@ export class NormalCommandHandler {
   private getIndentation(line: string): string {
     const match = line.match(/^\s*/);
     return match ? match[0] : '';
+  }
+
+  /** Reindent lines [start, end] using bracket-based logic. Used by =G and =gg. */
+  private reindentRange(
+    buffer: VimBuffer,
+    start: number,
+    end: number,
+    options?: Partial<VimOptions>
+  ): string {
+    if (buffer.content.length === 0 || start > end) {
+      return 'No lines to reindent';
+    }
+    const sw = options?.shiftwidth ?? VIM_OPTION_DEFAULTS.shiftwidth;
+    const useSpaces = options?.expandtab ?? VIM_OPTION_DEFAULTS.expandtab;
+    const indentStr = useSpaces ? ' '.repeat(sw) : '\t';
+
+    // Compute nesting level at start of range (scan lines 0..start-1)
+    let level = 0;
+    for (let i = 0; i < start && i < buffer.content.length; i++) {
+      const line = buffer.content[i];
+      for (const c of line) {
+        if (c === '{' || c === '[' || c === '(') level++;
+        else if (c === '}' || c === ']' || c === ')') level = Math.max(0, level - 1);
+      }
+    }
+
+    pushUndo(buffer);
+    const startClamped = Math.max(0, start);
+    const endClamped = Math.min(buffer.content.length - 1, end);
+
+    for (let i = startClamped; i <= endClamped; i++) {
+      const line = buffer.content[i];
+      const trimmed = line.trim();
+      if (trimmed === '') {
+        buffer.content[i] = '';
+        continue;
+      }
+
+      // Lines starting with closing braces get outdented first
+      let indentLevel = level;
+      const stripped = line.replace(/^\s*/, '');
+      let j = 0;
+      while (j < stripped.length && ['}', ']', ')'].includes(stripped[j])) {
+        indentLevel = Math.max(0, indentLevel - 1);
+        j++;
+      }
+
+      const indent = indentStr.repeat(indentLevel);
+      buffer.content[i] = indent + stripped;
+
+      // Update level for next line
+      for (const c of stripped) {
+        if (c === '{' || c === '[' || c === '(') level++;
+        else if (c === '}' || c === ']' || c === ')') level = Math.max(0, level - 1);
+      }
+    }
+
+    buffer.modified = true;
+    const lineCount = endClamped - startClamped + 1;
+    return `Reindented ${lineCount} line(s)`;
   }
 }
