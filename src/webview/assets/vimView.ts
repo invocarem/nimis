@@ -15,6 +15,8 @@ export interface VimState {
   list?: boolean;
   tabstop?: number;
   viewportTop?: number;
+  /** When true, do not adjust viewport to cursor (server sent "start of edit" viewport). */
+  viewportLocked?: boolean;
   mode_command?: boolean;
   commandBuffer?: string;
 }
@@ -184,10 +186,12 @@ function createVimView(getVscode: () => VscodeApi): VimViewApi {
     if (state.viewportTop !== undefined) {
       viewportTop = Math.max(0, Math.min(state.viewportTop, Math.max(0, totalLines - VIM_ROWS)));
     }
-    if (cursorLine < viewportTop) {
-      viewportTop = cursorLine;
-    } else if (cursorLine >= viewportTop + VIM_ROWS) {
-      viewportTop = cursorLine - VIM_ROWS + 1;
+    if (!state.viewportLocked) {
+      if (cursorLine < viewportTop) {
+        viewportTop = cursorLine;
+      } else if (cursorLine >= viewportTop + VIM_ROWS) {
+        viewportTop = cursorLine - VIM_ROWS + 1;
+      }
     }
 
     const gutterWidth = Math.max(String(totalLines).length, String(viewportTop + VIM_ROWS).length);

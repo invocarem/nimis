@@ -24,6 +24,37 @@ function isEscape(cmd: string): boolean {
 const INSERT_MODE_COMMANDS = new Set(["i", "a", "A", "I", "o", "O"]);
 
 /**
+ * Ex open-line commands like :37o or :5O (range + o/O) also enter insert mode.
+ * Pattern: optional : followed by optional range (digits, comma, % . $ -) then o or O.
+ */
+function isExOpenLineCommand(cmd: string): boolean {
+  const c = cmd.trim();
+  return /^:[\s\d,%$.\-]*[oO]\s*$/.test(c);
+}
+
+/**
+ * Ex append/insert commands like :23a or :5i (range + a(ppend) / i(nsert)) also enter insert mode.
+ */
+function isExAppendOrInsertCommand(cmd: string): boolean {
+  const c = cmd.trim();
+  return (
+    /^:[\s\d,%$.\-]*a(?:ppend)?\s*$/i.test(c) ||
+    /^:[\s\d,%$.\-]*i(?:nsert)?\s*$/i.test(c)
+  );
+}
+
+/**
+ * True if this command (trimmed) starts insert mode: i/a/A/I/o/O or :[range]o/O or :[range]a(ppend)/i(nsert).
+ */
+function isInsertModeStarter(cmd: string): boolean {
+  const c = cmd.trim();
+  if (INSERT_MODE_COMMANDS.has(c)) return true;
+  if (isExOpenLineCommand(c)) return true;
+  if (isExAppendOrInsertCommand(c)) return true;
+  return false;
+}
+
+/**
  * Check if a command deletes one or more lines (row delete).
  * Multiple deletes in one tool call are error-prone: after the first delete,
  * line numbers shift, so the second/third delete may target wrong lines.
@@ -84,6 +115,52 @@ function validateSubstitute(cmd: string): string[] {
 }
 
 /**
+ * Track insert vs normal mode while scanning commands (same semantics as execution).
+ * Only i/a/A/I/o/O as a single trimmed command start insert; \x1b ends it.
+ */
+function trackInsertBlocks(commands: string[]): boolean[] {
+  const inInsertAt: boolean[] = [];
+  let inInsertBlock = false;
+  for (let i = 0; i < commands.length; i++) {
+    const cmd = String(commands[i]).trim();
+    if (!inInsertBlock && isInsertModeStarter(cmd)) {
+      inInsertBlock = true;
+      inInsertAt[i] = true;
+      continue;
+    }
+    if (inInsertBlock) {
+      if (isEscape(cmd)) {
+        inInsertBlock = false;
+        inInsertAt[i] = false;
+        continue;
+      }
+      inInsertAt[i] = true;
+      continue;
+    }
+    inInsertAt[i] = false;
+  }
+  return inInsertAt;
+}
+
+/**
+ * Validate that empty string "" is not used in normal mode.
+ * Empty string and newlines are allowed in insert mode (blank lines); in normal mode they are meaningless.
+ */
+function validateNoEmptyInNormalMode(commands: string[]): string[] {
+  const errors: string[] = [];
+  const inInsertAt = trackInsertBlocks(commands);
+  for (let i = 0; i < commands.length; i++) {
+    const raw = String(commands[i]);
+    if (raw !== "") continue;
+    if (inInsertAt[i]) continue; // allowed in insert mode
+    errors.push(
+      `Empty command at position ${i + 1} is not allowed in normal mode. Use empty lines only inside insert mode (between i/a/o/O and \\x1b).`
+    );
+  }
+  return errors;
+}
+
+/**
  * Validate that insert mode blocks (i, o, a, A, I, O) are followed by \x1b before
  * :w or other Ex commands or end of command list.
  */
@@ -96,8 +173,8 @@ function validateInsertModeEsc(commands: string[]): string[] {
     const cmd = String(commands[i]).trim();
     const isEmptyOrNewline = cmd === "" || cmd === "\n" || cmd === "\r";
 
-    // Only treat i,a,A,I,o,O as insert starters when NOT already in insert (in insert, they're typed text)
-    if (!inInsertBlock && INSERT_MODE_COMMANDS.has(cmd)) {
+    // Only treat i,a,A,I,o,O or :[range]o/O as insert starters when NOT already in insert (in insert, they're typed text)
+    if (!inInsertBlock && isInsertModeStarter(cmd)) {
       inInsertBlock = true;
       insertStartIndex = i;
       continue;
@@ -225,6 +302,10 @@ export function validateVimToolCall(
   // 2. Insert mode Esc validation
   const insertErrors = validateInsertModeEsc(cmdList);
   errors.push(...insertErrors);
+
+  // 2b. Empty string only allowed in insert mode (meaningless in normal mode)
+  const emptyInNormalErrors = validateNoEmptyInNormalMode(cmdList);
+  errors.push(...emptyInNormalErrors);
 
   // 3. Substitute delimiter validation (Ex commands)
   for (let i = 0; i < cmdList.length; i++) {

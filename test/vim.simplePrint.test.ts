@@ -117,6 +117,42 @@ describe("VimToolManager - Print Command", () => {
     expect(output).not.toContain("<other>");
   });
 
+  it("should print range with :.,+N print (no space between range and command)", async () => {
+    const content = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\n";
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      commands: [
+        ":e test.txt",
+        ":3",           // go to line 3 (c)
+        ":.,+2print"    // current through +2 => c, d, e
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+    const output = result.content[0].text;
+    expect(output).toContain("c");
+    expect(output).toContain("d");
+    expect(output).toContain("e");
+  });
+
+  it("should handle :.,+N print when cursor is past EOF (clamp range)", async () => {
+    const content = "line1\nline2\nline3\n";
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      commands: [
+        ":e test.txt",
+        ":470",         // jump past EOF (only 3 lines)
+        ":.,+24print"   // would be invalid range; clamp to current line
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+    const output = result.content[0].text;
+    expect(output).toContain("line3");  // last line (clamped range)
+  });
+
   it("should print line with offset range :+2,+2print (2 lines below current)", async () => {
     const content = "L1\nL2\nL3\nL4\nL5\n";
     await writeFile(testFile, content, "utf-8");

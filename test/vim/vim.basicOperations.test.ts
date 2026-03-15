@@ -1,5 +1,5 @@
-// test/vim.basicOperations.test.ts
-import { VimToolManager } from "../src/utils/vim";
+// test/vim/vim.basicOperations.test.ts
+import { VimToolManager } from "../../src/utils/vim";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";

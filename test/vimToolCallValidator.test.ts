@@ -152,6 +152,84 @@ describe("VimToolCallValidator", () => {
     });
   });
 
+  describe("empty command in normal mode", () => {
+    it("rejects empty string in normal mode (no buffer)", () => {
+      const r = validateVimToolCall(["", ":e file.txt"], { hasBuffer: false });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("Empty command") && e.includes("normal mode"))).toBe(true);
+    });
+
+    it("rejects empty string in normal mode (with buffer)", () => {
+      const r = validateVimToolCall([":w", "", ":q"], { hasBuffer: true });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("Empty command") && e.includes("normal mode"))).toBe(true);
+    });
+
+    it("allows empty string inside insert mode (blank line)", () => {
+      const r = validateVimToolCall(["i", "line1", "", "line2", "\x1b", ":w"], { hasBuffer: true });
+      expect(r.valid).toBe(true);
+      expect(r.errors).toHaveLength(0);
+    });
+
+    it("allows empty line after Ex open-line :37o (insert mode)", () => {
+      const commands = [
+        ":38,45d",
+        ":37o",
+        "        \"divide\": divide,",
+        "        \"power\": power,",
+        "    }",
+        "",
+        "    if op not in operations:",
+        "        print(f\"Unknown operation: {op}\")",
+        "        sys.exit(1)",
+        "\x1b",
+        ":w",
+      ];
+      const r = validateVimToolCall(commands, { hasBuffer: true });
+      expect(r.valid).toBe(true);
+      expect(r.errors).toHaveLength(0);
+    });
+
+    it("allows empty line after Ex append :23a (insert mode)", () => {
+      const commands = [
+        ":23a",
+        "def sine(a):",
+        "    \"\"\"Return the sine of a (in radians).\"\"\"",
+        "    return math.sin(a)",
+        "",
+        "def cosine(a):",
+        "    \"\"\"Return the cosine of a (in radians).\"\"\"",
+        "    return math.cos(a)",
+        "\\x1b",
+      ];
+      const r = validateVimToolCall(commands, { hasBuffer: true });
+      expect(r.valid).toBe(true);
+      expect(r.errors).toHaveLength(0);
+    });
+
+    it("does not treat :50 or :50G as insert mode starters (empty line still rejected)", () => {
+      // :50 and :50G are "go to line", not open-line; so "" after them is still normal mode
+      const r1 = validateVimToolCall([":e f", ":50", "", ":w"], { hasBuffer: true });
+      expect(r1.valid).toBe(false);
+      expect(r1.errors.some((e) => e.includes("Empty command") && e.includes("normal mode"))).toBe(true);
+
+      const r2 = validateVimToolCall([":e f", ":50G", "", ":w"], { hasBuffer: true });
+      expect(r2.valid).toBe(false);
+      expect(r2.errors.some((e) => e.includes("Empty command") && e.includes("normal mode"))).toBe(true);
+    });
+
+    it("allows newline in normal mode (Enter key has meaning)", () => {
+      const r = validateVimToolCall(["\n", ":e file.txt"], { hasBuffer: false });
+      expect(r.valid).toBe(true);
+    });
+
+    it("rejects multiple empty commands in normal mode", () => {
+      const r = validateVimToolCall([":e x", "", "", ":w"], { hasBuffer: true });
+      expect(r.valid).toBe(false);
+      expect(r.errors.filter((e) => e.includes("Empty command") && e.includes("normal mode"))).toHaveLength(2);
+    });
+  });
+
   describe("combined validation", () => {
     it("collects multiple errors", () => {
       const r = validateVimToolCall(["i", "x", ":w", ":%s/path/to/file/replacement/g"]);

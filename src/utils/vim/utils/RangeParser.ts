@@ -59,10 +59,12 @@ export function parseRange(rangeStr: string, buffer: VimBuffer): Range {
   }
 
   const start = parseLineRef(parts[0], buffer);
-  const end = parseLineRef(parts[1], buffer);
+  let end = parseLineRef(parts[1], buffer);
 
+  // When cursor is past EOF (e.g. :470 on a short file then .,+24print), end can be < start.
+  // Clamp to a valid range instead of throwing so the command (e.g. print) still runs.
   if (end < start) {
-    throw new Error(`End line ${end + 1} cannot be less than start line ${start + 1}`);
+    end = start;
   }
 
   return { start, end };

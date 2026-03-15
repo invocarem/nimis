@@ -1,7 +1,7 @@
-import { ExCommandHandler } from "../src/utils/vim/commands/ExCommandHandler";
-import { VimBuffer, CommandContext, VIM_OPTION_DEFAULTS } from "../src/utils/vim/types";
-import { createBuffer } from "../src/utils/vim/models/VimBuffer";
-import { VimToolManager } from "../src/utils/vim";
+import { ExCommandHandler } from "../../src/utils/vim/commands/ExCommandHandler";
+import { VimBuffer, CommandContext, VIM_OPTION_DEFAULTS } from "../../src/utils/vim/types";
+import { createBuffer } from "../../src/utils/vim/models/VimBuffer";
+import { VimToolManager } from "../../src/utils/vim";
 import * as fs from "fs";
 import * as path from "path";
 

@@ -37,6 +37,9 @@ export class VimToolManager {
   private exHandler: ExCommandHandler;
   private normalHandler: NormalCommandHandler;
 
+  /** After a tool-call command batch, [firstLine, lastLine] (0-based) touched; used to show start of edit in viewport. */
+  private _lastEditRange: [number, number] | null = null;
+
   static getInstance(): VimToolManager {
     if (!VimToolManager.instance) {
       VimToolManager.instance = new VimToolManager();
@@ -412,6 +415,7 @@ private async vimEdit(
     }
 
     if (!this.currentBuffer) {
+      this._lastEditRange = null;
       return {
         content: [{
           type: "text",
@@ -463,6 +467,8 @@ private async vimEdit(
       }
     }
     commands = expandedCommands;
+
+    this._lastEditRange = null;
 
     for (let i = 0; i < commands.length; i++) {
       const cmd = commands[i];
@@ -524,7 +530,15 @@ private async vimEdit(
         }
       }
 
-      if (!this.currentBuffer) {
+      if (this.currentBuffer) {
+        const line = this.currentBuffer.currentLine;
+        if (this._lastEditRange === null) {
+          this._lastEditRange = [line, line];
+        } else {
+          this._lastEditRange[0] = Math.min(this._lastEditRange[0], line);
+          this._lastEditRange[1] = Math.max(this._lastEditRange[1], line);
+        }
+      } else {
         break;
       }
     }
@@ -558,6 +572,7 @@ private async vimEdit(
       }]
     };
   } catch (error: any) {
+    this._lastEditRange = null;
     if (createBackup && this.currentBuffer) {
       try {
         const backupPath = this.currentBuffer.path + '.bak';
@@ -587,6 +602,8 @@ private async vimEdit(
     list: boolean;
     tabstop: number;
     viewportTop?: number;
+    /** When true, webview should not adjust viewport to cursor (show start of edit after LLM edit). */
+    viewportLocked?: boolean;
   } | null {
     if (!this.currentBuffer) {
       return null;
@@ -596,10 +613,27 @@ private async vimEdit(
     const VIM_ROWS = 24;
     const totalLines = buf.content.length;
     const cursorLine = buf.currentLine;
-    const viewportTop =
-      buf.viewportTop !== undefined
-        ? buf.viewportTop
-        : Math.max(0, Math.min(cursorLine, Math.max(0, totalLines - VIM_ROWS)));
+    const maxViewportTop = Math.max(0, totalLines - VIM_ROWS);
+
+    let viewportTop: number;
+    let viewportLocked = false;
+    if (this._lastEditRange !== null) {
+      const [firstLine, lastLine] = this._lastEditRange;
+      // Do not clear _lastEditRange here: another getViewState() may run immediately (e.g. requestVimState)
+      // and would then use buf.viewportTop (e.g. 0) and overwrite with 1-24. Clear only in vimEdit() / on error.
+      viewportLocked = true;
+      const span = lastLine - firstLine + 1;
+      if (span <= VIM_ROWS) {
+        viewportTop = Math.max(0, firstLine - Math.floor((VIM_ROWS - span) / 2));
+      } else {
+        viewportTop = firstLine;
+      }
+      viewportTop = Math.max(0, Math.min(viewportTop, maxViewportTop));
+    } else if (buf.viewportTop !== undefined) {
+      viewportTop = Math.max(0, Math.min(buf.viewportTop, maxViewportTop));
+    } else {
+      viewportTop = Math.max(0, Math.min(cursorLine, maxViewportTop));
+    }
 
     return {
       fileName: require("path").basename(buf.path),
@@ -613,6 +647,7 @@ private async vimEdit(
       list: this.options.list,
       tabstop: this.options.tabstop,
       viewportTop,
+      viewportLocked,
     };
   }
 

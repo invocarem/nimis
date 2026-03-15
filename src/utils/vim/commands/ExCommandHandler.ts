@@ -398,6 +398,7 @@ export class ExCommandHandler {
   }
 
   async execute(cmd: string, buffer: VimBuffer): Promise<string> {
+    cmd = cmd.trim();
     if (!cmd) {
       return "";
     }

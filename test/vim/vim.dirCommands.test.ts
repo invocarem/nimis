@@ -1,7 +1,7 @@
 // test/vim.dirCommands.test.ts
-import { ExCommandHandler } from "../src/utils/vim/commands/ExCommandHandler";
-import { VimBuffer, CommandContext, VIM_OPTION_DEFAULTS } from "../src/utils/vim/types";
-import { createBuffer } from "../src/utils/vim/models/VimBuffer";
+import { ExCommandHandler } from "../../src/utils/vim/commands/ExCommandHandler";
+import { VimBuffer, CommandContext, VIM_OPTION_DEFAULTS } from "../../src/utils/vim/types";
+import { createBuffer } from "../../src/utils/vim/models/VimBuffer";
 import * as path from "path";
 
 // Mock fs at the module level with proper implementations
