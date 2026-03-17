@@ -26,10 +26,13 @@ const messageInput = document.getElementById("message-input") as HTMLTextAreaEle
 const sendButton = document.getElementById("send-button") as HTMLButtonElement | null;
 const stopButton = document.getElementById("stop-button") as HTMLButtonElement | null;
 const continueButton = document.getElementById("continue-button") as HTMLButtonElement | null;
+const stepNextButton = document.getElementById("step-next-button") as HTMLButtonElement | null;
 const questionButton = document.getElementById("question-button") as HTMLButtonElement | null;
 const rejectButton = document.getElementById("reject-button") as HTMLButtonElement | null;
 const clearButton = document.getElementById("clear-button") as HTMLButtonElement | null;
 const loadCurrentFileBtn = document.getElementById("load-current-file-btn") as HTMLButtonElement | null;
+const saveCurrentFileBtn = document.getElementById("save-current-file-btn") as HTMLButtonElement | null;
+const stepModeToggle = document.getElementById("step-mode-toggle") as HTMLButtonElement | null;
 const statusIndicator = document.getElementById("status-indicator");
 
 let currentAssistantMessage: HTMLElement | null = null;
@@ -127,6 +130,12 @@ function initEventListeners(): void {
   if (sendButton) sendButton.addEventListener("click", () => sendMessage());
   if (stopButton) stopButton.addEventListener("click", cancelOperation);
   if (continueButton) continueButton.addEventListener("click", () => sendMessage("Yes, please continue."));
+  if (stepNextButton) {
+    stepNextButton.addEventListener("click", () => {
+      vscode.postMessage({ type: "stepContinue" });
+      if (stepNextButton) stepNextButton.style.display = "none";
+    });
+  }
   if (questionButton) questionButton.addEventListener("click", () => sendMessage("what happened"));
   if (rejectButton) rejectButton.addEventListener("click", () => sendMessage("No, that's not what I wanted."));
   if (messageInput) {
@@ -141,12 +150,23 @@ function initEventListeners(): void {
     clearButton.addEventListener("click", () => {
       if (chatContainer) chatContainer.innerHTML = "";
       toolLimitReached = false;
+      if (stepNextButton) stepNextButton.style.display = "none";
       vscode.postMessage({ type: "clearChat" });
     });
   }
   if (loadCurrentFileBtn) {
     loadCurrentFileBtn.addEventListener("click", () => {
       vscode.postMessage({ type: "loadCurrentFileIntoVim" });
+    });
+  }
+  if (stepModeToggle) {
+    stepModeToggle.addEventListener("click", () => {
+      vscode.postMessage({ type: "toggleStepMode" });
+    });
+  }
+  if (saveCurrentFileBtn) {
+    saveCurrentFileBtn.addEventListener("click", () => {
+      vscode.postMessage({ type: "saveCurrentFile" });
     });
   }
 }
@@ -179,6 +199,7 @@ interface WebviewMessage {
   state?: unknown;
   output?: string;
   connected?: boolean;
+  stepMode?: boolean;
   tests?: unknown[];
   [key: string]: unknown;
 }
@@ -219,6 +240,7 @@ window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
       isGenerating = false;
       if (sendButton) sendButton.disabled = false;
       if (stopButton) stopButton.style.display = "none";
+      if (stepNextButton) stepNextButton.style.display = "none";
       toolLimitReached = false;
       isCancelling = false;
       break;
@@ -228,6 +250,7 @@ window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
       isGenerating = false;
       if (sendButton) sendButton.disabled = false;
       if (stopButton) stopButton.style.display = "none";
+      if (stepNextButton) stepNextButton.style.display = "none";
       toolLimitReached = false;
       isCancelling = false;
       break;
@@ -250,6 +273,7 @@ window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
         stopButton.disabled = false;
         stopButton.textContent = "Stop";
       }
+      if (stepNextButton) stepNextButton.style.display = "none";
       toolLimitReached = false;
       isCancelling = false;
       currentAssistantMessage = null;
@@ -270,6 +294,25 @@ window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
       toolLimitReached = true;
       break;
 
+    case "stepModePaused": {
+      const stepIndex = (message.stepIndex as number) ?? 1;
+      const stepTotal = (message.stepTotal as number) ?? 1;
+      const toolName = (message.toolName as string) ?? "tool";
+      const text = `[Step mode] Paused after tool ${stepIndex}/${stepTotal}: ${toolName}. Click "Next Step" to continue.`;
+      const existing = chatContainer?.querySelector(".step-mode-reminder");
+      if (existing) {
+        existing.textContent = text;
+      } else {
+        const div = addMessage(text, "system");
+        if (div) div.classList.add("step-mode-reminder");
+      }
+      if (stepNextButton) {
+        stepNextButton.textContent = `Next Step (${stepIndex}/${stepTotal})`;
+        stepNextButton.style.display = "inline-block";
+      }
+      break;
+    }
+
     case "vimState":
       VimView.updateState(message.state as Parameters<typeof VimView.updateState>[0]);
       break;
@@ -287,6 +330,15 @@ window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
           statusIndicator.textContent = "Not connected to LLM";
           statusIndicator.className = "status-indicator status-disconnected";
         }
+      }
+      if (stepModeToggle !== null && message.stepMode !== undefined) {
+        stepModeToggle.classList.toggle("active", message.stepMode as boolean);
+      }
+      break;
+
+    case "stepModeState":
+      if (stepModeToggle !== null && message.stepMode !== undefined) {
+        stepModeToggle.classList.toggle("active", message.stepMode as boolean);
       }
       break;
 

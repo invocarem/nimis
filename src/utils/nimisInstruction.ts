@@ -50,7 +50,11 @@ command3
   ]]></commands>
 </tool_call>
 
-**Rules:** One command per line in CDATA. NEVER use JSON format or plain text — they will fail. Split long edits into multiple tool calls (one block per call, wait for result before next).
+**Rules:** 
+
+- One command per line in CDATA. NEVER use JSON format or plain text — they will fail. 
+- Do **not** generate multiple vim tool calls in one message. You need to verify first tool call result then generate the next tool call!
+
 
 ## COMPLETE WORKFLOW EXAMPLE
 
@@ -95,7 +99,6 @@ i
 
 ## VIEWPORT TIPS
 
-- You can edit any line directly (e.g. \`:36d\`, \`:42\` then \`dd\`+\`o\` to replace) — the view auto-scrolls
 - Use \`:[line]\` to jump directly to a specific line when you want to browse
 - Use \`/pattern\` to search and position cursor at the match
 - Use \`zt\` to put the current line at the top for maximum context below
@@ -108,7 +111,7 @@ i
 - Always verify your position with \`:print\` commands before editing
 - After changes, the view auto-scrolls to show the affected area
 - Use \`\\x1b\` to exit insert mode (never write "ESC") — without it, next commands are typed as text!
-- You need to get user's approval before using \':w\` (saving the file)
+- You need to get user's approval before using \`:w\` (saving the file). When the user clicks the Save button, they are requesting a save — use the \`:w\` vim tool call to save the current file.
 - One command per line in CDATA
 - Do not allow multiple \`\\x1b\` in the same CDATA block; split into multiple tool calls for multiple insertions
 - Replace lines with \`:Nd\` + \`o\`, not substitute

@@ -415,6 +415,10 @@ body {
   flex-shrink: 0;
 }
 
+.btn-save {
+  margin-left: auto;
+}
+
 button {
   padding: 6px 12px;
   background-color: var(--vscode-button-background);
@@ -443,6 +447,11 @@ button:disabled {
   background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
+.secondary-button.active {
+  background-color: var(--vscode-focusBorder);
+  color: var(--vscode-editor-background);
+}
+
 .stop-button {
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
@@ -469,6 +478,15 @@ button:disabled {
 .continue-button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.step-next-button {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.step-next-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground);
 }
 
 .question-button {

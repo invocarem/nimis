@@ -34,6 +34,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   private cancellationToken?: AbortController;
   private isProcessing = false;
   private _benchCancelHandler?: () => void;
+  private _stepModeContinueResolve?: () => void;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -105,6 +106,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           this.conversationHistory = [];
           this.nimisManager.getStateTracker().reset();
           this._sendMessageToWebview({ type: "vimState", state: null });
+          // Cancel any in-progress operation (e.g. step mode pause) so we exit cleanly
+          this._cancelCurrentOperation();
           break;
         case "checkConnection":
           await this._checkConnection();
@@ -139,6 +142,23 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         case "loadCurrentFileIntoVim":
           await this._loadCurrentFileIntoVim();
           break;
+        case "saveCurrentFile":
+          await this._saveCurrentFile();
+          break;
+        case "stepContinue":
+          if (this._stepModeContinueResolve) {
+            this._stepModeContinueResolve();
+            this._stepModeContinueResolve = undefined;
+          }
+          break;
+        case "toggleStepMode": {
+          const config = vscode.workspace.getConfiguration("nimis");
+          const current = config.get<boolean>("stepMode", false);
+          const next = !current;
+          await config.update("stepMode", next, vscode.ConfigurationTarget.Global);
+          this._sendMessageToWebview({ type: "stepModeState", stepMode: next });
+          break;
+        }
       }
     });
 
@@ -186,11 +206,15 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _checkConnection() {
+    const config = vscode.workspace.getConfiguration("nimis");
+    const stepMode = config.get<boolean>("stepMode", false);
+
     if (!this.llmClient) {
       this._sendMessageToWebview({
         type: "connectionStatus",
         connected: false,
         error: "Client not initialized",
+        stepMode,
       });
       return;
     }
@@ -200,6 +224,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       this._sendMessageToWebview({
         type: "connectionStatus",
         connected,
+        stepMode,
       });
     } catch (error) {
       this._sendMessageToWebview({
@@ -207,6 +232,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         connected: false,
         error:
           error instanceof Error ? error.message : "Connection check failed",
+        stepMode,
       });
     }
   }
@@ -326,6 +352,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       const config = vscode.workspace.getConfiguration("nimis");
       const temperature = config.get<number>("temperature", 0.7);
       const maxTokens = config.get<number>("maxTokens", 2048);
+      const stepMode = config.get<boolean>("stepMode", false);
       console.log("[Provider] temperature:", temperature);
       console.log("[Provider] maxTokens:", maxTokens);
       let continueLoop = true;
@@ -517,7 +544,8 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           let hasError = false;
 
           // Execute all tool calls sequentially
-          for (const toolCall of toolCalls) {
+          for (let toolIndex = 0; toolIndex < toolCalls.length; toolIndex++) {
+            const toolCall = toolCalls[toolIndex];
             // Check for cancellation before each tool execution
             if (this.cancellationToken?.signal.aborted) {
               continueLoop = false;
@@ -617,7 +645,6 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               // If tool execution failed, stop processing remaining tool calls
               if (toolResult.isError) {
                 hasError = true;
-                break;
               }
             } catch (err: any) {
               const errorText = `Tool execution error: ${err.message}`;
@@ -635,6 +662,23 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
                 isFullContent: true,
               });
               hasError = true;
+            }
+
+            // Step mode: pause after each tool call and wait for user to continue
+            if (stepMode && !this.cancellationToken?.signal.aborted) {
+              try {
+                await this._waitForStepContinue(
+                  toolIndex + 1,
+                  toolCalls.length,
+                  toolCall.name
+                );
+              } catch {
+                continueLoop = false;
+                break;
+              }
+            }
+
+            if (hasError) {
               break;
             }
           }
@@ -649,9 +693,16 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               role: "assistant",
               content: parsedResponse.raw,
             });
+            let toolResultsContent = allToolResults.join("\n\n");
+            // When there was an error, prefix with explicit retry instruction so the LLM knows to fix and retry
+            if (hasError) {
+              toolResultsContent =
+                "Tool execution failed. Fix the error and retry with a corrected tool call:\n\n" +
+                toolResultsContent;
+            }
             this.conversationHistory.push({
               role: "user",
-              content: allToolResults.join("\n\n"),
+              content: toolResultsContent,
             });
             // Continue loop to get next LLM response (even if there was an error)
             // This allows the AI to see the error and potentially fix it
@@ -716,6 +767,29 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** Wait for user to click "Next Step" in step mode. Resolves when stepContinue received or rejects when cancelled. */
+  private _waitForStepContinue(stepIndex: number, stepTotal: number, toolName: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        this.cancellationToken?.signal.removeEventListener("abort", onAbort);
+        this._stepModeContinueResolve = undefined;
+        reject(new Error("Cancelled"));
+      };
+      this._stepModeContinueResolve = () => {
+        this.cancellationToken?.signal.removeEventListener("abort", onAbort);
+        this._stepModeContinueResolve = undefined;
+        resolve();
+      };
+      this.cancellationToken?.signal.addEventListener("abort", onAbort);
+      this._sendMessageToWebview({
+        type: "stepModePaused",
+        stepIndex,
+        stepTotal,
+        toolName,
+      });
+    });
+  }
+
   public explainCode(code: string) {
     const message = this.nimisManager.buildExplanationPrompt(code);
 
@@ -757,6 +831,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     const filePath = editor.document.uri.fsPath;
     await this._handleUserMessage(
       `Please load the file at ${filePath} into vim.`
+    );
+  }
+
+  private async _saveCurrentFile() {
+    await this._handleUserMessage(
+      "User requested to save the current file. Please use the :w vim tool call to save it."
     );
   }
 
@@ -884,8 +964,11 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             <button id="question-button" class="question-button secondary-button">What?</button>
             <button id="reject-button" class="reject-button secondary-button">Decline</button>
             <button id="clear-button" class="secondary-button">Clear Chat</button>
-            <button id="vim-view-toggle" class="secondary-button">Vim</button>
-            <button id="load-current-file-btn" class="secondary-button">Load File</button>
+            <button id="vim-view-toggle" class="secondary-button" title="Toggle Vim view">Vim</button>
+            <button id="step-mode-toggle" class="secondary-button" title="Toggle step mode: pause after each tool call">Step</button>
+            <button id="step-next-button" class="step-next-button secondary-button" style="display: none;">Next Step</button>
+            <button id="load-current-file-btn" class="secondary-button" title="Load current editor file into Vim">Current File</button>
+            <button id="save-current-file-btn" class="secondary-button btn-save" title="Save current file (:w vim tool call)">Save</button>
         </div>
     </div>
     </div>

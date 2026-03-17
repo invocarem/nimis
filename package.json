@@ -244,6 +244,11 @@
           "type": "object",
           "description": "Inline bench config (alternative to nimis.benchPath). Must have a 'tests' array.",
           "default": null
+        },
+        "nimis.stepMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Diagnostic: when enabled, pause after each tool call and wait for user to click 'Next Step' before continuing. Useful for debugging vim and other tool call issues."
         }
       }
     }

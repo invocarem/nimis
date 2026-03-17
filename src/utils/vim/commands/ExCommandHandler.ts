@@ -34,6 +34,7 @@ import { loadBufferFromFile } from "../models/VimBuffer";
 import { listDirectory } from "../operations/DirectoryOperations";
 import { grepInDirectory } from "../operations/GrepOperations";
 import { createTwoFilesPatch } from "diff";
+import { FILETYPE_PRESETS, applyFiletypePreset } from "../filetypePresets";
 
 /** Parse s/pattern/replacement/flags with support for \delim escaping (e.g. \/ for literal /) */
 function parseSubstituteArgs(
@@ -173,7 +174,7 @@ const HELP_TOPICS: Record<string, string> = {
 
   "diff": ":dif[f] [file1] [file2]\n  Show unified diff between two files, or between current buffer and a file.\n\n  With two arguments: compare file1 (old) vs file2 (new).\n  With one argument: compare [file] on disk (old) vs current buffer (new).\n  Useful to see unsaved changes.\n\n  Examples:\n    :diff a.ts b.ts     Diff between two files\n    :diff src/main.ts   Diff buffer vs disk (show unsaved changes)",
 
-  "set": ":se[t] [{option}[={value}] ...]\n  Show or change editor options.\n\n  Boolean options:\n    :set expandtab      Enable option\n    :set noexpandtab    Disable option\n    :set invexpandtab   Toggle option\n\n  Numeric options:\n    :set tabstop=4      Set value\n    :set tabstop?       Query current value\n    :set tabstop&       Reset to default\n\n  Multiple options at once:\n    :set expandtab tabstop=4 shiftwidth=4\n\n  Show all options:\n    :set                Show all current values\n    :set all            Show all current values\n\n  Available options (aliases):\n    expandtab (et)      Use spaces instead of tabs\n    tabstop (ts)        Number of spaces a tab counts for\n    softtabstop (sts)   Number of spaces for Tab/Backspace\n    shiftwidth (sw)     Number of spaces for indent\n    autoindent (ai)     Copy indent from current line\n    number (nu)         Show line numbers\n    relativenumber (rnu) Show relative line numbers\n    wrapscan (ws)       Searches wrap around end of file\n    ignorecase (ic)     Ignore case in search\n    smartcase (scs)     Override ignorecase if pattern has uppercase\n    hlsearch (hls)      Highlight search matches",
+  "set": ":se[t] [{option}[={value}] ...]\n  Show or change editor options.\n\n  Boolean options:\n    :set expandtab      Enable option\n    :set noexpandtab    Disable option\n    :set invexpandtab   Toggle option\n\n  Numeric options:\n    :set tabstop=4      Set value\n    :set tabstop?       Query current value\n    :set tabstop&       Reset to default\n\n  Filetype (sets indent options):\n    :set filetype=python   or  :set ft=python\n    :set ft=typescript     :set ft=ts\n    :set ft=swift          :set ft=csharp  :set ft=cs\n    :set ft=c              :set ft=json\n\n  Multiple options at once:\n    :set expandtab tabstop=4 shiftwidth=4\n\n  Show all options:\n    :set                Show all current values\n    :set all            Show all current values\n\n  Available options (aliases):\n    expandtab (et)      Use spaces instead of tabs\n    tabstop (ts)        Number of spaces a tab counts for\n    softtabstop (sts)   Number of spaces for Tab/Backspace\n    shiftwidth (sw)     Number of spaces for indent\n    autoindent (ai)     Copy indent from current line\n    number (nu)         Show line numbers\n    relativenumber (rnu) Show relative line numbers\n    wrapscan (ws)       Searches wrap around end of file\n    ignorecase (ic)     Ignore case in search\n    smartcase (scs)     Override ignorecase if pattern has uppercase\n    hlsearch (hls)      Highlight search matches\n    filetype (ft)       Buffer filetype; applies indent presets (python, ts, swift, cs, c, json)",
 
   "setlocal": ":setl[ocal] [{option}[={value}] ...]\n  Same as :set. Set options for the current buffer.\n  In Nimis, options are shared across buffers, so :setlocal behaves like :set.",
 
@@ -295,7 +296,7 @@ export class ExCommandHandler {
     return null;
   }
 
-  private setCommand(args: string): string {
+  private setCommand(args: string, buffer: VimBuffer): string {
     const opts = this.ctx.options;
 
     if (!args || args === 'all') {
@@ -307,6 +308,9 @@ export class ExCommandHandler {
           lines.push(`  ${key}=${value}`);
         }
       }
+      if (buffer.filetype !== undefined && buffer.filetype !== '') {
+        lines.push(`  filetype=${buffer.filetype}`);
+      }
       return lines.join('\n');
     }
 
@@ -314,6 +318,27 @@ export class ExCommandHandler {
     const results: string[] = [];
 
     for (const token of tokens) {
+      // Buffer-local string option: filetype (ft)
+      const ftQueryMatch = token.match(/^(?:filetype|ft)\?$/);
+      if (ftQueryMatch) {
+        results.push(`  filetype=${buffer.filetype ?? ''}`);
+        continue;
+      }
+
+      const ftResetMatch = token.match(/^(?:filetype|ft)&$/);
+      if (ftResetMatch) {
+        buffer.filetype = undefined;
+        continue;
+      }
+
+      const ftAssignMatch = token.match(/^(?:filetype|ft)[:=](\S+)$/);
+      if (ftAssignMatch) {
+        const value = ftAssignMatch[1];
+        buffer.filetype = value;
+        applyFiletypePreset(opts, value);
+        continue;
+      }
+
       const queryMatch = token.match(/^(\w+)\?$/);
       if (queryMatch) {
         const key = this.resolveOptionName(queryMatch[1]);
@@ -1239,7 +1264,7 @@ export class ExCommandHandler {
       case "set":
       case "setlocal":
       case "setl":
-        return this.setCommand(args?.trim() || '');
+        return this.setCommand(args?.trim() || '', buffer);
 
       case "diff":
       case "dif": {

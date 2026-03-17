@@ -87,6 +87,7 @@ function createVimView(getVscode: () => VscodeApi): VimViewApi {
   function toggle(): void {
     visible = !visible;
     els.view.style.display = visible ? "flex" : "none";
+    els.viewToggleBtn.classList.toggle("active", visible);
     if (visible) {
       getVscode().postMessage({ type: "requestVimState" });
     }
@@ -96,6 +97,7 @@ function createVimView(getVscode: () => VscodeApi): VimViewApi {
     if (!visible) {
       visible = true;
       els.view.style.display = "flex";
+      els.viewToggleBtn.classList.add("active");
     }
   }
 

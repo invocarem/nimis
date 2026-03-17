@@ -43,6 +43,8 @@ export interface VimBuffer {
   undoStack?: UndoEntry[];
   /** Viewport top line (0-based) when set by zt/zz/zb. Undefined = frontend auto-computes. */
   viewportTop?: number;
+  /** Buffer-local filetype (e.g. python, typescript). Set via :set filetype=... or :set ft=... */
+  filetype?: string;
 }
 
 export interface Range {

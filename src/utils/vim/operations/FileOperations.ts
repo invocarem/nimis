@@ -5,6 +5,7 @@ import { promisify } from "util";
 import { exec } from "child_process";
 import type { VimBuffer, CommandContext } from "../types";
 import { loadBufferFromFile } from "../models/VimBuffer";
+import { applyFiletypePreset } from "../filetypePresets";
 
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
@@ -23,6 +24,9 @@ export async function editFile(
   }
 
   ctx.setCurrentBuffer(buffer);
+  if (buffer.filetype) {
+    applyFiletypePreset(ctx.options, buffer.filetype);
+  }
   return buffer;
 }
 

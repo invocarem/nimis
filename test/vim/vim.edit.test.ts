@@ -39,7 +39,8 @@ describe("VimToolManager - :e (edit) command", () => {
 
   afterEach(async () => {
     try {
-      const files = [testFile1, testFile2, testFile3, helloPy];
+      const jsonFile = path.join(testDir, "data.json");
+      const files = [testFile1, testFile2, testFile3, helloPy, jsonFile];
       for (const file of files) {
         if (fs.existsSync(file)) {
           await unlink(file);
@@ -308,6 +309,36 @@ describe("VimToolManager - :e (edit) command", () => {
       expect(output).toContain("file2.txt");
       expect(output).toContain("subdir");
       expect(output).toContain("Directory:");
+    });
+  });
+
+  describe(":e with filetype auto-detection", () => {
+    it("should auto-detect filetype=python for .py and apply preset (shiftwidth=4)", async () => {
+      const content = "def foo():\n    pass\n";
+      await writeFile(helloPy, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        commands: [":e hello.py", ":set filetype?", ":set shiftwidth?"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      const text = result.content[0].text;
+      expect(text).toContain("filetype=python");
+      expect(text).toContain("shiftwidth=4");
+    });
+
+    it("should auto-detect filetype for .json and apply preset", async () => {
+      const jsonFile = path.join(testDir, "data.json");
+      await writeFile(jsonFile, '{"key": "value"}\n', "utf-8");
+
+      const result = await manager.callTool("vim", {
+        commands: [":e data.json", ":set filetype?", ":set shiftwidth?"],
+      });
+
+      expect(result.isError).toBeFalsy();
+      const text = result.content[0].text;
+      expect(text).toContain("filetype=json");
+      expect(text).toContain("shiftwidth=2");
     });
   });
 

@@ -1,9 +1,24 @@
 // src/utils/vim/models/VimBuffer.ts
 import * as fs from "fs";
+import * as path from "path";
 import { promisify } from "util";
 import type { VimBuffer } from "../types";
 
 const readFileAsync = promisify(fs.readFile);
+
+/** Extension to filetype for auto-detection when loading files. */
+const EXT_TO_FILETYPE: Record<string, string> = {
+  py: "python",
+  ts: "typescript",
+  tsx: "typescript",
+  js: "javascript",
+  jsx: "javascript",
+  swift: "swift",
+  cs: "csharp",
+  c: "c",
+  h: "c",
+  json: "json",
+};
 
 export function createBuffer(
   filePath: string,
@@ -68,5 +83,10 @@ export async function loadBufferFromFile(filePath: string): Promise<VimBuffer> {
     }
   }
 
-  return createBuffer(filePath, content, lineEnding, trailingNewline);
+  const buffer = createBuffer(filePath, content, lineEnding, trailingNewline);
+  const ext = path.extname(filePath).slice(1).toLowerCase();
+  if (ext && ext in EXT_TO_FILETYPE) {
+    buffer.filetype = EXT_TO_FILETYPE[ext];
+  }
+  return buffer;
 }

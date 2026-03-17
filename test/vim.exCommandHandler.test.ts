@@ -241,6 +241,69 @@ describe("ExCommandHandler", () => {
     });
   });
 
+  describe("Set command - filetype", () => {
+    it("should set filetype=python and apply preset options", async () => {
+      await handler.execute("set filetype=python", mockBuffer);
+
+      expect(mockBuffer.filetype).toBe("python");
+      expect(mockContext.options.shiftwidth).toBe(4);
+      expect(mockContext.options.tabstop).toBe(8);
+      expect(mockContext.options.softtabstop).toBe(4);
+      expect(mockContext.options.expandtab).toBe(true);
+    });
+
+    it("should set ft=python (alias)", async () => {
+      await handler.execute("set ft=python", mockBuffer);
+
+      expect(mockBuffer.filetype).toBe("python");
+      expect(mockContext.options.shiftwidth).toBe(4);
+    });
+
+    it("should set ft=ts and apply typescript preset", async () => {
+      await handler.execute("set ft=ts", mockBuffer);
+
+      expect(mockBuffer.filetype).toBe("ts");
+      expect(mockContext.options.shiftwidth).toBe(2);
+      expect(mockContext.options.tabstop).toBe(2);
+    });
+
+    it("should set ft=swift and apply preset", async () => {
+      await handler.execute("set ft=swift", mockBuffer);
+
+      expect(mockBuffer.filetype).toBe("swift");
+      expect(mockContext.options.shiftwidth).toBe(4);
+      expect(mockContext.options.tabstop).toBe(4);
+    });
+
+    it("should set ft=cs and apply csharp preset", async () => {
+      await handler.execute("set ft=cs", mockBuffer);
+
+      expect(mockBuffer.filetype).toBe("cs");
+      expect(mockContext.options.shiftwidth).toBe(4);
+    });
+
+    it("should set ft=json and apply preset", async () => {
+      await handler.execute("set ft=json", mockBuffer);
+
+      expect(mockBuffer.filetype).toBe("json");
+      expect(mockContext.options.shiftwidth).toBe(2);
+    });
+
+    it("should query filetype with filetype?", async () => {
+      mockBuffer.filetype = "python";
+      const result = await handler.execute("set filetype?", mockBuffer);
+
+      expect(result).toContain("filetype=python");
+    });
+
+    it("should reset filetype with filetype&", async () => {
+      mockBuffer.filetype = "python";
+      await handler.execute("set filetype&", mockBuffer);
+
+      expect(mockBuffer.filetype).toBeUndefined();
+    });
+  });
+
   describe("Delete and yank commands", () => {
     it("should handle :d with range", async () => {
       await handler.execute("2,4d", mockBuffer);

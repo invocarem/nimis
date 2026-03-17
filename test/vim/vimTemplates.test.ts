@@ -431,19 +431,33 @@ describe("VimToolManager - Template Verification Tests", () => {
       const fileContent = "export const formatDate = (date: Date) => date.toISOString();\n";
       await writeFileAsync(testFilePath, fileContent, "utf-8");
 
-      const result = await manager.callTool("vim", {
+      // Validator allows only 1 escape per tool call; split into separate calls.
+      let result = await manager.callTool("vim", {
         commands: [
           ":e src/utils/helpers.ts",
           "gg",
           "O",
           "import { useState, useEffect } from 'react';",
           "\x1b",
-          "j",
+          ":w"
+        ]
+      });
+      expect(result.isError).toBeFalsy();
+
+      result = await manager.callTool("vim", {
+        commands: [
           "/^export const formatDate/",
           ":s/formatDate/formatDateTime/g",
           "A",
           ", includeTime?: boolean",
           "\x1b",
+          ":w"
+        ]
+      });
+      expect(result.isError).toBeFalsy();
+
+      result = await manager.callTool("vim", {
+        commands: [
           "G",
           "o",
           "export const debounce = (fn: Function, delay: number) => {",
@@ -457,8 +471,8 @@ describe("VimToolManager - Template Verification Tests", () => {
           ":w"
         ]
       });
-
       expect(result.isError).toBeFalsy();
+
       const updatedContent = await readFileAsync(testFilePath, "utf-8");
       expect(updatedContent).toContain("import { useState, useEffect } from 'react';");
       expect(updatedContent).toContain("formatDateTime");
