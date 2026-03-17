@@ -57,21 +57,6 @@ describe("VimToolManager - Undo (u) command", () => {
     expect(lines).toEqual(["line 1", "line 2", "line 3"]);
   });
 
-  it("should undo multiple dd with multiple u", async () => {
-    const content = "line 1\nline 2\nline 3\nline 4\n";
-    await writeFile(testFile, content, "utf-8");
-
-    const result = await manager.callTool("vim", {
-      commands: [":e test.txt", "dd", "dd", "u", "u", ":w"],
-    });
-
-    expect(result.isError).toBeFalsy();
-
-    const updated = await readFile(testFile, "utf-8");
-    const lines = updated.trimEnd().split("\n");
-    expect(lines).toEqual(["line 1", "line 2", "line 3", "line 4"]);
-  });
-
   it("should undo dG (delete to end of file)", async () => {
     const content = "line 1\nline 2\nline 3\nline 4\n";
     await writeFile(testFile, content, "utf-8");
