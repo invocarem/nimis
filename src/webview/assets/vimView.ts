@@ -67,6 +67,21 @@ function createVimView(getVscode: () => VscodeApi): VimViewApi {
     els.toggleBtn.addEventListener("click", toggle);
     els.viewToggleBtn.addEventListener("click", toggle);
     els.commandInput.addEventListener("keydown", onCommandKeyDown);
+
+    const navCommands: Record<string, string> = {
+      "vim-nav-pgdn": "Ctrl+f",
+      "vim-nav-pgup": "Ctrl+b",
+      "vim-nav-top": "1G",
+      "vim-nav-bottom": "G",
+    };
+    for (const [id, cmd] of Object.entries(navCommands)) {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener("click", () => {
+          getVscode().postMessage({ type: "vimNavRequest", command: cmd });
+        });
+      }
+    }
   }
 
   function toggle(): void {

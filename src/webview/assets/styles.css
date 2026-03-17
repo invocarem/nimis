@@ -769,6 +769,33 @@ button:disabled {
   white-space: nowrap;
 }
 
+.vim-nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.vim-nav-btn {
+  padding: 2px 6px;
+  font-size: 0.75em;
+  font-family: var(--vscode-editor-font-family);
+  background-color: rgba(255, 255, 255, 0.2);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vim-nav-btn:hover {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.vim-nav-btn:active {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
 .vim-commandrow {
   display: flex;
   align-items: center;

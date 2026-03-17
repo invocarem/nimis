@@ -1,6 +1,6 @@
 // test/vim.substitute.test.ts
-import { VimToolManager } from "../src/utils/vim";
-import { XmlProcessor } from "../src/utils/xmlProcessor";
+import { VimToolManager } from "../../src/utils/vim";
+import { XmlProcessor } from "../../src/utils/xmlProcessor";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";

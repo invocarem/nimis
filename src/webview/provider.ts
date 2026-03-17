@@ -7,6 +7,10 @@ import { getNonce } from "../utils/getNonce";
 import { NimisManager } from "../utils/nimisManager";
 import { toolExecutor } from "../toolExecutor";
 import { ResponseParser, ParsedResponse } from "../utils/responseParser";
+import {
+  looksLikeToolCallXml,
+  validateToolCallXml,
+} from "../utils/ToolCallXmlValidator";
 import { TOOL_CALL_LIMIT_PER_TURN } from "../utils/nimisStateTracker";
 import type { MCPManager } from "../mcpManager";
 import type { RulesManager } from "../rulesManager";
@@ -111,6 +115,9 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         case "vimCommand":
           await this._handleVimCommand(data.command);
           break;
+        case "vimNavRequest":
+          await this._handleVimNavRequest(data.command);
+          break;
         case "requestVimState":
           this._sendVimStateToWebview();
           break;
@@ -128,6 +135,9 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         }
         case "cancelBench":
           this._benchCancelHandler?.();
+          break;
+        case "loadCurrentFileIntoVim":
+          await this._loadCurrentFileIntoVim();
           break;
       }
     });
@@ -397,6 +407,48 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         const parsedResponse: ParsedResponse =
           ResponseParser.parse(fullResponse);
         //console.debug("[Provider] content:", parsedResponse.content);
+
+        // Validate XML structure when response contains <tool_call> blocks
+        // Feed validation errors back to LLM (like VimToolCallValidator) so it can correct itself
+        if (looksLikeToolCallXml(fullResponse)) {
+          const xmlValidation = validateToolCallXml(fullResponse);
+          if (!xmlValidation.valid && xmlValidation.errors.length > 0) {
+            console.warn(
+              "[Provider] Tool call XML validation failed (feedback sent to LLM):",
+              xmlValidation.errors
+            );
+            const feedback =
+              `Tool call XML validation failed:\n${xmlValidation.errors.map((e) => `  - ${e}`).join("\n")}`;
+            this.conversationHistory.push({
+              role: "assistant",
+              content: parsedResponse.raw,
+            });
+            this.conversationHistory.push({
+              role: "user",
+              content: feedback,
+            });
+            this._sendMessageToWebview({
+              type: "assistantMessageChunk",
+              chunk: feedback,
+              isFullContent: true,
+            });
+            continue;
+          }
+        }
+
+        // Diagnostic: response looks like tool call XML but extractor returned 0
+        if (
+          looksLikeToolCallXml(fullResponse) &&
+          !ResponseParser.hasToolCalls(parsedResponse)
+        ) {
+          console.warn(
+            "[Provider] Tool call XML detected during streaming but extractor returned 0 tool calls. " +
+              "Response may be truncated or malformed. Length:",
+            fullResponse.length,
+            "First 600 chars:",
+            fullResponse.substring(0, 600)
+          );
+        }
 
         // Diagnostic logging for edit_file old_text mismatch issues
         if (ResponseParser.hasToolCalls(parsedResponse)) {
@@ -683,6 +735,31 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  private async _handleVimNavRequest(command: string) {
+    const descriptions: Record<string, string> = {
+      "Ctrl+f": "scroll down one page (page down)",
+      "Ctrl+b": "scroll up one page (page up)",
+      "1G": "go to top of file",
+      G: "go to bottom of file",
+    };
+    const desc = descriptions[command] ?? command;
+    await this._handleUserMessage(
+      `User requested vim navigation: ${desc}. Please run the vim command "${command}" so the view updates and you can see which part of the file the user is looking at.`
+    );
+  }
+
+  private async _loadCurrentFileIntoVim() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor?.document?.uri?.fsPath || editor.document.isUntitled) {
+      vscode.window.showWarningMessage("No file open. Open a file in the editor first.");
+      return;
+    }
+    const filePath = editor.document.uri.fsPath;
+    await this._handleUserMessage(
+      `Please load the file at ${filePath} into vim.`
+    );
+  }
+
   private async _handleVimCommand(command: string) {
     if (!command.trim()) {
       return;
@@ -784,6 +861,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             <span class="vim-mode" id="vim-mode">NORMAL</span>
             <span class="vim-fileinfo" id="vim-fileinfo"></span>
             <span class="vim-position" id="vim-position">0,0</span>
+            <div class="vim-nav-buttons">
+                <button class="vim-nav-btn" id="vim-nav-pgdn" title="Page down (Ctrl+F)">PgDn</button>
+                <button class="vim-nav-btn" id="vim-nav-pgup" title="Page up (Ctrl+B)">PgUp</button>
+                <button class="vim-nav-btn" id="vim-nav-top" title="Go to top (1G)">Top</button>
+                <button class="vim-nav-btn" id="vim-nav-bottom" title="Go to bottom (G)">Bottom</button>
+            </div>
         </div>
         <div class="vim-commandrow" id="vim-commandrow">
             <span class="vim-command-prefix" id="vim-command-prefix"></span>
@@ -802,6 +885,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             <button id="reject-button" class="reject-button secondary-button">Decline</button>
             <button id="clear-button" class="secondary-button">Clear Chat</button>
             <button id="vim-view-toggle" class="secondary-button">Vim</button>
+            <button id="load-current-file-btn" class="secondary-button">Load File</button>
         </div>
     </div>
     </div>

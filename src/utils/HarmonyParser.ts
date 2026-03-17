@@ -195,6 +195,13 @@ export class HarmonyParser {
           arguments: xmlCall.args || {}
         }));
       }
+      console.warn(
+        "[HarmonyParser] XML tool call pattern detected but extractToolCalls returned 0. " +
+          "Response may be truncated or malformed. Length:",
+        response.length,
+        "Snippet:",
+        response.substring(0, 400)
+      );
     }
 
     return toolCalls;

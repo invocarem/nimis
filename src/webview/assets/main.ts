@@ -29,6 +29,7 @@ const continueButton = document.getElementById("continue-button") as HTMLButtonE
 const questionButton = document.getElementById("question-button") as HTMLButtonElement | null;
 const rejectButton = document.getElementById("reject-button") as HTMLButtonElement | null;
 const clearButton = document.getElementById("clear-button") as HTMLButtonElement | null;
+const loadCurrentFileBtn = document.getElementById("load-current-file-btn") as HTMLButtonElement | null;
 const statusIndicator = document.getElementById("status-indicator");
 
 let currentAssistantMessage: HTMLElement | null = null;
@@ -141,6 +142,11 @@ function initEventListeners(): void {
       if (chatContainer) chatContainer.innerHTML = "";
       toolLimitReached = false;
       vscode.postMessage({ type: "clearChat" });
+    });
+  }
+  if (loadCurrentFileBtn) {
+    loadCurrentFileBtn.addEventListener("click", () => {
+      vscode.postMessage({ type: "loadCurrentFileIntoVim" });
     });
   }
 }
