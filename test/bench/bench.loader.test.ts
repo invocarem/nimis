@@ -30,7 +30,7 @@ describe("loadBenchConfig", () => {
       const result = loadBenchConfig();
       expect(result).not.toBeNull();
       expect(result!.benchDir).toBe(BENCH_DIR);
-      expect(result!.config.tests).toHaveLength(2);
+      expect(result!.config.tests).toHaveLength(3);
       expect(result!.config.tests[0]).toMatchObject({
         id: "two_sum",
         promptPath: path.resolve(BENCH_DIR, "two_sum/two_sum.md"),
@@ -38,12 +38,19 @@ describe("loadBenchConfig", () => {
         timeout: 60000,
       });
       expect(result!.config.tests[1]).toMatchObject({
+        id: "two_sum_test",
+        promptPath: path.resolve(BENCH_DIR, "two_sum/test.md"),
+        outputPath: path.resolve(BENCH_DIR, "outputs/two_sum/test/test_two_sum.py"),
+        testCommand: "python -m pytest outputs/two_sum/test/test_two_sum.py",
+        dependencies: ["two_sum"],
+      });
+      expect(result!.config.tests[2]).toMatchObject({
         id: "same_tree",
         promptPath: path.resolve(BENCH_DIR, "same_tree/same_tree.md"),
         outputPath: path.resolve(BENCH_DIR, "outputs/same_tree/solution.py"),
         expectedPath: path.resolve(BENCH_DIR, "expected/same_tree/solution.py"),
       });
-      expect(result!.config.tests[1].timeout).toBe(120000);
+      expect(result!.config.tests[2].timeout).toBe(120000);
     });
 
     it("should return null when benchPath file does not exist", () => {
@@ -123,6 +130,51 @@ describe("loadBenchConfig", () => {
 
       const result = loadBenchConfig();
       expect(result!.config.tests[0].timeout).toBe(90000);
+    });
+  });
+
+  describe("dependencies and testCommand", () => {
+    it("should load dependencies and testCommand from benchPath file", () => {
+      mockGet.mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === "benchPath") return BENCH_JSON;
+        if (key === "bench") return null;
+        return defaultValue;
+      });
+
+      const result = loadBenchConfig();
+      expect(result).not.toBeNull();
+      const twoSumTest = result!.config.tests.find((t) => t.id === "two_sum_test");
+      expect(twoSumTest).toBeDefined();
+      expect(twoSumTest!.dependencies).toEqual(["two_sum"]);
+      expect(twoSumTest!.testCommand).toBe(
+        "python -m pytest outputs/two_sum/test/test_two_sum.py"
+      );
+    });
+
+    it("should load dependencies and testCommand from inline config", () => {
+      mockGet.mockImplementation((key: string, defaultValue: unknown) => {
+        if (key === "benchPath") return "";
+        if (key === "bench")
+          return {
+            tests: [
+              {
+                id: "dep_test",
+                promptPath: "p.md",
+                outputPath: "o.py",
+                dependencies: ["other_task"],
+                testCommand: "pytest o.py",
+              },
+            ],
+          };
+        return defaultValue;
+      });
+
+      const result = loadBenchConfig();
+      expect(result!.config.tests[0]).toMatchObject({
+        id: "dep_test",
+        dependencies: ["other_task"],
+        testCommand: "pytest o.py",
+      });
     });
   });
 

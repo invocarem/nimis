@@ -8,6 +8,10 @@ export interface BenchTest {
   outputPath: string;
   expectedPath?: string;
   timeout?: number;
+  /** Task IDs that must succeed before this task runs. */
+  dependencies?: string[];
+  /** Command to run after solution is generated (e.g. pytest). Success requires this to pass. */
+  testCommand?: string;
 }
 
 export interface BenchConfig {

@@ -7,6 +7,14 @@
       "timeout": 60000
     },
     {
+      "id": "two_sum_test",
+      "promptPath": "two_sum/test.md",
+      "outputPath": "outputs/two_sum/test/test_two_sum.py",
+      "timeout": 120000,
+      "testCommand": "python -m pytest outputs/two_sum/test/test_two_sum.py",
+      "dependencies": ["two_sum"]
+    },
+    {
       "id": "same_tree",
       "promptPath": "same_tree/same_tree.md",
       "outputPath": "outputs/same_tree/solution.py",

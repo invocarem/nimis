@@ -51,6 +51,8 @@ export function loadBenchConfig(): { config: BenchConfig; benchDir: string } | n
         outputPath: resolvePath(t.outputPath, benchDir),
         expectedPath: t.expectedPath ? resolvePath(t.expectedPath, benchDir) : undefined,
         timeout: t.timeout ?? raw.defaults?.timeout,
+        dependencies: t.dependencies,
+        testCommand: t.testCommand,
       }));
 
       return {
@@ -70,6 +72,8 @@ export function loadBenchConfig(): { config: BenchConfig; benchDir: string } | n
       outputPath: resolvePath(t.outputPath, baseDir),
       expectedPath: t.expectedPath ? resolvePath(t.expectedPath, baseDir) : undefined,
       timeout: t.timeout ?? benchInline.defaults?.timeout,
+      dependencies: t.dependencies,
+      testCommand: t.testCommand,
     }));
     return {
       config: { tests, defaults: benchInline.defaults },

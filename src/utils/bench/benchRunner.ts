@@ -238,15 +238,33 @@ export async function runSingleTest(
     }
 
     const outputExists = fs.existsSync(test.outputPath);
-    const durationMs = Date.now() - start;
+    let success = outputExists;
+    let error: string | undefined = outputExists ? undefined : "Output file was not created";
 
+    if (outputExists && test.testCommand) {
+      onProgress?.({
+        phase: "progress",
+        testId: test.id,
+        status: `Running test command: ${test.testCommand}`,
+        elapsedMs: Date.now() - start,
+      });
+      const nativeMgr = NativeToolsManager.getInstance();
+      const toolResult = await nativeMgr.executeCommand(test.testCommand, benchDir);
+      if (toolResult.isError) {
+        success = false;
+        const output = toolResult.content?.map((c) => c.text).join("\n") || "Test command failed";
+        error = `Test command failed: ${output}`;
+      }
+    }
+
+    const durationMs = Date.now() - start;
     const result: BenchResult = {
       id: test.id,
-      success: outputExists,
+      success,
       durationMs,
       outputPath: test.outputPath,
       outputExists,
-      error: outputExists ? undefined : "Output file was not created",
+      error,
     };
     onProgress?.({ phase: "testComplete", testId: test.id, result, elapsedMs: durationMs });
     return result;
@@ -261,6 +279,33 @@ export async function runSingleTest(
     onProgress?.({ phase: "testComplete", testId: test.id, result: failResult, elapsedMs: failResult.durationMs });
     return failResult;
   }
+}
+
+/**
+ * Topologically sort tests so dependencies run before dependents.
+ */
+export function sortByDependencies(tests: BenchTest[]): BenchTest[] {
+  const idToTest = new Map(tests.map((t) => [t.id, t]));
+  const visited = new Set<string>();
+  const result: BenchTest[] = [];
+
+  function visit(id: string) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const test = idToTest.get(id);
+    if (test?.dependencies?.length) {
+      for (const dep of test.dependencies) {
+        if (idToTest.has(dep)) visit(dep);
+      }
+    }
+    const t = idToTest.get(id);
+    if (t) result.push(t);
+  }
+
+  for (const test of tests) {
+    visit(test.id);
+  }
+  return result;
 }
 
 /**
@@ -288,6 +333,7 @@ export async function runBench(
     const ids = new Set(testIds);
     tests = tests.filter((t) => ids.has(t.id));
   }
+  tests = sortByDependencies(tests);
 
   const llmClient = createLLMClient();
   if (!llmClient) {
@@ -325,9 +371,30 @@ export async function runBench(
 
   try {
     const results: BenchResult[] = [];
+    const resultsById = new Map<string, BenchResult>();
     for (let i = 0; i < tests.length; i++) {
       if (cancellationToken?.isCancellationRequested) break;
       const test = tests[i];
+      const deps = test.dependencies ?? [];
+      const failedDep = deps.find((dep) => {
+        const r = resultsById.get(dep);
+        return r && !r.success;
+      });
+      if (failedDep) {
+        const skipResult: BenchResult = {
+          id: test.id,
+          success: false,
+          durationMs: 0,
+          error: `Skipped: dependency "${failedDep}" failed`,
+        };
+        results.push(skipResult);
+        resultsById.set(test.id, skipResult);
+        outputChannel.appendLine(`[${i + 1}/${tests.length}] ${test.id}`);
+        outputChannel.appendLine(`  SKIP  dependency "${failedDep}" failed`);
+        outputChannel.appendLine("");
+        report({ phase: "testComplete", testId: test.id, result: skipResult, elapsedMs: 0 });
+        continue;
+      }
       outputChannel.appendLine(`[${i + 1}/${tests.length}] ${test.id}`);
       const result = await runSingleTest(
         test,
@@ -339,6 +406,7 @@ export async function runBench(
         (ev) => report({ ...ev, testIndex: i + 1, totalTests: tests.length })
       );
       results.push(result);
+      resultsById.set(test.id, result);
       const status = result.success ? "PASS" : "FAIL";
       const duration = `${(result.durationMs / 1000).toFixed(2)}s`;
       outputChannel.appendLine(`  ${status}  ${duration}  ${result.id}`);

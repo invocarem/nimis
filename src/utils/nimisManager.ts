@@ -34,7 +34,6 @@ export class NimisManager {
   ): string {
     const manager = nativeToolManager || NativeToolsManager.getInstance();
     const nativeTools = manager.getAvailableTools();
-    nativeTools.splice(-1);
     let doc = "**Available native tools:**\n";
     doc += nativeTools
       .map((tool) => {
