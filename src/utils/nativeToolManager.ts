@@ -65,7 +65,12 @@ export class NativeToolsManager {
       {
         name: "exec_terminal",
         description:
-          "Execute a shell command in the terminal. Use this to run scripts, execute programs, change directories, or run any command-line operations. Supports command chaining with && (e.g., 'cd /path/to/folder && python calc.py'). Returns the command output. The command runs in the workspace root directory by default, or in the specified working_directory. IMPORTANT: Never use .nimis folder as working_directory - it's only for storing metadata files.",
+          "Execute a shell command in the terminal. Use this to run scripts, execute programs, change directories, or run any command-line operations. Supports command chaining with && (e.g., 'cd /path/to/folder && python calc.py'). Returns the command output. The command runs in the workspace root directory by default, or in the specified working_directory. IMPORTANT: Never use .nimis folder as working_directory - it's only for storing metadata files.\n\n" +
+          "FORMAT (use child elements, same style as vim tool):\n" +
+          "<tool_call name=\"exec_terminal\">\n" +
+          "  <command>python calc.py</command>\n" +
+          "  <working_directory>src</working_directory>\n" +
+          "</tool_call>",
         inputSchema: {
           type: "object",
           properties: {

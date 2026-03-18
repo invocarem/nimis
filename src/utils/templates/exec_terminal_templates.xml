@@ -1,0 +1,18 @@
+<!-- exec_terminal_templates.xml - Shell command examples. Same style as vim: child elements, ends with </tool_call>. -->
+
+<!-- Simple command -->
+<tool_call name="exec_terminal">
+  <command>python calc.py</command>
+</tool_call>
+
+<!-- Command with working directory -->
+<tool_call name="exec_terminal">
+  <command>npm run build</command>
+  <working_directory>src</working_directory>
+</tool_call>
+
+<!-- Chained commands -->
+<tool_call name="exec_terminal">
+  <command>cd src && python main.py</command>
+  <working_directory>c:/code/project</working_directory>
+</tool_call>

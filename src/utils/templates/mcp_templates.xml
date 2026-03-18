@@ -1,0 +1,15 @@
+<!-- mcp_templates.xml - MCP tool call examples. Same style as vim/exec_terminal: child elements, ends with </MCP_CALL>. -->
+
+<!-- MCP tool with args as child element (JSON inside) -->
+<MCP_CALL name="analyze_latin">
+  <args>{"word": "invenietur"}</args>
+</MCP_CALL>
+
+<!-- MCP tool with arguments child (alias) -->
+<MCP_CALL name="create_file">
+  <args>{"file_path": "hello.py", "content": "print(\"Hello\")"}</args>
+</MCP_CALL>
+
+<!-- MCP tool with no args -->
+<MCP_CALL name="list_tools">
+</MCP_CALL>

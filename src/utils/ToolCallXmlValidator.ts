@@ -15,11 +15,14 @@ export interface ToolCallXmlValidationResult {
  */
 const DEFAULT_SUPPORTED_CHILD_TAGS = new Set([
   "commands",
+  "command",
+  "working_directory",
   "file_path",
   "path",
   "old_text",
   "new_text",
   "content",
+  "args",
   "arguments",
   "reasoning",
 ]);

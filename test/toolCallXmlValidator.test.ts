@@ -87,6 +87,20 @@ describe("ToolCallXmlValidator", () => {
       );
       expect(r.valid).toBe(true);
     });
+
+    it("passes for exec_terminal with command and working_directory child elements", () => {
+      const r = validateToolCallXml(
+        '<tool_call name="exec_terminal"><command>npm run build</command><working_directory>src</working_directory></tool_call>'
+      );
+      expect(r.valid).toBe(true);
+    });
+
+    it("passes for MCP_CALL with args child element", () => {
+      const r = validateToolCallXml(
+        '<MCP_CALL name="analyze_latin"><args>{"word": "amo"}</args></MCP_CALL>'
+      );
+      expect(r.valid).toBe(true);
+    });
   });
 
   describe("self-closing tags", () => {

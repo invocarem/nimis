@@ -51,6 +51,13 @@ export class NimisManager {
       })
       .join("\n\n");
 
+    if (nativeTools.length > 0) {
+      const execTerminalTemplates = NimisManager.loadExecTerminalTemplates();
+      if (execTerminalTemplates) {
+        doc += "\n\n**exec_terminal usage examples:**\n" + execTerminalTemplates;
+      }
+    }
+
     if (vimToolManager) {
       const vimTools = vimToolManager.getAvailableTools();
       if (vimTools.length > 0) {
@@ -102,6 +109,11 @@ export class NimisManager {
             return `- ${tool.name}: ${tool.description || ""}${required}\n${params}`;
           })
           .join("\n\n");
+
+        const mcpTemplates = NimisManager.loadMcpTemplates();
+        if (mcpTemplates) {
+          doc += "\n\n**MCP tool usage examples:**\n" + mcpTemplates;
+        }
       }
     }
 
@@ -120,6 +132,40 @@ export class NimisManager {
     } catch (error: any) {
       console.warn(
         `[NimisManager] Failed to load vim_templates.xml: ${error.message}`
+      );
+      return null;
+    }
+  }
+
+  private static loadExecTerminalTemplates(): string | null {
+    try {
+      const templatesPath = path.join(
+        __dirname,
+        "utils",
+        "templates",
+        "exec_terminal_templates.xml"
+      );
+      return fs.readFileSync(templatesPath, "utf-8");
+    } catch (error: any) {
+      console.warn(
+        `[NimisManager] Failed to load exec_terminal_templates.xml: ${error.message}`
+      );
+      return null;
+    }
+  }
+
+  private static loadMcpTemplates(): string | null {
+    try {
+      const templatesPath = path.join(
+        __dirname,
+        "utils",
+        "templates",
+        "mcp_templates.xml"
+      );
+      return fs.readFileSync(templatesPath, "utf-8");
+    } catch (error: any) {
+      console.warn(
+        `[NimisManager] Failed to load mcp_templates.xml: ${error.message}`
       );
       return null;
     }

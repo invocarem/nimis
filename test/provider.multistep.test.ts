@@ -158,8 +158,9 @@ describe("Multi-step tool call chain", () => {
      */
     it("should add error results to conversation history and continue loop", async () => {
       // Simulate a tool call that will fail (e.g., executing a Python file with syntax error)
-      const response = 
-        '<tool_call name="exec_terminal" args=\'{"command": "python calc.py add 2 3"}\' />';
+      const response = `<tool_call name="exec_terminal">
+  <command>python calc.py add 2 3</command>
+</tool_call>`;
 
       const parsedResponse = ResponseParser.parse(response);
       const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);
@@ -232,8 +233,10 @@ describe("Multi-step tool call chain", () => {
 
       try {
         // Avoid unescaped double quotes inside the JSON command value
-        const response = 
-          `<tool_call name="exec_terminal" args='{"command": "python ${testFile} add 2 3", "working_directory": "${tempDir}"}' />`;
+        const response = `<tool_call name="exec_terminal">
+  <command>python ${testFile} add 2 3</command>
+  <working_directory>${tempDir}</working_directory>
+</tool_call>`;
 
         const parsedResponse = ResponseParser.parse(response);
         const toolCalls = ResponseParser.getAllToolCalls(parsedResponse);

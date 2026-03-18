@@ -109,8 +109,32 @@ describe("XmlProcessor", () => {
         expect(result[0].args.content).toBe(codeContent);
       });
 
-      it("should parse exec_terminal with Windows path (unescaped backslashes in JSON)", () => {
-        // LLM outputs c:\code instead of c:\\code - "Bad escaped character" at \c, \g
+      it("should parse exec_terminal with child elements (vim-style format)", () => {
+        const toolCall = `<tool_call name="exec_terminal">
+  <command>python calc.py add 2 3</command>
+  <working_directory>src</working_directory>
+</tool_call>`;
+        const result = XmlProcessor.extractToolCalls(toolCall);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("exec_terminal");
+        expect(result[0].args.command).toBe("python calc.py add 2 3");
+        expect(result[0].args.working_directory).toBe("src");
+      });
+
+      it("should parse exec_terminal with child elements (command only)", () => {
+        const toolCall = `<tool_call name="exec_terminal">
+  <command>npm install</command>
+</tool_call>`;
+        const result = XmlProcessor.extractToolCalls(toolCall);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("exec_terminal");
+        expect(result[0].args.command).toBe("npm install");
+        expect(result[0].args.working_directory).toBeUndefined();
+      });
+
+      it("should parse exec_terminal with args attribute (backward compatibility)", () => {
         const toolCall =
           '<tool_call name="exec_terminal" args=\'{ "command": "cd c:\\code\\github\\calc && python hello.py --name Bob" }\' />';
         const result = XmlProcessor.extractToolCalls(toolCall);
@@ -726,7 +750,7 @@ A tiny Python script that greets a user.
         expect(result[0].args).toEqual({ key: "value" });
       });
 
-      it("should extract MCP_CALL from full element format", () => {
+      it("should extract MCP_CALL from full element format with JSON body", () => {
         const text = `<MCP_CALL>
 {
   "name": "analyze_latin",
@@ -741,6 +765,29 @@ A tiny Python script that greets a user.
         expect(result).toHaveLength(1);
         expect(result[0].name).toBe("analyze_latin");
         expect(result[0].args.word).toBe("amo");
+      });
+
+      it("should extract MCP_CALL with args as child element (vim-style)", () => {
+        const text = `<MCP_CALL name="analyze_latin">
+  <args>{"word": "invenietur"}</args>
+</MCP_CALL>`;
+        const result = XmlProcessor.extractToolCalls(text);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("analyze_latin");
+        expect(result[0].args).toEqual({ word: "invenietur" });
+      });
+
+      it("should extract MCP_CALL with arguments child element", () => {
+        const text = `<MCP_CALL name="create_file">
+  <arguments>{"file_path": "test.py", "content": "print(\\"hi\\")"}</arguments>
+</MCP_CALL>`;
+        const result = XmlProcessor.extractToolCalls(text);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("create_file");
+        expect(result[0].args.file_path).toBe("test.py");
+        expect(result[0].args.content).toBe('print("hi")');
       });
 
       it("should extract both tool_call and MCP_CALL in same text", () => {

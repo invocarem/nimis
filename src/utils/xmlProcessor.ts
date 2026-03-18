@@ -284,10 +284,20 @@ export class XmlProcessor {
           if (nameAttrMatch) {
             const childArgs = this.parseChildElements(content);
             if (childArgs) {
+              // When <args> or <arguments> child contains JSON string, parse it (MCP-style)
+              let resolvedArgs = childArgs;
+              const argsStr = childArgs.args ?? childArgs.arguments;
+              if (typeof argsStr === "string" && argsStr.trim().startsWith("{")) {
+                try {
+                  resolvedArgs = JSON.parse(argsStr.trim());
+                } catch {
+                  // Keep childArgs as-is if JSON parse fails
+                }
+              }
               results.push({
                 raw,
                 name: nameAttrMatch[1],
-                args: childArgs,
+                args: resolvedArgs,
               });
               processedPositions.push({ start: matchStart, end: matchEnd });
               continue;
