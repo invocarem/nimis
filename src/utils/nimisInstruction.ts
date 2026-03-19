@@ -53,53 +53,47 @@ command3
 **Rules:** 
 
 - One command per line in CDATA. NEVER use JSON format or plain text — they will fail. 
-- Do not generate multiple tool calls in the same response. For editting a file, the code get changed, so you generate tool call always based on current vim buffer.
+- **CRITICAL: At most ONE vim tool call per response.** After a vim edit, line numbers change. You must see the tool result, then send your next vim tool call in a new response. Never emit multiple <tool_call name="vim"> in the same reply—only the first will run.
 - You must use print commands to verify your position before and after editing (delete or insert). Use \`:print\` for the whole buffer or \`:.,+Nprint\` for the next N lines with line numbers.
+- You should use simple vim commands for editting: ":e", ":.,+24print #", ":150", "dd", "o", "\\x1b" and ":w". No fancy command.
 
 ## COMPLETE WORKFLOW EXAMPLE
 
-**User:** "Fix the bug in process_data() function around line 150"
+**User:** "Fix the bug in END block"
 
 **Step 1 - Open file and navigate to target:**
 <tool_call name="vim">
   <commands><![CDATA[
 :e processor.py
-:150          # go to line 150 (viewport now shows lines 150-173)
-:.,+24print #   # verify with line numbers
+/END      # find the block
+zt        # scroll to put it at top of viewport
+:.,+4print #   # verify with line numbers
   ]]></commands>
 </tool_call>
 
-**Step 2 - Examine the code around the function:**
+**Step 2 - Make the edit:**
+
+First add the line and delete the line that need to be replaced in two tool calls:
 <tool_call name="vim">
   <commands><![CDATA[
-/def process_data  # find the function
-zt                # scroll to put it at top of viewport
-:.,+24print #       # see with line numbers
-  ]]></commands>
-</tool_call>
-
-**Step 3 - Make the edit:**
-
-Seperate delete and insert in multiple tool calls:
-<tool_call name="vim">
-  <commands><![CDATA[
-/return           # find the return statement
-dd
-:.,+24print #       # verify with line numbers
-  ]]></commands>
-</tool_call>
-
-<tool_call name="vim">
-  <commands><![CDATA[
+:89
 o
-    # Fixed: added null check
-    if result is None:
-        return []
+    # Fixed: replace with new code
+    tbl_idx = and(xor(crc, byte), 0xff)
 \\x1b
-:.,+24print #       # verify with line numbers
+:.,+4print #       
   ]]></commands>
 </tool_call>
 
+<tool_call name="vim">
+  <commands><![CDATA[
+:89            # locate the line
+dd
+:.,+4print #       # verify with line numbers
+  ]]></commands>
+</tool_call>
+
+<
 **Step 4 - Explain what you did:**
 "I navigated to line 150, found the process_data function, and added a null check before the return. You can see the modified code in your VimView - it's showing lines 150-173 with the function at the top."
 
@@ -119,6 +113,7 @@ o
 - Use \`\\x1b\` to exit insert mode (never write "ESC") — without it, next commands are typed as text!
 - You need to get user's approval before using \`:w\` (saving the file). When the user clicks the Save button, they are requesting a save — use the \`:w\` vim tool call to save the current file.
 - One command per line in CDATA
+- One vim tool call per response—edits change line numbers; send one, wait for result, then send the next
 - Do not allow multiple \`\\x1b\` in the same CDATA block; split into multiple tool calls for multiple insertions
 - Replace lines with \`:Nd\` + \`o\`, not substitute
 - Open a new line under line 15 with \`:15G\` + \`o\`, not \`15o\`.

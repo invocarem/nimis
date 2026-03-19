@@ -16,7 +16,8 @@ export interface ValidationResult {
  * - none: No limits on escapes, deletes, or inserts per tool call.
  * - normal: At most one \\x1b and one line delete per tool call (current default).
  * - high: One modification per tool call (delete XOR insert); still one \\x1b max;
- *         delete or insert must include :print to verify the result.
+ *         delete or insert must include :print to verify the result;
+ *         substitute (:s/) and change (c, cc, C, :c) are not allowed.
  */
 export type ValidationMode = "none" | "normal" | "high";
 
@@ -60,6 +61,30 @@ function isInsertModeStarter(cmd: string): boolean {
   if (INSERT_MODE_COMMANDS.has(c)) return true;
   if (isExOpenLineCommand(c)) return true;
   if (isExAppendOrInsertCommand(c)) return true;
+  return false;
+}
+
+/**
+ * Check if a command is a substitute (:s/pattern/replacement/flags).
+ */
+function isSubstituteCommand(cmd: string): boolean {
+  const c = cmd.trim();
+  return /^:[\s\d%.,'$+\-a-z]*s\//i.test(c);
+}
+
+/**
+ * Check if a command is a change command (normal mode c/cc/C or Ex :[range]c/change).
+ */
+function isChangeCommand(cmd: string): boolean {
+  const c = cmd.trim();
+  // Ex mode: :[range]c or :[range]change
+  if (/^:[\s\d%.,'$+\-]*\s*c(?:hange)?\s*$/i.test(c)) return true;
+  if (/^:[\s\d%.,'$+\-]*\s*c(?:hange)?\s+/.test(c)) return true; // :5c\text or :5c new
+  // Normal mode: c, cc, C, cw, ciw, caw, c$, c2w, etc.
+  if (/^c$/.test(c)) return true;
+  if (/^cc\s*$/.test(c)) return true;
+  if (/^C\s*$/.test(c)) return true;
+  if (/^c[a-zA-Z0-9$^0_\-\[\]\"'`{}()]+$/.test(c)) return true; // c + motion
   return false;
 }
 
@@ -362,6 +387,22 @@ export function validateVimToolCall(
     errors.push(
       `High mode: delete or insert must include :print to verify the result (e.g. :%print # or :.,+24print #).`
     );
+  }
+
+  // 1e. High mode: substitute (:s/) and change (c, cc, C, :c) are not allowed
+  if (mode === "high") {
+    const hasSubstitute = cmdList.some((c) => isSubstituteCommand(String(c).trim()));
+    const hasChange = cmdList.some((c) => isChangeCommand(String(c).trim()));
+    if (hasSubstitute) {
+      errors.push(
+        `High mode: substitute (:s/) is not allowed. Use delete + insert instead, split into separate tool calls.`
+      );
+    }
+    if (hasChange) {
+      errors.push(
+        `High mode: change command (c, cc, C, :c) is not allowed. Use delete + insert instead, split into separate tool calls.`
+      );
+    }
   }
 
   // 2. Insert mode Esc validation

@@ -542,6 +542,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           }
           let allToolResults: string[] = [];
           let hasError = false;
+          let vimExecutedThisTurn = false;
 
           // Execute all tool calls sequentially
           for (let toolIndex = 0; toolIndex < toolCalls.length; toolIndex++) {
@@ -550,6 +551,19 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             if (this.cancellationToken?.signal.aborted) {
               continueLoop = false;
               break;
+            }
+
+            // At most one vim tool call per response—each edit changes line numbers; subsequent vim calls would use stale line refs
+            if (toolCall.name === "vim" && vimExecutedThisTurn) {
+              const skipMsg =
+                "Skipped: Only one vim tool call per response is executed. Each edit changes line numbers. Send your next vim tool call in a follow-up response after seeing the result above.";
+              allToolResults.push(skipMsg);
+              this._sendMessageToWebview({
+                type: "assistantMessageChunk",
+                chunk: skipMsg,
+                isFullContent: true,
+              });
+              continue;
             }
 
             if (stateTracker.hasReachedToolCallLimit()) {
@@ -634,6 +648,9 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
 
               if (toolCall.name === "vim" || toolCall.name.startsWith("vim_")) {
                 this._sendVimStateToWebview();
+                if (toolCall.name === "vim") {
+                  vimExecutedThisTurn = true;
+                }
               }
 
               this._sendMessageToWebview({
