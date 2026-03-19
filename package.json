@@ -2,7 +2,7 @@
   "name": "nimis",
   "displayName": "Nimis - AI Prototyping",
   "description": "AI prototyping assistant powered by llama.cpp / vLLM / Mistral",
-  "version": "0.0.62",
+  "version": "0.0.63",
   "publisher": "dashtotherock",
   "repository": {
     "type": "git",
@@ -253,7 +253,11 @@
         "nimis.vimValidationMode": {
           "type": "string",
           "default": "normal",
-          "enum": ["none", "normal", "high"],
+          "enum": [
+            "none",
+            "normal",
+            "high"
+          ],
           "enumDescriptions": [
             "No limits on escapes, deletes, or inserts per tool call",
             "At most one \\x1b and one line delete per tool call",
