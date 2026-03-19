@@ -47,7 +47,6 @@ describe("VimToolManager - Delete and Yank Operations", () => {
         "iPasted:",
         "\x1b",
         "'ap",
-        "\x1b",
         ":w"
       ]
     });
@@ -61,6 +60,17 @@ describe("VimToolManager - Delete and Yank Operations", () => {
   it("should delete multiple lines with range :3,7d", async () => {
     const result = await manager.callTool("vim", {
       commands: [":e test.txt", ":3,7d", ":w"]
+    });
+
+    expect(result.isError).toBeFalsy();
+
+    const content = await readFile(testFile, "utf-8");
+    expect(content).toBe("line 1\nline 2\nline 8\n");
+  });
+
+  it("should delete lines with reverse range :7,3d (same as :3,7d)", async () => {
+    const result = await manager.callTool("vim", {
+      commands: [":e test.txt", ":7,3d", ":w"]
     });
 
     expect(result.isError).toBeFalsy();

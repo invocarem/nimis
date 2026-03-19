@@ -53,8 +53,8 @@ command3
 **Rules:** 
 
 - One command per line in CDATA. NEVER use JSON format or plain text — they will fail. 
-- Do **not** generate multiple vim tool calls in one message. You need to verify first tool call result then generate the next tool call!
-
+- Do not generate multiple tool calls in the same response. For editting a file, the code get changed, so you generate tool call always based on current vim buffer.
+- You must use print commands to verify your position before and after editing (delete or insert). Use \`:print\` for the whole buffer or \`:.,+Nprint\` for the next N lines with line numbers.
 
 ## COMPLETE WORKFLOW EXAMPLE
 

@@ -58,13 +58,14 @@ export function parseRange(rangeStr: string, buffer: VimBuffer): Range {
     return { start: line, end: line };
   }
 
-  const start = parseLineRef(parts[0], buffer);
+  let start = parseLineRef(parts[0], buffer);
   let end = parseLineRef(parts[1], buffer);
 
-  // When cursor is past EOF (e.g. :470 on a short file then .,+24print), end can be < start.
-  // Clamp to a valid range instead of throwing so the command (e.g. print) still runs.
+  // Vim allows reverse ranges (e.g. :59,40d) and swaps them to start..end.
+  // When cursor is past EOF (e.g. :470 on a short file then .,+24print), end can be < start;
+  // in that case we swap so start <= end.
   if (end < start) {
-    end = start;
+    [start, end] = [end, start];
   }
 
   return { start, end };
