@@ -161,6 +161,24 @@ function validateNoEmptyInNormalMode(commands: string[]): string[] {
 }
 
 /**
+ * When in insert mode, typed text may include lines starting with : (e.g. JS/TS
+ * object literal "default: [...]" or "label: expr"). Only treat as Ex command if
+ * it looks like a real Vim Ex command, not inserted code.
+ */
+function looksLikeExCommand(cmd: string): boolean {
+  const c = cmd.trim();
+  if (!c.startsWith(":")) return false;
+  const rest = c.slice(1).trim();
+  // Ex commands: :w, :q, :547, :s/old/new/, :e file, etc.
+  // Inserted code patterns: ": [\"...\"]", "key: value", "; at end"
+  if (/^\s*\[/.test(rest)) return false; // : [ ... - object/array literal
+  if (/\\"/.test(c)) return false; // escaped quote (JSON/JS string)
+  if (/;\s*$/.test(c)) return false; // semicolon at end (statement)
+  if (/\]\s*;/.test(c)) return false; // ]; - array literal
+  return true;
+}
+
+/**
  * Validate that insert mode blocks (i, o, a, A, I, O) are followed by \x1b before
  * :w or other Ex commands or end of command list.
  */
@@ -187,7 +205,8 @@ function validateInsertModeEsc(commands: string[]): string[] {
       }
       // Still in insert: blank lines and text are ok
       if (isEmptyOrNewline) continue;
-      if (cmd.startsWith(":")) {
+      // Only treat as Ex command if it looks like one (not inserted code like ": [\"...\"]")
+      if (cmd.startsWith(":") && looksLikeExCommand(cmd)) {
         errors.push(
           `Insert mode started at command ${insertStartIndex + 1} must end with \\x1b before Ex command (e.g. :w). Add \\x1b before "${cmd.substring(0, 30)}${cmd.length > 30 ? "..." : ""}"`
         );

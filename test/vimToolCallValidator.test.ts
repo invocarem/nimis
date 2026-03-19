@@ -21,6 +21,24 @@ describe("VimToolCallValidator", () => {
       expect(r.errors.some((e) => e.includes("\\x1b") && e.includes(":w"))).toBe(true);
     });
 
+    it("passes when insert mode contains code with colon (e.g. : [\"-- All Tools --\"])", () => {
+      // Simulates inserting JS/TS code like default: ["-- All Tools --"] - colon is part of object literal, not Ex command
+      const commands = [
+        ":547",
+        "o",
+        '        "-- All Tools --",',
+        "        ...new Set(",
+        "          recordDefinitions.Records.map((r) => r.ToolName).filter(Boolean)",
+        "        ),",
+        "      ]",
+        '    : ["-- All Tools --"];',
+        "\\x1b",
+      ];
+      const r = validateVimToolCall(commands, { hasBuffer: true });
+      expect(r.valid).toBe(true);
+      expect(r.errors).toHaveLength(0);
+    });
+
     it("fails when o never ends with \\x1b", () => {
       const r = validateVimToolCall(["o", "new line"]);
       expect(r.valid).toBe(false);
