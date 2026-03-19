@@ -18,7 +18,7 @@ import { createTwoFilesPatch } from "diff";
 import { VimStateMachine } from "./commands/VimStateMachine";
 import { getHelpForTopic } from "./commands/ExCommandHandler";
 import { createVimState } from "./models/VimMode";
-import { validateVimToolCall } from "./VimToolCallValidator";
+import { validateVimToolCall, type ValidationMode } from "./VimToolCallValidator";
 
 const readFile = fs.promises.readFile;
 const writeFileAsync = fs.promises.writeFile;
@@ -118,6 +118,11 @@ export class VimToolManager {
             create_backup: {
               type: "boolean",
               description: "Create .bak backup before modifications. Defaults to true."
+            },
+            validation_mode: {
+              type: "string",
+              enum: ["none", "normal", "high"],
+              description: "Validation strictness. none: no limits on escapes/deletes/inserts. normal: at most one \\x1b and one delete. high: one modification (delete XOR insert), print required to verify."
             }
           },
           required: ["commands"]
@@ -173,7 +178,15 @@ export class VimToolManager {
           // Keep "" (blank lines in insert mode), "\n"/"\r" (Enter key)
           cmds = (cmds as string[]).filter((c: string) => typeof c !== "string" || c.length === 0 || c.replace(/[\t ]/g, "").length > 0);
 
-          const validation = validateVimToolCall(cmds, { hasBuffer: !!this.currentBuffer });
+          const validModes: ValidationMode[] = ["none", "normal", "high"];
+          const fromArgs = validModes.includes(arguments_.validation_mode) ? arguments_.validation_mode : undefined;
+          const fromSettings = vscode.workspace.getConfiguration("nimis").get<string>("vimValidationMode");
+          const validationMode: ValidationMode | undefined =
+            fromArgs ?? (fromSettings && validModes.includes(fromSettings as ValidationMode) ? (fromSettings as ValidationMode) : undefined);
+          const validation = validateVimToolCall(cmds, {
+            hasBuffer: !!this.currentBuffer,
+            mode: validationMode,
+          });
           if (!validation.valid && validation.errors.length > 0) {
             return {
               content: [{ type: "text", text: `Vim tool call validation failed:\n${validation.errors.map((e) => `  - ${e}`).join("\n")}` }],

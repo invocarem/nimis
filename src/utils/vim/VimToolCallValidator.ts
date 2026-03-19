@@ -12,6 +12,15 @@ export interface ValidationResult {
 }
 
 /**
+ * Validation strictness mode:
+ * - none: No limits on escapes, deletes, or inserts per tool call.
+ * - normal: At most one \\x1b and one line delete per tool call (current default).
+ * - high: One modification per tool call (delete XOR insert); still one \\x1b max;
+ *         delete or insert must include :print to verify the result.
+ */
+export type ValidationMode = "none" | "normal" | "high";
+
+/**
  * Check if a string represents the Escape key (either actual \x1b or literal "\\x1b").
  */
 function isEscape(cmd: string): boolean {
@@ -268,9 +277,28 @@ function firstCommandOpensFileOrNeedsNoBuffer(commands: string[]): boolean {
   return false;
 }
 
+/** Check if command is a :print Ex command (e.g. :%print #, :.,+24print). */
+function isPrintCommand(cmd: string): boolean {
+  const c = cmd.trim();
+  if (!c.startsWith(":")) return false;
+  // :[range]print [#]
+  if (/^:[\s\d%.,'$+\-]*print(\s+#)?\s*$/i.test(c)) return true;
+  // :g/pat/print or :v/pat/print
+  if (/^:[gv]\/.+\/print\s*$/i.test(c)) return true;
+  return false;
+}
+
+/** True if commands contain at least one insert block (i/a/o/O...\\x1b). */
+function hasInsertBlock(commands: string[]): boolean {
+  const inInsertAt = trackInsertBlocks(commands);
+  return inInsertAt.some(Boolean);
+}
+
 export interface ValidateOptions {
   /** When false, first command must open a file (:e) or be buffer-less (:pwd, :cd, etc.). */
   hasBuffer?: boolean;
+  /** Validation strictness. Default: "normal". */
+  mode?: ValidationMode;
 }
 
 /**
@@ -283,6 +311,7 @@ export function validateVimToolCall(
   const errors: string[] = [];
   const warnings: string[] = [];
   const hasBuffer = options?.hasBuffer ?? true; // Default true for backward compat
+  const mode = options?.mode ?? "normal";
 
   if (!Array.isArray(commands) || commands.length === 0) {
     return { valid: true, errors: [], warnings: [] };
@@ -302,19 +331,36 @@ export function validateVimToolCall(
     );
   }
 
-  // 1. At most one escape per tool call (no multiple changes in one tool_call)
   const escapeCount = cmdList.filter((c) => isEscape(String(c).trim())).length;
-  if (escapeCount > 1) {
+  const deleteCount = cmdList.filter((c) => isLineDeleteCommand(String(c))).length;
+  const hasInsert = hasInsertBlock(cmdList);
+  const hasPrint = cmdList.some((c) => isPrintCommand(String(c).trim()));
+
+  // 1. At most one escape per tool call (skip in none mode)
+  if (mode !== "none" && escapeCount > 1) {
     errors.push(
       `Commands contain ${escapeCount} escape(s) (\\x1b). Only 1 escape allowed per tool call. Split into separate tool calls for multiple edits.`
     );
   }
 
-  // 1b. At most one line delete per tool call (row numbers shift after delete, so 2nd/3rd delete may be wrong)
-  const deleteCount = cmdList.filter((c) => isLineDeleteCommand(String(c))).length;
-  if (deleteCount > 1) {
+  // 1b. At most one line delete per tool call (skip in none mode)
+  if (mode !== "none" && deleteCount > 1) {
     errors.push(
       `Commands contain ${deleteCount} line delete(s) (:d, dd, etc.). Only 1 delete allowed per tool call. After a delete, line numbers shift—split into separate tool calls for multiple deletes.`
+    );
+  }
+
+  // 1c. High mode: one modification per tool call (delete XOR insert)
+  if (mode === "high" && deleteCount > 0 && hasInsert) {
+    errors.push(
+      `High mode: only one modification per tool call. You have both delete and insert—split into separate tool calls.`
+    );
+  }
+
+  // 1d. High mode: delete or insert must include :print to verify the result
+  if (mode === "high" && (deleteCount > 0 || hasInsert) && !hasPrint) {
+    errors.push(
+      `High mode: delete or insert must include :print to verify the result (e.g. :%print # or :.,+24print #).`
     );
   }
 

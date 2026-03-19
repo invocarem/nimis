@@ -255,4 +255,52 @@ describe("VimToolCallValidator", () => {
       expect(r.errors.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe("validation mode: none", () => {
+    it("allows multiple escapes", () => {
+      const r = validateVimToolCall(["i", "a", "\x1b", "o", "b", "\x1b", ":w"], { mode: "none" });
+      expect(r.valid).toBe(true);
+    });
+
+    it("allows multiple deletes", () => {
+      const r = validateVimToolCall([":e file.txt", ":5d", ":10d", ":w"], { mode: "none" });
+      expect(r.valid).toBe(true);
+    });
+  });
+
+  describe("validation mode: high", () => {
+    it("rejects delete + insert in same call", () => {
+      const r = validateVimToolCall([":e f", ":5d", "i", "x", "\x1b", ":w"], { mode: "high" });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("both delete and insert"))).toBe(true);
+    });
+
+    it("requires print when delete is used", () => {
+      const r = validateVimToolCall([":e f", ":5d", ":w"], { mode: "high" });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes(":print") && e.includes("verify"))).toBe(true);
+    });
+
+    it("requires print when insert is used", () => {
+      const r = validateVimToolCall(["i", "hello", "\x1b", ":w"], { mode: "high" });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes(":print") && e.includes("verify"))).toBe(true);
+    });
+
+    it("passes delete with print", () => {
+      const r = validateVimToolCall([":e f", ":5d", ":%print #", ":w"], { mode: "high" });
+      expect(r.valid).toBe(true);
+    });
+
+    it("passes insert with print", () => {
+      const r = validateVimToolCall(["i", "hello", "\x1b", ":%print #", ":w"], { mode: "high" });
+      expect(r.valid).toBe(true);
+    });
+
+    it("still rejects multiple escapes in high mode", () => {
+      const r = validateVimToolCall(["i", "a", "\x1b", "o", "b", "\x1b", ":%print #", ":w"], { mode: "high" });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("Only 1 escape allowed"))).toBe(true);
+    });
+  });
 });

@@ -249,6 +249,17 @@
           "type": "boolean",
           "default": false,
           "description": "Diagnostic: when enabled, pause after each tool call and wait for user to click 'Next Step' before continuing. Useful for debugging vim and other tool call issues."
+        },
+        "nimis.vimValidationMode": {
+          "type": "string",
+          "default": "normal",
+          "enum": ["none", "normal", "high"],
+          "enumDescriptions": [
+            "No limits on escapes, deletes, or inserts per tool call",
+            "At most one \\x1b and one line delete per tool call",
+            "One modification per call (delete XOR insert), :print required to verify"
+          ],
+          "description": "Vim tool call validation strictness. Use 'high' for stricter checks (one edit per call, print required)."
         }
       }
     }

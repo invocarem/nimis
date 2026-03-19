@@ -79,10 +79,19 @@ zt                # scroll to put it at top of viewport
 </tool_call>
 
 **Step 3 - Make the edit:**
+
+Seperate delete and insert in multiple tool calls:
 <tool_call name="vim">
   <commands><![CDATA[
 /return           # find the return statement
-i
+dd
+:.,+24print #       # verify with line numbers
+  ]]></commands>
+</tool_call>
+
+<tool_call name="vim">
+  <commands><![CDATA[
+o
     # Fixed: added null check
     if result is None:
         return []
@@ -90,9 +99,6 @@ i
 :.,+24print #       # verify with line numbers
   ]]></commands>
 </tool_call>
-**Replace a line:** Use \`:Nd\` (delete) then \`o\` (insert below) — do NOT use substitute (\`:s/old/new/\`). Substitute is error-prone for LLMs; dd + o is reliable.
-
-**Delete tips:** Use :Nd or :N,Md with line numbers from :%print #. When deleting multiple non-contiguous lines, delete from BOTTOM-TO-TOP (e.g. :7d then :3d).
 
 **Step 4 - Explain what you did:**
 "I navigated to line 150, found the process_data function, and added a null check before the return. You can see the modified code in your VimView - it's showing lines 150-173 with the function at the top."

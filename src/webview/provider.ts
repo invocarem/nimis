@@ -829,6 +829,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       return;
     }
     const filePath = editor.document.uri.fsPath;
+    if (filePath.includes(path.sep + ".nimis")) {
+      vscode.window.showWarningMessage(
+        "Cannot load .nimis folder files into Vim. Open a workspace file instead."
+      );
+      return;
+    }
     await this._handleUserMessage(
       `Please load the file at ${filePath} into vim.`
     );
