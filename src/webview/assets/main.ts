@@ -321,6 +321,11 @@ window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
       VimView.setCommandOutput(message.output ?? "");
       break;
 
+    case "directiveHandled":
+      isGenerating = false;
+      if (sendButton) sendButton.disabled = false;
+      break;
+
     case "connectionStatus":
       if (statusIndicator) {
         if (message.connected) {

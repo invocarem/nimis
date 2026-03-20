@@ -18,6 +18,7 @@ import * as path from "path";
 import { NativeToolsManager } from "../utils/nativeToolManager";
 import { VimToolManager } from "../utils/vim";
 import { loadBenchConfig } from "../utils/bench";
+import { parseChatDirective } from "../utils/chatDirectiveParser";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -96,9 +97,42 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data) => {
       switch (data.type) {
-        case "sendMessage":
-          await this._handleUserMessage(data.message);
+        case "sendMessage": {
+          const parsed = parseChatDirective(
+            typeof data.message === "string" ? data.message : ""
+          );
+          if (parsed.kind === "vim") {
+            if (parsed.command) {
+              this._sendMessageToWebview({
+                type: "userMessage",
+                message: `@vim ${parsed.command}`,
+              });
+              await this._handleVimCommand(parsed.command);
+            }
+            this._sendMessageToWebview({ type: "directiveHandled" });
+            break;
+          }
+          if (parsed.kind === "file") {
+            // TODO: implement @file - e.g. add file to context, open file
+            await this._handleUserMessage(data.message);
+            break;
+          }
+          if (parsed.kind === "mcp") {
+            // TODO: implement @mcp - direct MCP tool invocation
+            await this._handleUserMessage(data.message);
+            break;
+          }
+          if (parsed.kind === "unknown") {
+            this._sendMessageToWebview({
+              type: "requestFeedback",
+              message: `Unknown directive @${parsed.directive}. Use @vim, @file, or @mcp.`,
+            });
+            this._sendMessageToWebview({ type: "directiveHandled" });
+            break;
+          }
+          await this._handleUserMessage(parsed.message);
           break;
+        }
         case "insertCode":
           await vscode.commands.executeCommand("nimis.insertCode", data.code);
           break;
@@ -871,11 +905,12 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     try {
       const result = await vim.callTool("vim", {
         commands: [command],
+        validation_mode: "none", // User-initiated commands; skip LLM-oriented validation
       });
       const text = result.content?.map((c) => c.text).join("\n") || "";
       this._sendMessageToWebview({
         type: "vimCommandResult",
-        output: text,
+        output: result.isError ? text : "", // Success: skip redundant "Executed N command(s)..." — status bar already shows mode/position
         isError: result.isError || false,
       });
     } catch (err: any) {
@@ -979,7 +1014,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     <div id="chat-container"></div>
     <div id="input-container">
         <div class="status-indicator" id="status-indicator">Checking connection...</div>
-        <textarea id="message-input" placeholder="Type your message here..." rows="3"></textarea>
+        <textarea id="message-input" placeholder="Type your message... @vim &lt;cmd&gt; for direct vim" rows="3"></textarea>
         <div class="button-group">
             <button id="send-button">Send</button>
             <button id="stop-button" class="stop-button secondary-button" style="display: none;">Stop</button>
