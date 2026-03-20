@@ -50,13 +50,15 @@ command3
   ]]></commands>
 </tool_call>
 
-**Rules:** 
+** VIM EDITING RULES:** 
 
 - One command per line in CDATA. NEVER use JSON format or plain text — they will fail. 
-- **CRITICAL: At most ONE vim tool call per response.** After a vim edit, line numbers change. You must see the tool result, then send your next vim tool call in a new response. Never emit multiple <tool_call name="vim"> in the same reply—only the first will run.
-- You must use print commands to verify your position before and after editing (delete or insert). Use \`:print\` for the whole buffer or \`:.,+Nprint\` for the next N lines with line numbers.
-- You should use simple vim commands for editting: ":e", ":.,+24print #", ":150", "dd", "o", "\\x1b" and ":w". No fancy command.
-
+- "Line numbers shift after each edit." -- One simple tool call per edit. 
+- Verify line number after each change using print command.
+- Do not be too clever. 
+  do not use multiple substitutions in one call.
+  Subsitute with the whole line: ":225s/.*/{MSG_ITEMS.filter(item => item.type === 'row').length}/"
+    
 ## COMPLETE WORKFLOW EXAMPLE
 
 **User:** "Fix the bug in END block"
