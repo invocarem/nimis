@@ -59,11 +59,20 @@ The Vim subsystem is not a gimmick — it's a full implementation that the AI us
 ### Normal Mode
 
 `i` `a` `I` `A` `o` `O` — insert mode entry  
+`V` — visual line mode (select lines, then `=` to reindent)  
 `dd` `yy` `p` `P` — delete, yank, put (with named registers: `"ayy`, `"ap`)  
 `>>` `<<` — indent line right/left (respects `shiftwidth`)  
 `j` `k` `gg` `G` `0` `$` — movement  
 `ma` `'a` — set mark, jump to mark  
 Count prefixes work: `3dd`, `5j`, `3>>`
+
+### Visual Line Mode (`V`)
+
+`V` — enter visual line mode at current line  
+`G` `gg` `j` `k` — extend selection  
+`=` — reindent selected lines and return to normal  
+`Esc` — cancel and return to normal  
+Example: `ggVG=` reindents the entire file
 
 ### Ranges
 

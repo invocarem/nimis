@@ -562,6 +562,9 @@ private async vimEdit(
       currentOutput += '\n-- NORMAL --\n';
     } else if (finalState.mode === 'command-line') {
       await this.stateMachine.processKey('\x1b');
+    } else if (finalState.mode === 'visual-line') {
+      await this.stateMachine.processKey('\x1b');
+      currentOutput += '\n-- NORMAL --\n';
     }
 
     if (backupPath) {

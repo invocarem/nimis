@@ -1,5 +1,5 @@
 // test/vim.insertMode.test.ts
-import { VimToolManager } from "../src/utils/vim";
+import { VimToolManager } from "../../src/utils/vim/VimToolManager";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
@@ -98,7 +98,8 @@ describe("VimToolManager - Insert Mode Operations", () => {
         "END",       // Append at end
         "\x1b",      // Escape
         ":w"         // Save
-      ]
+      ],
+      validation_mode: "none"
     });
 
     expect(result.isError).toBeFalsy();

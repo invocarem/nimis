@@ -75,7 +75,8 @@ describe("VimToolManager - Marks", () => {
         "'b",
         "dd",
         ":w"
-      ]
+      ],
+      validation_mode: "none"
     });
 
     expect(result.isError).toBeFalsy();

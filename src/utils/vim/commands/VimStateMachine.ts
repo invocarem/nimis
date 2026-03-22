@@ -65,6 +65,8 @@ export class VimStateMachine {
         return this.processInsertMode(key);
       case 'command-line':
         return await this.processCommandLineMode(key);
+      case 'visual-line':
+        return this.processVisualLineMode(key);
       default:
         return { output: `Unknown mode: ${this.state.mode}`, stateChanged: false };
     }
@@ -226,6 +228,17 @@ export class VimStateMachine {
         this.state.commandBuffer = '/';
         this.state.pendingCommand = undefined;
         return { output: '/', stateChanged: true };
+
+      case 'V':
+        // Visual line mode: select current line, extend with motions
+        this.syncCursorToHandler(buffer);
+        this.state.mode = 'visual-line';
+        this.state.pendingCommand = undefined;
+        this.state.visualSelection = {
+          anchor: buffer.currentLine,
+          head: buffer.currentLine,
+        };
+        return { output: '-- VISUAL LINE --', stateChanged: true };
 
       default:
         this.syncCursorToHandler(buffer);
@@ -455,6 +468,76 @@ export class VimStateMachine {
     }
 
     return { output: this.state.commandBuffer, stateChanged: false };
+  }
+
+  private processVisualLineMode(key: string): { output: string; stateChanged: boolean } {
+    const buffer = this.state.buffer!;
+    const sel = this.state.visualSelection!;
+    const lastLine = Math.max(0, buffer.content.length - 1);
+
+    // Escape: cancel selection, return to normal
+    if (key === '\x1b' || key === 'Esc') {
+      this.state.mode = 'normal';
+      this.state.visualSelection = undefined;
+      this.state.cursorPosition.line = sel.head;
+      this.state.cursorPosition.column = 0;
+      buffer.currentLine = sel.head;
+      this.normalHandler.setCursorColumn(0);
+      return { output: '-- NORMAL --', stateChanged: true };
+    }
+
+    // gg: extend selection to first line (g is pending)
+    if (this.state.pendingCommand === 'g' && key === 'g') {
+      this.state.pendingCommand = undefined;
+      sel.head = 0;
+      this.state.cursorPosition.line = 0;
+      buffer.currentLine = 0;
+      this.normalHandler.setCursorColumn(0);
+      return { output: '', stateChanged: false };
+    }
+    if (key === 'g') {
+      this.state.pendingCommand = 'g';
+      return { output: '', stateChanged: false };
+    }
+    this.state.pendingCommand = undefined;
+
+    switch (key) {
+      case 'G':
+        sel.head = lastLine;
+        this.state.cursorPosition.line = lastLine;
+        buffer.currentLine = lastLine;
+        this.normalHandler.setCursorColumn(0);
+        return { output: '', stateChanged: false };
+
+      case 'j':
+        sel.head = Math.min(lastLine, sel.head + 1);
+        this.state.cursorPosition.line = sel.head;
+        buffer.currentLine = sel.head;
+        this.normalHandler.setCursorColumn(0);
+        return { output: '', stateChanged: false };
+
+      case 'k':
+        sel.head = Math.max(0, sel.head - 1);
+        this.state.cursorPosition.line = sel.head;
+        buffer.currentLine = sel.head;
+        this.normalHandler.setCursorColumn(0);
+        return { output: '', stateChanged: false };
+
+      case '=': {
+        const start = Math.min(sel.anchor, sel.head);
+        const end = Math.max(sel.anchor, sel.head);
+        const result = this.normalHandler.reindentRange(buffer, start, end, this.ctx.options);
+        this.state.mode = 'normal';
+        this.state.visualSelection = undefined;
+        this.state.cursorPosition.line = start;
+        buffer.currentLine = start;
+        this.normalHandler.setCursorColumn(0);
+        return { output: result + '\n-- NORMAL --', stateChanged: true };
+      }
+
+      default:
+        return { output: '', stateChanged: false };
+    }
   }
 
   private getIndentation(line: string): string {

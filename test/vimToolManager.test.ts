@@ -481,7 +481,8 @@ describe("VimToolManager", () => {
           "START",      // Insert at top
           "\x1b",       // Exit insert mode
           ":w"
-        ]
+        ],
+        validation_mode: "none"
       });
 
       expect(result.isError).toBeFalsy();

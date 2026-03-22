@@ -307,6 +307,7 @@ describe("Normal Mode Commands - Isolated Tests", () => {
       expect(out).toContain("  y();");
       expect(out).toContain("}");
     });
+
   });
 
   describe("Yank and put commands", () => {

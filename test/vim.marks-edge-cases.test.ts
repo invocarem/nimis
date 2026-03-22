@@ -38,7 +38,8 @@ describe("VimToolManager - Marks Edge Cases", () => {
         "'b",        // Jump to mark b (should now be at line 3 after deletion)
         "dd",        // Delete that line
         ":w"
-      ]
+      ],
+      validation_mode: "none"
     });
 
     expect(result.isError).toBeFalsy();

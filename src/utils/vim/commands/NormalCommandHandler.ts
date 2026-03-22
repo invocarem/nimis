@@ -546,8 +546,8 @@ export class NormalCommandHandler {
     return match ? match[0] : '';
   }
 
-  /** Reindent lines [start, end] using bracket-based logic. Used by =G and =gg. */
-  private reindentRange(
+  /** Reindent lines [start, end] using bracket-based logic. Used by =G, =gg, and visual = */
+  reindentRange(
     buffer: VimBuffer,
     start: number,
     end: number,

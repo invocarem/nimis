@@ -776,6 +776,12 @@ button:disabled {
   border-radius: 2px;
 }
 
+.vim-mode.vim-mode--visual {
+  background-color: var(--vscode-terminal-ansiMagenta, #c586c0);
+  color: var(--vscode-editor-background);
+  border-radius: 2px;
+}
+
 .vim-fileinfo {
   flex: 1;
   overflow: hidden;

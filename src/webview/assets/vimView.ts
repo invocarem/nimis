@@ -240,11 +240,13 @@ function createVimView(getVscode: () => VscodeApi): VimViewApi {
   function renderStatusBar(state: VimState): void {
     let modeText = state.mode.toUpperCase();
     if (state.mode === "command-line") modeText = "COMMAND";
+    else if (state.mode === "visual-line") modeText = "VISUAL LINE";
     els.mode.textContent = "-- " + modeText + " --";
 
     els.mode.className = "vim-mode";
     if (state.mode === "insert") els.mode.classList.add("vim-mode--insert");
     else if (state.mode === "command-line") els.mode.classList.add("vim-mode--command");
+    else if (state.mode === "visual-line") els.mode.classList.add("vim-mode--visual");
 
     let info = state.filePath || "";
     if (state.modified) info += " [+]";
