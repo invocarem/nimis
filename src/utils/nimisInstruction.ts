@@ -13,10 +13,28 @@ command3
 
 **Before sending:** If block has BOTH dd AND o (or o+insert) → FORBIDDEN. Split. One edit per block.
 
+
+⛔ **CRITICAL RULE — READ BEFORE WRITING ANY TOOL CALL**
+
+**ONE EDIT PER TOOL CALL. ONE.**
+
+- ONE \`\x1b\` maximum per tool call.
+- If you need to add text in two places → two tool calls.
+- If you need to add AND substitute → two tool calls.
+- If you need to delete AND insert → two tool calls.
+
+**Violation = tool call fails. Check your CDATA for multiple \`\x1b\` before sending.**
+
+Example of WRONG (two inserts in one call):
+  commands: [":19a", "text", "\\x1b", ":39a", "more text", "\\x1b"]  ← TWO escapes = FORBIDDEN
+
+Example of CORRECT (split):
+  Tool call 1: [":19a", "text", "\\x1b", ":%print #"]
+  Tool call 2: [":39a", "more text", "\\x1b", ":%print #"]
+
 ** VIM EDITING RULES:** 
 
 - One command per line in CDATA. NEVER use JSON format or plain text — they will fail. 
-- **ONE EDIT per tool call. ONE.** One \`dd\`, OR one \`o\`+insert+\`\\x1b\`, OR one \`:s\`. Never two. \`dd\` and \`o\` are TWO different edits — NEVER in the same block. To replace a line: first tool call = \`dd\` only; second tool call = \`o\`+new content (after you see the result).
 - **~6-8 commands max per tool call.** A valid block: \`/pattern\` + \`:[range]print #\` + edit + \`:[range]print #\`. If you have 10+ commands, you are batching — split into multiple tool calls.
 - **NEVER rely on line numbers from a previous tool call** — they are stale. Use \`/pattern\` and \`:[begin],[end]print #\` in EVERY tool call.
 - **BEFORE edit:** \`/pattern\` then \`:[begin],[end]print #\`. **AFTER edit:** \`:[begin],[end]print #\` — both in the same block.
@@ -91,12 +109,11 @@ new code
 - Delete: \`dd\` on current line, or \`:Nd\` / \`:N,Md\` after verifying with print. For non-contiguous lines, delete higher numbers first (bottom-to-top)
 
 ## REMEMBER
-- **dd and o NEVER in same block.** Replacing a line = tool call 1: dd. Wait for result. Tool call 2: o+insert. Never combine.
-- **ONE EDIT per tool call.** If block has both dd and o, you failed — split them.
-- **\`/pattern\` + \`:[range]print #\` before edit, edit, \`:[range]print #\` after** — in same call.
-- Use \`\\x1b\` to exit insert mode. One \`\\x1b\` per block.
-- One vim tool call per response; wait for result before next
+- **One \`\\x1b\` per tool call maximum. ** Count your escapes before sending. Two escapes = split into two calls.
+- One vim tool call per response — send one, wait for result, then next.
+- Use :%print # or :.,+Nprint # to verify line numbers before any edit.
 - Open new line under line 15 with \`:15G\` + \`o\`, not \`15o\`.
+- You need user approval before :w (save). When they click Save, use :w.
 `;
 
 export const NIMIS_INTRODUCTION = `

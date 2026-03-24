@@ -22,8 +22,10 @@ export class NimisManager {
     vimToolManager?: VimToolManager,
     mcpManager?: MCPManager
   ): string {
-    return (
-      NimisManager.buildToolDocs(nativeToolManager, vimToolManager, mcpManager)
+    return NimisManager.buildToolDocs(
+      nativeToolManager,
+      vimToolManager,
+      mcpManager
     );
   }
 
@@ -54,7 +56,8 @@ export class NimisManager {
     if (nativeTools.length > 0) {
       const execTerminalTemplates = NimisManager.loadExecTerminalTemplates();
       if (execTerminalTemplates) {
-        doc += "\n\n**exec_terminal usage examples:**\n" + execTerminalTemplates;
+        doc +=
+          "\n\n**exec_terminal usage examples:**\n" + execTerminalTemplates;
       }
     }
 
