@@ -117,6 +117,25 @@ describe("VimToolManager - Print Command", () => {
     expect(output).not.toContain("<other>");
   });
 
+  it("should submit /search across commands[] before a following :ex command", async () => {
+    const content = "header\n<UPRI>\n  <version>1</version>\n  <other>x</other>\n";
+    await writeFile(testFile, content, "utf-8");
+
+    const result = await manager.callTool("vim", {
+      commands: [
+        ":e test.txt",
+        "/UPRI",
+        ":+1,+1print"
+      ]
+    });
+
+    expect(result.isError).toBeFalsy();
+    const output = result.content[0].text;
+    expect(output).toContain("Jumped to line 2");
+    expect(output).toContain("  <version>1</version>");
+    expect(output).not.toContain("<other>");
+  });
+
   it("should print range with :.,+N print (no space between range and command)", async () => {
     const content = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\n";
     await writeFile(testFile, content, "utf-8");

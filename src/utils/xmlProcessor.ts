@@ -1027,6 +1027,11 @@ export class XmlProcessor {
 
   private static readonly ARRAY_FIELDS = new Set(["commands"]);
 
+  /** Normalize CRLF / lone CR so splitting on \\n matches on all platforms (e.g. vim commands CDATA). */
+  private static normalizeCrlfToLf(text: string): string {
+    return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  }
+
   /**
    * Parse child elements from tool call body content.
    * Supports both CDATA-wrapped values and plain text values.
@@ -1060,7 +1065,7 @@ export class XmlProcessor {
       let cdataMatch: RegExpExecArray | null;
 
       while ((cdataMatch = cdataInnerPattern.exec(inner)) !== null) {
-        let value = cdataMatch[1];
+        let value = this.normalizeCrlfToLf(cdataMatch[1]);
         if (value.startsWith('\n')) { value = value.substring(1); }
         if (value.endsWith('\n')) { value = value.substring(0, value.length - 1); }
         cdataValues.push(value);
@@ -1071,9 +1076,9 @@ export class XmlProcessor {
         if (this.ARRAY_FIELDS.has(name)) {
           // Preserve blank lines - they create blank lines in vim output
           if (cdataValues.length === 1) {
-            args[name] = cdataValues[0].split('\n');
+            args[name] = cdataValues[0].split("\n");
           } else {
-            args[name] = cdataValues.flatMap(v => v.split('\n'));
+            args[name] = cdataValues.flatMap((v) => v.split("\n"));
           }
         } else {
           args[name] = cdataValues.join('');
@@ -1084,7 +1089,7 @@ export class XmlProcessor {
         if (plainValue && !(name in args)) {
           foundAny = true;
           if (this.ARRAY_FIELDS.has(name)) {
-            args[name] = plainValue.split('\n');
+            args[name] = this.normalizeCrlfToLf(plainValue).split("\n");
           } else {
             args[name] = plainValue;
           }

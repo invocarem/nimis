@@ -399,7 +399,14 @@ private async vimEdit(
     };
 
     if (!this.currentBuffer && commands.length > 0) {
-      const firstCmd = typeof commands[0] === "string" ? commands[0].trim() : "";
+      let firstCmd = "";
+      for (const raw of commands) {
+        const t = typeof raw === "string" ? raw.trim() : "";
+        if (t.length > 0) {
+          firstCmd = t;
+          break;
+        }
+      }
       const eMatch = firstCmd.match(/^:e\s+(.+)$/s);
       if (eMatch) {
         const filename = eMatch[1].trim();
@@ -534,6 +541,24 @@ private async vimEdit(
       }
 
       if (state.mode === 'command-line' && cmd.startsWith(':')) {
+        const result = await this.stateMachine.processKey('\n');
+        if (result.output) {
+          currentOutput += result.output + '\n';
+        }
+        if (result.output && result.output.startsWith('Error:')) {
+          throw new Error(result.output.replace(/^Error:\s*Error:\s*/, ''));
+        }
+      }
+
+      // Separate array entries should behave like separate script lines: if the previous
+      // entry left an open cmdline (e.g. /pattern without Enter), submit it before the
+      // next entry so ":ex" is not appended to the search pattern.
+      const stAfter = this.stateMachine.getState();
+      if (
+        i < commands.length - 1 &&
+        stAfter.mode === 'command-line' &&
+        commands[i + 1] !== '\x1b'
+      ) {
         const result = await this.stateMachine.processKey('\n');
         if (result.output) {
           currentOutput += result.output + '\n';
