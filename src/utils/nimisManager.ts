@@ -10,7 +10,6 @@ import * as path from "path";
 import { NativeToolsManager } from "./nativeToolManager";
 import { VimToolManager } from "./vim";
 import { NimisStateTracker } from "./nimisStateTracker";
-import { XmlProcessor } from "./xmlProcessor";
 import { MCPManager } from "../mcpManager";
 import type { Rule } from "../rulesManager";
 import type { RulesManager } from "../rulesManager";
@@ -242,9 +241,6 @@ export class NimisManager {
         persistPath,
         workspaceRoot: options?.workspaceRoot,
       });
-    if (nimisDir) {
-      XmlProcessor.setLogDir(nimisDir);
-    }
     this.currentTemplate = {
       ...NimisManager.buildDefaultTemplate(
         this.nativeToolManager,

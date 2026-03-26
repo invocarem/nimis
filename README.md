@@ -27,6 +27,9 @@ Nimis: :e src/api/users.ts          ← opens the file
 - **Rule system** — define custom rules (Markdown/YAML/JSON) to guide LLM behavior, enforce standards, or automate workflows
 - **State tracking** — conversation state, tool calls, and working files persist across sessions in `.nimis/state.json`
 - **Streaming responses** — real-time token streaming with stop, continue, and decline controls
+- **Step mode diagnostics** — pause after each tool call and manually continue to debug agent behavior
+- **Terminal run inspector** — `exec_terminal` runs stream into a dedicated Terminal tab in the webview
+- **Chat directives** — use `@vim <cmd>` for direct Vim execution from chat input
 - **Rich markdown** — AI responses render with headers, code blocks, syntax highlighting, copy/insert buttons, and collapsible thinking blocks
 - **Theme-aware UI** — adapts to VS Code light, dark, and high-contrast themes
 
@@ -116,6 +119,12 @@ Press **F5** in VS Code to launch with the extension loaded.
 3. Describe your problem and press **Ctrl+Enter**
 4. Toggle the **Vim** button to watch the AI edit in real time
 
+### Chat Directives
+
+- `@vim <cmd>` — run a direct Vim command immediately (example: `@vim :e src/index.ts`)
+- `@@...` — escape a leading `@` and send literal text
+- `@file ...` and `@mcp ...` are parsed, but currently routed as normal chat messages
+
 ## Configuration
 
 All settings live under the `nimis.*` namespace in VS Code settings.
@@ -124,6 +133,7 @@ All settings live under the `nimis.*` namespace in VS Code settings.
 |---------|---------|-------------|
 | `nimis.serverType` | `llama` | Backend: `llama`, `vllm`, or `mistral` |
 | `nimis.serverUrl` | (auto) | LLM server URL |
+| `nimis.llamaServerUrl` | `""` | Deprecated; use `nimis.serverUrl` |
 | `nimis.apiKey` | | API key for cloud providers |
 | `nimis.model` | | Model name or path |
 | `nimis.temperature` | `0.7` | Sampling temperature (0–2) |
@@ -133,6 +143,8 @@ All settings live under the `nimis.*` namespace in VS Code settings.
 | `nimis.rulesPaths` | `[]` | Paths to rule files |
 | `nimis.benchPath` | `""` | Absolute path to bench.json (e.g. ~/bench/bench.json) |
 | `nimis.bench` | `null` | Inline bench config (alternative to benchPath) |
+| `nimis.stepMode` | `false` | Pause after each tool call and wait for **Next Step** |
+| `nimis.vimValidationMode` | `normal` | Vim validation strictness: `none`, `normal`, `high` |
 
 ## Commands
 
@@ -143,6 +155,7 @@ All settings live under the `nimis.*` namespace in VS Code settings.
 | `Nimis: Insert Code at Cursor` | Insert AI-generated code at cursor |
 | `Nimis: Run Bench` | Run all AI benchmark tests |
 | `Nimis: Run Bench Test` | Run a single bench test (pick from list) |
+| `Nimis: Run Bench Selected` | Run selected tests (used by Bench tab multi-select flow) |
 
 ### Bench
 
@@ -184,7 +197,11 @@ nimis/
 │   │   ├── nimisManager.ts         # Prompt building and state
 │   │   ├── nimisStateTracker.ts    # Session persistence
 │   │   ├── responseParser.ts       # LLM response parsing
+│   │   ├── chatDirectiveParser.ts  # @vim / @file / @mcp parser
+│   │   ├── chat/                   # Chat streaming logger exports
 │   │   ├── HarmonyParser.ts        # Structured output protocol
+│   │   ├── ToolCallXmlValidator.ts # Tool-call XML validation and feedback
+│   │   ├── xmlProcessor.ts         # XML tool-call extraction/parsing
 │   │   ├── toolCallExtractor.ts    # XML tool call extraction
 │   │   ├── nativeToolManager.ts    # File and terminal tools
 │   │   ├── editFileHandler.ts      # Precise text replacement

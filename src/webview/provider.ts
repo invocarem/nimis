@@ -18,6 +18,7 @@ import * as path from "path";
 import { NativeToolsManager } from "../utils/nativeToolManager";
 import { VimToolManager } from "../utils/vim";
 import { loadBenchConfig } from "../utils/bench";
+import { ChatOutputLogger } from "../utils/chat";
 import { parseChatDirective } from "../utils/chatDirectiveParser";
 
 interface Message {
@@ -29,6 +30,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "nimis.chatView";
   private _view?: vscode.WebviewView;
   private llmClient?: ILLMClient;
+  private readonly chatOutputLogger = new ChatOutputLogger();
   private conversationHistory: Message[] = [];
   private nimisManager: NimisManager;
   private mcpManager?: MCPManager;
@@ -401,6 +403,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         );
 
         let fullResponse = "";
+        const streamWriter = this.chatOutputLogger.createStreamWriter();
 
         try {
           await this.llmClient.streamComplete(
@@ -415,6 +418,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
               if (this.cancellationToken?.signal.aborted) {
                 return;
               }
+              streamWriter.write(chunk);
               fullResponse += chunk;
               const parsed = ResponseParser.parse(fullResponse);
               //console.debug("[Provider] stream:", parsed.content);
@@ -447,7 +451,9 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             },
             this.cancellationToken?.signal
           );
+          streamWriter.end(fullResponse.length);
         } catch (streamError: any) {
+          streamWriter.error(streamError);
           // If cancelled, break out of loop
           if (
             this.cancellationToken?.signal.aborted ||
