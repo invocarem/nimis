@@ -384,6 +384,32 @@ describe("NativeToolsManager - exec_terminal", () => {
             expect(result.content[0].text).toContain("Some output");
             expect(result.content[0].text).toContain("Error occurred");
         });
+
+        it("should include diagnostics for generic python command failure", async () => {
+            const error = new Error("Command failed: python calc.py add 5 9");
+            (error as any).code = 1;
+            (error as any).stderr = "";
+            const pythonProbeStdout = "C:/Python311/python.exe\nPython 3.11.8\n";
+
+            execStub.mockImplementation((command, options, callback) => {
+                if (typeof command === "string" && command.includes("import sys")) {
+                    callback(null, { stdout: pythonProbeStdout, stderr: "" });
+                    return;
+                }
+                callback(error, null);
+            });
+
+            const result = await manager.callTool("exec_terminal", {
+                command: "python calc.py add 5 9",
+            });
+
+            expect(result.isError).toBeTruthy();
+            expect(result.content[0].text).toContain("Diagnostics:");
+            expect(result.content[0].text).toContain("Working directory:");
+            expect(result.content[0].text).toContain("Python script not found:");
+            expect(result.content[0].text).toContain("Python executable:");
+            expect(result.content[0].text).toContain("Python version:");
+        });
     });
 
     describe("Command with special characters", () => {
@@ -458,6 +484,97 @@ describe("NativeToolsManager - exec_terminal", () => {
             // The command should be enhanced with venv activation if venv is detected
             // Note: This depends on shell detection, so it might use source or call
             expect(execStub).toHaveBeenCalled();
+        });
+
+        it("should use bash-safe path for Windows venv activation", async () => {
+            const venvDir = path.join(testDir, "venv");
+            const scriptsDir = path.join(venvDir, "Scripts");
+            const activatePath = path.join(scriptsDir, "activate");
+
+            await mkdir(scriptsDir, { recursive: true });
+            await writeFile(activatePath, "#!/usr/bin/env bash");
+
+            let executedCommand = "";
+            execStub.mockImplementation((command, options, callback) => {
+                executedCommand = command;
+                callback(null, { stdout: "Python executed", stderr: "" });
+            });
+
+            jest.spyOn<any, any>(manager as any, "detectShell").mockResolvedValue("bash");
+
+            await manager.callTool("exec_terminal", {
+                command: "python calc.py add 3 9",
+            });
+
+            expect(executedCommand).toContain('source "');
+            expect(executedCommand).toContain("/Scripts/activate");
+            expect(executedCommand).not.toContain("\\Scripts\\activate");
+        });
+
+        it("should not auto-activate when command already uses venv python", async () => {
+            const venvDir = path.join(testDir, "venv");
+            const scriptsDir = path.join(venvDir, "Scripts");
+            const activatePath = path.join(scriptsDir, "activate");
+
+            await mkdir(scriptsDir, { recursive: true });
+            await writeFile(activatePath, "#!/usr/bin/env bash");
+
+            const explicitPython = "c:/code/github/calc/venv/Scripts/python.exe";
+            const originalCommand = `${explicitPython} calc.py add 3 9`;
+            let executedCommand = "";
+
+            execStub.mockImplementation((command, options, callback) => {
+                executedCommand = command;
+                callback(null, { stdout: "Python executed", stderr: "" });
+            });
+
+            await manager.callTool("exec_terminal", {
+                command: originalCommand,
+            });
+
+            expect(executedCommand).toBe(originalCommand);
+            expect(executedCommand).not.toContain("source ");
+        });
+    });
+
+    const describeWinFallback =
+        process.platform === "win32" ? describe : describe.skip;
+    describeWinFallback("Windows python fallback strategy", () => {
+        it("should not retry on python exit code (non-zero expected)", async () => {
+            jest.spyOn<any, any>(manager as any, "detectShell").mockResolvedValue("C:\\Program Files\\Git\\bin\\bash.exe");
+
+            const venvDir = path.join(testDir, "venv");
+            const scriptsDir = path.join(venvDir, "Scripts");
+            const activatePath = path.join(scriptsDir, "activate");
+            await mkdir(scriptsDir, { recursive: true });
+            await writeFile(activatePath, "#!/usr/bin/env bash");
+
+            const firstError = new Error("Command failed: source ...");
+            (firstError as any).code = 1;
+            // Simulate python non-zero exit; retry should not happen.
+            (firstError as any).stderr = "";
+
+            // `exec_terminal` on error probes python via `python -c "import sys; ..."` too.
+            // We only want the enhanced command to fail once (no retry), but still allow the probe call.
+            execStub.mockImplementation((command, options, callback) => {
+                if (typeof command === "string" && command.includes("import sys")) {
+                    callback(null, {
+                        stdout: "C:/Python311/python.exe\nPython 3.11.8\n",
+                        stderr: "",
+                    });
+                    return;
+                }
+                callback(firstError, null);
+            })
+
+            const result = await manager.callTool("exec_terminal", {
+                command: "python calc.py add 9 8",
+                working_directory: testDir,
+            });
+
+            // One enhanced command execution + one python probe execution
+            expect(execStub).toHaveBeenCalledTimes(2);
+            expect(result.isError).toBeTruthy();
         });
     });
 });

@@ -324,6 +324,88 @@ export interface ValidateOptions {
   hasBuffer?: boolean;
   /** Validation strictness. Default: "normal". */
   mode?: ValidationMode;
+  /** Visible viewport start line (1-based, inclusive). Used only in high mode. */
+  visibleStartLine?: number;
+  /** Visible viewport end line (1-based, inclusive). Used only in high mode. */
+  visibleEndLine?: number;
+  /** Current cursor line (1-based), used for cursor-relative mutations in high mode. */
+  cursorLine?: number;
+}
+
+function isLineInViewport(line: number, start: number, end: number): boolean {
+  return line >= start && line <= end;
+}
+
+/**
+ * Return mutation target line numbers that can be inferred from command text.
+ * Unknown/dynamic ranges (., $, %, marks) are intentionally ignored.
+ */
+function mutationTargetLines(cmd: string, cursorLine?: number): number[] {
+  const c = cmd.trim();
+  const lines: number[] = [];
+
+  // Ex delete with explicit numeric range: :5d, :5,10d, :5delete
+  {
+    const m = c.match(/^:\s*(\d+)(?:\s*,\s*(\d+))?\s*d(?:elete)?\s*$/i);
+    if (m) {
+      lines.push(parseInt(m[1], 10));
+      if (m[2]) lines.push(parseInt(m[2], 10));
+      return lines;
+    }
+  }
+
+  // Ex open/append/insert with explicit numeric range: :37o, :23a, :23insert
+  {
+    const m = c.match(
+      /^:\s*(\d+)(?:\s*,\s*(\d+))?\s*(?:[oO]|a(?:ppend)?|i(?:nsert)?)\s*$/i
+    );
+    if (m) {
+      lines.push(parseInt(m[1], 10));
+      if (m[2]) lines.push(parseInt(m[2], 10));
+      return lines;
+    }
+  }
+
+  // Ex substitute with explicit numeric range: :40s/x/y/, :40,41s/x/y/
+  {
+    const m = c.match(/^:\s*(\d+)(?:\s*,\s*(\d+))?\s*s\//i);
+    if (m) {
+      lines.push(parseInt(m[1], 10));
+      if (m[2]) lines.push(parseInt(m[2], 10));
+      return lines;
+    }
+  }
+
+  // Ex change with explicit numeric range: :40c, :40,41change
+  {
+    const m = c.match(/^:\s*(\d+)(?:\s*,\s*(\d+))?\s*c(?:hange)?(?:\s+.*)?$/i);
+    if (m) {
+      lines.push(parseInt(m[1], 10));
+      if (m[2]) lines.push(parseInt(m[2], 10));
+      return lines;
+    }
+  }
+
+  // Normal: 40Gdd targets line 40
+  {
+    const m = c.match(/^(\d+)G\d*dd\s*$/);
+    if (m) {
+      lines.push(parseInt(m[1], 10));
+      return lines;
+    }
+  }
+
+  // Cursor-relative mutations use current cursor line when provided.
+  if (
+    (isLineDeleteCommand(c) || isInsertModeStarter(c) || isChangeCommand(c)) &&
+    typeof cursorLine === "number" &&
+    Number.isFinite(cursorLine)
+  ) {
+    lines.push(cursorLine);
+    return lines;
+  }
+
+  return lines;
 }
 
 /**
@@ -360,6 +442,15 @@ export function validateVimToolCall(
   const deleteCount = cmdList.filter((c) => isLineDeleteCommand(String(c))).length;
   const hasInsert = hasInsertBlock(cmdList);
   const hasPrint = cmdList.some((c) => isPrintCommand(String(c).trim()));
+  const visibleStart = options?.visibleStartLine;
+  const visibleEnd = options?.visibleEndLine;
+  const hasViewport =
+    typeof visibleStart === "number" &&
+    Number.isFinite(visibleStart) &&
+    typeof visibleEnd === "number" &&
+    Number.isFinite(visibleEnd) &&
+    visibleStart >= 1 &&
+    visibleEnd >= visibleStart;
 
   // 1. At most one escape per tool call (skip in none mode)
   if (mode !== "none" && escapeCount > 1) {
@@ -387,6 +478,23 @@ export function validateVimToolCall(
     errors.push(
       `High mode: delete or insert must include :print to verify the result (e.g. :%print # or :.,+24print #).`
     );
+  }
+
+  // 1f. High mode: inferred mutation targets must be inside visible viewport.
+  if (mode === "high" && hasViewport) {
+    const offending: number[] = [];
+    for (const raw of cmdList) {
+      const targets = mutationTargetLines(String(raw), options?.cursorLine);
+      for (const line of targets) {
+        if (!isLineInViewport(line, visibleStart, visibleEnd)) offending.push(line);
+      }
+    }
+    if (offending.length > 0) {
+      const uniq = [...new Set(offending)].sort((a, b) => a - b);
+      errors.push(
+        `High mode: mutation target line(s) ${uniq.join(", ")} are outside visible viewport ${visibleStart}-${visibleEnd}. Scroll to target lines before editing.`
+      );
+    }
   }
 
   // 1e. High mode: substitute (:s/) and change (c, cc, C, :c) are not allowed

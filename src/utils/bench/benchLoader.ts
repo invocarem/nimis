@@ -49,10 +49,13 @@ export function loadBenchConfig(): { config: BenchConfig; benchDir: string } | n
         id: t.id,
         promptPath: resolvePath(t.promptPath, benchDir),
         outputPath: resolvePath(t.outputPath, benchDir),
+        inputPath: t.inputPath ? resolvePath(t.inputPath, benchDir) : undefined,
+        patchPath: t.patchPath ? resolvePath(t.patchPath, benchDir) : undefined,
         expectedPath: t.expectedPath ? resolvePath(t.expectedPath, benchDir) : undefined,
         timeout: t.timeout ?? raw.defaults?.timeout,
         dependencies: t.dependencies,
         testCommand: t.testCommand,
+        maxFixIterations: t.maxFixIterations,
       }));
 
       return {
@@ -70,10 +73,13 @@ export function loadBenchConfig(): { config: BenchConfig; benchDir: string } | n
       id: t.id,
       promptPath: resolvePath(t.promptPath, baseDir),
       outputPath: resolvePath(t.outputPath, baseDir),
+      inputPath: t.inputPath ? resolvePath(t.inputPath, baseDir) : undefined,
+      patchPath: t.patchPath ? resolvePath(t.patchPath, baseDir) : undefined,
       expectedPath: t.expectedPath ? resolvePath(t.expectedPath, baseDir) : undefined,
       timeout: t.timeout ?? benchInline.defaults?.timeout,
       dependencies: t.dependencies,
       testCommand: t.testCommand,
+      maxFixIterations: t.maxFixIterations,
     }));
     return {
       config: { tests, defaults: benchInline.defaults },

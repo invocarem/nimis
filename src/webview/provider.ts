@@ -36,6 +36,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
   private isProcessing = false;
   private _benchCancelHandler?: () => void;
   private _stepModeContinueResolve?: () => void;
+  private _terminalRunCounter = 0;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -140,6 +141,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
           this.conversationHistory = [];
           this.nimisManager.getStateTracker().reset();
           this._sendMessageToWebview({ type: "vimState", state: null });
+          this._sendMessageToWebview({ type: "terminalRunsReset" });
           // Cancel any in-progress operation (e.g. step mode pause) so we exit cleanly
           this._cancelCurrentOperation();
           break;
@@ -621,9 +623,67 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
             stateTracker.recordToolCall(toolCall.name, toolCall.arguments);
 
             try {
+              let terminalRunId: string | undefined;
+              const isExecTerminal = toolCall.name === "exec_terminal";
+              const terminalObserver = isExecTerminal
+                ? {
+                    onStarted: (event: {
+                      command: string;
+                      workingDirectory: string;
+                      shell: string;
+                      startedAt: number;
+                    }) => {
+                      terminalRunId = `term-${++this._terminalRunCounter}`;
+                      this._sendMessageToWebview({
+                        type: "terminalRunStarted",
+                        runId: terminalRunId,
+                        toolName: "exec_terminal",
+                        command: event.command,
+                        cwd: event.workingDirectory,
+                        shell: event.shell,
+                        startedAt: event.startedAt,
+                        attempt: 1,
+                      });
+                    },
+                    onOutput: (event: {
+                      stream: "stdout" | "stderr" | "system";
+                      chunk: string;
+                      timestamp: number;
+                    }) => {
+                      if (!terminalRunId) {
+                        terminalRunId = `term-${++this._terminalRunCounter}`;
+                      }
+                      this._sendMessageToWebview({
+                        type: "terminalRunOutput",
+                        runId: terminalRunId,
+                        stream: event.stream,
+                        chunk: event.chunk,
+                        timestamp: event.timestamp,
+                      });
+                    },
+                    onFinished: (event: {
+                      status: "success" | "error" | "timeout";
+                      durationMs: number;
+                      summary?: string;
+                    }) => {
+                      if (!terminalRunId) {
+                        terminalRunId = `term-${++this._terminalRunCounter}`;
+                      }
+                      this._sendMessageToWebview({
+                        type: "terminalRunFinished",
+                        runId: terminalRunId,
+                        status: event.status,
+                        durationMs: event.durationMs,
+                        summary: event.summary,
+                      });
+                    },
+                  }
+                : undefined;
+
               const toolResult = await toolExecutor(toolCall, {
                 mcpManager: this.mcpManager,
                 vimToolManager: VimToolManager.getInstance(),
+                terminalObserver,
               });
 
               // Check for cancellation after tool execution
@@ -984,6 +1044,7 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
     <div class="tab-bar">
         <button class="tab-btn active" data-tab="chat">Chat</button>
         <button class="tab-btn" data-tab="bench">Bench</button>
+        <button class="tab-btn" data-tab="terminal">Terminal</button>
     </div>
     <div id="chat-tab" class="tab-panel active">
     <div id="vim-view" class="vim-view" style="display: none;">
@@ -1057,6 +1118,18 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
         </div>
         <div class="bench-idle-status" id="bench-idle-status">No bench running. Click Run All or Run Test to start.</div>
         <div class="bench-log" id="bench-log"></div>
+    </div>
+    <div id="terminal-tab" class="tab-panel">
+        <div class="terminal-toolbar">
+            <span class="terminal-title">exec_terminal activity</span>
+        </div>
+        <div class="terminal-layout">
+            <div class="terminal-runs" id="terminal-runs"></div>
+            <div class="terminal-output-wrap">
+                <div class="terminal-output-header" id="terminal-output-header">Select a run</div>
+                <pre class="terminal-output" id="terminal-output"></pre>
+            </div>
+        </div>
     </div>
     <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

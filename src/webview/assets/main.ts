@@ -34,11 +34,107 @@ const loadCurrentFileBtn = document.getElementById("load-current-file-btn") as H
 const saveCurrentFileBtn = document.getElementById("save-current-file-btn") as HTMLButtonElement | null;
 const stepModeToggle = document.getElementById("step-mode-toggle") as HTMLButtonElement | null;
 const statusIndicator = document.getElementById("status-indicator");
+const terminalRunsEl = document.getElementById("terminal-runs");
+const terminalOutputEl = document.getElementById("terminal-output");
+const terminalOutputHeaderEl = document.getElementById("terminal-output-header");
 
 let currentAssistantMessage: HTMLElement | null = null;
 let isGenerating = false;
 let isCancelling = false;
 let toolLimitReached = false;
+
+type TerminalStream = "stdout" | "stderr" | "system";
+type TerminalStatus = "running" | "success" | "error" | "timeout" | "cancelled";
+interface TerminalChunk {
+  stream: TerminalStream;
+  text: string;
+  timestamp: number;
+}
+interface TerminalRunModel {
+  runId: string;
+  command: string;
+  cwd: string;
+  shell: string;
+  startedAt: number;
+  durationMs?: number;
+  status: TerminalStatus;
+  chunks: TerminalChunk[];
+}
+
+const terminalRuns = new Map<string, TerminalRunModel>();
+const terminalRunOrder: string[] = [];
+let selectedTerminalRunId: string | null = null;
+
+function formatTerminalStatus(status: TerminalStatus): string {
+  if (status === "running") return "Running";
+  if (status === "success") return "Success";
+  if (status === "error") return "Error";
+  if (status === "timeout") return "Timeout";
+  return "Cancelled";
+}
+
+function formatTerminalTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString();
+}
+
+function renderTerminalRuns(): void {
+  if (!terminalRunsEl) return;
+  terminalRunsEl.innerHTML = "";
+  if (terminalRunOrder.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "terminal-empty";
+    empty.textContent = "No terminal runs yet.";
+    terminalRunsEl.appendChild(empty);
+    return;
+  }
+
+  for (const runId of terminalRunOrder) {
+    const run = terminalRuns.get(runId);
+    if (!run) continue;
+    const item = document.createElement("button");
+    item.className = "terminal-run-item";
+    if (runId === selectedTerminalRunId) {
+      item.classList.add("active");
+    }
+    item.addEventListener("click", () => {
+      selectedTerminalRunId = runId;
+      renderTerminalRuns();
+      renderTerminalOutput();
+    });
+    const durationText =
+      run.durationMs !== undefined ? `${Math.max(0, run.durationMs)}ms` : "running";
+    item.innerHTML = `
+      <div class="terminal-run-command">${run.command}</div>
+      <div class="terminal-run-meta">
+        <span class="terminal-run-status terminal-run-status-${run.status}">${formatTerminalStatus(run.status)}</span>
+        <span>${formatTerminalTime(run.startedAt)}</span>
+        <span>${durationText}</span>
+      </div>
+    `;
+    terminalRunsEl.appendChild(item);
+  }
+}
+
+function renderTerminalOutput(): void {
+  if (!terminalOutputEl || !terminalOutputHeaderEl) return;
+  if (!selectedTerminalRunId) {
+    terminalOutputHeaderEl.textContent = "Select a run";
+    terminalOutputEl.textContent = "";
+    return;
+  }
+  const run = terminalRuns.get(selectedTerminalRunId);
+  if (!run) {
+    terminalOutputHeaderEl.textContent = "Select a run";
+    terminalOutputEl.textContent = "";
+    return;
+  }
+  terminalOutputHeaderEl.textContent = `${run.command} (${formatTerminalStatus(run.status)})`;
+  const rendered = run.chunks
+    .map((c) => `[${new Date(c.timestamp).toLocaleTimeString()}] [${c.stream}] ${c.text}`)
+    .join("\n\n");
+  terminalOutputEl.textContent = rendered;
+  terminalOutputEl.scrollTop = terminalOutputEl.scrollHeight;
+}
 
 function sendMessage(overrideMessage?: string): void {
   const message = overrideMessage ?? (messageInput ? messageInput.value.trim() : "");
@@ -201,6 +297,17 @@ interface WebviewMessage {
   connected?: boolean;
   stepMode?: boolean;
   tests?: unknown[];
+  runId?: string;
+  command?: string;
+  cwd?: string;
+  shell?: string;
+  startedAt?: number;
+  attempt?: number;
+  stream?: TerminalStream;
+  timestamp?: number;
+  status?: TerminalStatus;
+  durationMs?: number;
+  summary?: string;
   [key: string]: unknown;
 }
 
@@ -351,6 +458,70 @@ window.addEventListener("message", (event: MessageEvent<WebviewMessage>) => {
     case "benchConfig":
       Bench.handleMessage(message as unknown as Parameters<typeof Bench.handleMessage>[0]);
       break;
+
+    case "terminalRunsReset":
+      terminalRuns.clear();
+      terminalRunOrder.length = 0;
+      selectedTerminalRunId = null;
+      renderTerminalRuns();
+      renderTerminalOutput();
+      break;
+
+    case "terminalRunStarted": {
+      const runId = String(message.runId ?? "");
+      if (!runId) break;
+      const model: TerminalRunModel = {
+        runId,
+        command: String(message.command ?? ""),
+        cwd: String(message.cwd ?? ""),
+        shell: String(message.shell ?? ""),
+        startedAt: Number(message.startedAt ?? Date.now()),
+        status: "running",
+        chunks: [],
+      };
+      terminalRuns.set(runId, model);
+      terminalRunOrder.unshift(runId);
+      if (!selectedTerminalRunId) {
+        selectedTerminalRunId = runId;
+      }
+      renderTerminalRuns();
+      renderTerminalOutput();
+      break;
+    }
+
+    case "terminalRunOutput": {
+      const runId = String(message.runId ?? "");
+      const run = terminalRuns.get(runId);
+      if (!run) break;
+      const chunk = String(message.chunk ?? "");
+      if (!chunk) break;
+      run.chunks.push({
+        stream: (message.stream as TerminalStream) ?? "system",
+        text: chunk,
+        timestamp: Number(message.timestamp ?? Date.now()),
+      });
+      renderTerminalOutput();
+      break;
+    }
+
+    case "terminalRunFinished": {
+      const runId = String(message.runId ?? "");
+      const run = terminalRuns.get(runId);
+      if (!run) break;
+      run.status = (message.status as TerminalStatus) ?? "success";
+      run.durationMs = Number(message.durationMs ?? 0);
+      const summary = String(message.summary ?? "");
+      if (summary && run.chunks.length === 0) {
+        run.chunks.push({
+          stream: "system",
+          text: summary,
+          timestamp: Date.now(),
+        });
+      }
+      renderTerminalRuns();
+      renderTerminalOutput();
+      break;
+    }
   }
 });
 

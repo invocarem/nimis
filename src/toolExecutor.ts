@@ -1,5 +1,9 @@
 import { MCPToolCall, MCPToolResult } from "./mcpClient";
-import { NativeToolsManager, NativeToolResult } from "./utils/nativeToolManager";
+import {
+  NativeToolsManager,
+  NativeToolResult,
+  TerminalRunObserver,
+} from "./utils/nativeToolManager";
 import { VimToolManager } from "./utils/vim";
 import { MCPClient } from "./mcpClient";
 import type { MCPManager } from "./mcpManager";
@@ -19,9 +23,16 @@ export async function toolExecutor(
     nativeToolManager?: NativeToolsManager;
     vimToolManager?: VimToolManager;
     prefer?: "native" | "mcp";
+    terminalObserver?: TerminalRunObserver;
   }
 ): Promise<MCPToolResult> {
-  const { mcpManager, mcpClient, nativeToolManager, vimToolManager } = options || {};
+  const {
+    mcpManager,
+    mcpClient,
+    nativeToolManager,
+    vimToolManager,
+    terminalObserver,
+  } = options || {};
   const toolName = toolCall.name;
   const args = toolCall.arguments || {};
 
@@ -41,7 +52,14 @@ export async function toolExecutor(
   const nativeTools = nativeMgr.getAvailableTools().map(t => t.name);
   if (nativeTools.includes(toolName)) {
     console.log(`[toolExecutor] Using native tool: ${toolName}`);
-    const result: NativeToolResult = await nativeMgr.callTool(toolName, args);
+    const result: NativeToolResult =
+      toolName === "exec_terminal"
+        ? await nativeMgr.executeCommand(
+            args.command,
+            args.working_directory,
+            terminalObserver
+          )
+        : await nativeMgr.callTool(toolName, args);
     return result;
   }
 

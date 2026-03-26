@@ -302,5 +302,46 @@ describe("VimToolCallValidator", () => {
       expect(r.valid).toBe(false);
       expect(r.errors.some((e) => e.includes("Only 1 escape allowed"))).toBe(true);
     });
+
+    it("rejects explicit line mutation outside viewport", () => {
+      const r = validateVimToolCall([":40,41s/foo/bar/", ":%print #"], {
+        mode: "high",
+        visibleStartLine: 14,
+        visibleEndLine: 37,
+      });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("outside visible viewport 14-37"))).toBe(true);
+    });
+
+    it("allows explicit line mutation inside viewport", () => {
+      const r = validateVimToolCall([":20,21s/foo/bar/", ":%print #"], {
+        mode: "high",
+        visibleStartLine: 14,
+        visibleEndLine: 37,
+      });
+      expect(r.valid).toBe(false); // substitute itself is disallowed in high mode
+      expect(r.errors.some((e) => e.includes("outside visible viewport"))).toBe(false);
+      expect(r.errors.some((e) => e.includes("substitute (:s/) is not allowed"))).toBe(true);
+    });
+
+    it("rejects cursor-relative insert when cursor is outside viewport", () => {
+      const r = validateVimToolCall(["i", "hello", "\x1b", ":%print #"], {
+        mode: "high",
+        visibleStartLine: 14,
+        visibleEndLine: 37,
+        cursorLine: 40,
+      });
+      expect(r.valid).toBe(false);
+      expect(r.errors.some((e) => e.includes("outside visible viewport 14-37"))).toBe(true);
+    });
+
+    it("does not enforce viewport check in normal mode", () => {
+      const r = validateVimToolCall([":40,41s/foo/bar/"], {
+        mode: "normal",
+        visibleStartLine: 14,
+        visibleEndLine: 37,
+      });
+      expect(r.errors.some((e) => e.includes("outside visible viewport"))).toBe(false);
+    });
   });
 });

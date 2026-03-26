@@ -153,6 +153,22 @@ describe("VimToolManager - Simple Substitute Tests", () => {
       const updatedContent = await readFile(testFile, "utf-8");
       expect(updatedContent).toBe("ROW1\nROW2\nROW3\nline4\nline5\n");
     });
+
+    it("should indent lines 2-5 with :2,5s/.*/        &/", async () => {
+      const content = "line1\nline2\nline3\nline4\nline5\nline6\n";
+      await writeFile(testFile, content, "utf-8");
+
+      const result = await manager.callTool("vim", {
+        commands: [":e test.txt", ":2,5s/.*/        &/", ":w"],
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const updatedContent = await readFile(testFile, "utf-8");
+      expect(updatedContent).toBe(
+        "line1\n        line2\n        line3\n        line4\n        line5\nline6\n"
+      );
+    });
   });
 
   describe("Special characters and patterns", () => {

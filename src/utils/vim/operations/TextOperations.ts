@@ -86,13 +86,16 @@ function escapeReplacementForJs(replacement: string): string {
   const s = replacement.replace(/\x01/g, "$1");
   // Vim replacement: \t=tab, \r=newline. Preserve \\t (literal backslash-t) before converting \t.
   const PLACEHOLDER_LITERAL_TAB = "\uE000";
+  const PLACEHOLDER_ESCAPED_AMP = "\uE001";
   return s
     .replace(/\\\\t/g, PLACEHOLDER_LITERAL_TAB)
     .replace(/\\t/g, "\t")
     .replace(PLACEHOLDER_LITERAL_TAB, "\\t")
     .replace(/\\\$/g, "$$")       // \$ -> $$ (literal $)
     .replace(/\\\./g, ".")        // \. -> . (literal .)
-    .replace(/\\&/g, "$&")        // \& -> $& (whole match)
+    .replace(/\\&/g, PLACEHOLDER_ESCAPED_AMP) // \& -> literal &
+    .replace(/&/g, "$$&")         // & -> $& (whole match in JS replace)
+    .replace(new RegExp(PLACEHOLDER_ESCAPED_AMP, "g"), "&")
     .replace(/\\0/g, "$&")        // \0 -> $& (whole match)
     .replace(/\\([1-9]\d?)(?![0-9])/g, (_, n) => "$" + n);  // \1-\99 -> $1-$99 (backreferences)
 }

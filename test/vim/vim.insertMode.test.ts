@@ -15,7 +15,7 @@ describe("VimToolManager - Insert Mode Operations", () => {
   let testFile: string;
 
   beforeEach(async () => {
-    testDir = path.join(__dirname, "temp_insert_test");
+    testDir = path.join(__dirname, "temp_insert_mode_test");
     testFile = path.join(testDir, "test.txt");
     
     if (!fs.existsSync(testDir)) {

@@ -12,6 +12,7 @@ jest.mock("vscode", () => ({
   window: {
     createOutputChannel: jest.fn(() => ({
       appendLine: jest.fn(),
+      append: jest.fn(),
     })),
   },
 }));
@@ -67,5 +68,39 @@ describe("sortByDependencies", () => {
     ];
     const sorted = benchRunner.sortByDependencies(tests);
     expect(sorted.map((t) => t.id)).toEqual(["x", "y"]);
+  });
+});
+
+describe("applyUnifiedDiffPatch", () => {
+  it("should apply a simple unified diff hunk", () => {
+    const input = [
+      "function add(a, b) {",
+      "  return a + b;",
+      "}",
+      "",
+    ].join("\n");
+
+    const patch = [
+      "@@ -2,1 +2,1 @@",
+      "-  return a + b;",
+      "+  return a - b;",
+    ].join("\n");
+
+    const out = benchRunner.applyUnifiedDiffPatch(input, patch);
+    expect(out).toContain("return a - b;");
+    expect(out).not.toContain("return a + b;");
+  });
+
+  it("should respect context lines", () => {
+    const input = ["a", "b", "c", "d", ""].join("\n");
+    const patch = [
+      "@@ -2,2 +2,2 @@",
+      " b",
+      "-c",
+      "+C",
+    ].join("\n");
+
+    const out = benchRunner.applyUnifiedDiffPatch(input, patch);
+    expect(out).toBe(["a", "b", "C", "d", ""].join("\n"));
   });
 });

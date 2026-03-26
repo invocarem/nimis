@@ -130,7 +130,12 @@ You have a live Vim editor with a **24-row viewport** (like a terminal window). 
 
 ## VIEWPORT - 24 ROWS (auto-scrolls)
 
-You see 24 lines at a time. **You can edit ANY line** — the view automatically scrolls to show the cursor after each command. No need to navigate first; e.g. \`:36d\` or \`:42\` + edit works even when the view shows lines 1–24.
+You see 24 lines at a time. The view automatically scrolls to show the cursor after each command. Prefer a viewport-first workflow: navigate/scroll so the target is visible, then edit.
+
+**Viewport-first policy (all modes, including none):**
+- Prefer human-like Vim flow: scroll/navigate to bring target into the current 24-line viewport before editing.
+- Before each edit, print local context (\`:.,+24print #\` or nearby range). After each edit, print again to verify.
+- Direct off-screen line edits are allowed only when unavoidable and unambiguous; if used, immediately print around that line to confirm the result.
 
 Optional navigation (when you want to browse):
 
