@@ -5,10 +5,13 @@ export class VLLMClient implements ILLMClient {
   private client: AxiosInstance;
   private serverUrl: string;
   private model: string;
+  /** Used in error messages (e.g. "vLLM", "SGLang"). */
+  private readonly backendLabel: string;
 
-  constructor(serverUrl: string, model: string) {
+  constructor(serverUrl: string, model: string, backendLabel: string = "vLLM") {
     this.serverUrl = serverUrl;
     this.model = model;
+    this.backendLabel = backendLabel;
     this.client = axios.create({
       baseURL: serverUrl,
       timeout: 300000,
@@ -35,10 +38,10 @@ export class VLLMClient implements ILLMClient {
     } catch (error: any) {
       if (error.code === "ECONNREFUSED") {
         throw new Error(
-          `Cannot connect to vLLM server at ${this.serverUrl}. Make sure the server is running.`
+          `Cannot connect to ${this.backendLabel} server at ${this.serverUrl}. Make sure the server is running.`
         );
       }
-      throw new Error(`VLLMClient error: ${error.message}`);
+      throw new Error(`${this.backendLabel} client error: ${error.message}`);
     }
   }
 
@@ -109,7 +112,7 @@ export class VLLMClient implements ILLMClient {
                 }
               } catch (e) {
                 console.error(
-                  `[STREAM] Failed to parse vLLM streaming data:`,
+                  `[STREAM] Failed to parse ${this.backendLabel} streaming data:`,
                   line,
                   e
                 );
@@ -142,10 +145,10 @@ export class VLLMClient implements ILLMClient {
       }
       if (error.code === "ECONNREFUSED") {
         throw new Error(
-          `Cannot connect to vLLM server at ${this.serverUrl}. Make sure the server is running.`
+          `Cannot connect to ${this.backendLabel} server at ${this.serverUrl}. Make sure the server is running.`
         );
       }
-      throw new Error(`VLLMClient stream error: ${error.message}`);
+      throw new Error(`${this.backendLabel} client stream error: ${error.message}`);
     }
   }
 

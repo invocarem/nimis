@@ -93,11 +93,13 @@
           "enum": [
             "llama",
             "vllm",
+            "sglang",
             "mistral"
           ],
           "enumDescriptions": [
             "llama.cpp server (default port 8080)",
             "vLLM server with OpenAI-compatible API (default port 8000)",
+            "SGLang server with OpenAI-compatible API (default port 30000)",
             "Mistral AI cloud API (requires API key)"
           ],
           "description": "Type of LLM server backend to connect to"
@@ -110,7 +112,7 @@
         "nimis.serverUrl": {
           "type": "string",
           "default": "",
-          "description": "URL of the LLM server (llama.cpp default: http://localhost:8080, vLLM default: http://localhost:8000)"
+          "description": "URL of the LLM server (llama.cpp default: http://localhost:8080, vLLM: http://localhost:8000, SGLang: http://localhost:30000)"
         },
         "nimis.llamaServerUrl": {
           "type": "string",

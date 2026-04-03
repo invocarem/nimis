@@ -87,9 +87,10 @@ Example: `ggVG=` reindents the entire file
 |---------|------|-------------|-------|
 | **llama.cpp** | Local | `localhost:8080` | GGUF models, SSE streaming |
 | **vLLM** | Local/Remote | `localhost:8000` | OpenAI-compatible API |
+| **SGLang** | Local/Remote | `localhost:30000` | OpenAI-compatible `/v1/completions` API |
 | **Mistral AI** | Cloud | `api.mistral.ai` | Requires API key |
 
-Set the backend with the `nimis.serverType` setting (`llama`, `vllm`, or `mistral`).
+Set the backend with the `nimis.serverType` setting (`llama`, `vllm`, `sglang`, or `mistral`).
 
 ## Getting Started
 
@@ -131,7 +132,7 @@ All settings live under the `nimis.*` namespace in VS Code settings.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `nimis.serverType` | `llama` | Backend: `llama`, `vllm`, or `mistral` |
+| `nimis.serverType` | `llama` | Backend: `llama`, `vllm`, `sglang`, or `mistral` |
 | `nimis.serverUrl` | (auto) | LLM server URL |
 | `nimis.llamaServerUrl` | `""` | Deprecated; use `nimis.serverUrl` |
 | `nimis.apiKey` | | API key for cloud providers |

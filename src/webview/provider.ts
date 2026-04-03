@@ -229,14 +229,17 @@ export class NimisViewProvider implements vscode.WebviewViewProvider {
       const defaultUrl =
         serverType === "vllm"
           ? "http://localhost:8000"
-          : "http://localhost:8080";
+          : serverType === "sglang"
+            ? "http://localhost:30000"
+            : "http://localhost:8080";
       const serverUrl =
         config.get<string>("serverUrl") ||
         defaultUrl;
 
-      if (serverType === "vllm") {
+      if (serverType === "vllm" || serverType === "sglang") {
         const model = config.get<string>("model", "default");
-        this.llmClient = new VLLMClient(serverUrl, model);
+        const backendLabel = serverType === "sglang" ? "SGLang" : "vLLM";
+        this.llmClient = new VLLMClient(serverUrl, model, backendLabel);
       } else {
         this.llmClient = new LlamaClient(serverUrl);
       }
